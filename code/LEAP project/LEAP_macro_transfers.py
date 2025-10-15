@@ -25,13 +25,35 @@ def connect_to_leap():
     except Exception:
         return Dispatch('LEAP.LEAPApplication')
 
-def build_interp_expr(series):
-    pts = [(int(y), float(v)) for (y, v) in series if pd.notna(y) and pd.notna(v)]
-    if not pts: return None
-    pts.sort(key=lambda x: x[0])
+def build_interp_expr(points):
+    breakpoint()#some have been having numbers added to them?
+    # def build_interp_expr(points):
+    """
+    Builds a clean LEAP Interp() expression from (year, value) points.
+    Handles duplicate years by taking the last non-null value.
+    """
+    if not points:
+        return None
+
+    # Convert to DataFrame to easily handle duplicates
+    df = pd.DataFrame(points, columns=["year", "value"])
+    df = df.dropna(subset=["year", "value"])
+    df = df.groupby("year", as_index=False)["value"].last()  # or use .mean() if averaging makes more sense
+    df = df.sort_values("year")
+
+    pts = list(zip(df["year"].astype(int), df["value"].astype(float)))
+
     if len(pts) == 1:
         return str(pts[0][1])
-    return "Interp(" + ", ".join(f"{y}, {v}" for y, v in pts) + ")"
+
+    expr = "Interp(" + ", ".join(f"{y}, {v:.6g}" for y, v in pts) + ")"
+    return expr
+    # pts = [(int(y), float(v)) for (y, v) in series if pd.notna(y) and pd.notna(v)]
+    # if not pts: return None
+    # pts.sort(key=lambda x: x[0])
+    # if len(pts) == 1:
+    #     return str(pts[0][1])
+    # return "Interp(" + ", ".join(f"{y}, {v}" for y, v in pts) + ")"
 
 def ensure_branch(L, parent_path, name, branch_type=0):
     full_path = parent_path + "\\" + name

@@ -16,8 +16,8 @@ LEAP_MEASURE_CONFIG = {
     'Vehicle type (road)': {
         "Stock": {"source_mapping": "Stocks", "factor": 1, "unit": "stocks"},
         "Stock Share": {"source_mapping": "Stock_share_calc_vehicle_type", "factor": 1, "unit": "%"},
-        "Sales": {"source_mapping": "Sales_calc_vehicle_type", "factor": 1, "unit": "vehicles"},
-        "Sales Share": {"source_mapping": "Vehicle_sales_share", "factor": 1, "unit": "%"},
+        "Sales": {"source_mapping": "Sales", "factor": 1, "unit": "vehicles"},
+        "Sales Share": {"source_mapping": "Vehicle_sales_share_calc_vehicle_type", "factor": 1, "unit": "%"},
         "Retirements": {"source_mapping": None, "factor": 1, "unit": "%"},
     },
     
@@ -31,12 +31,11 @@ LEAP_MEASURE_CONFIG = {
         "Max Scrappage Fraction": {"source_mapping": None, "factor": 1, "unit": "%"},
         "Mileage Correction Factor": {"source_mapping": None, "factor": 1, "unit": "factor"},
         "Mileage": {"source_mapping": "Mileage", "factor": 1, "unit": "km_per_stock"},
-        "Sales Share": {"source_mapping": "Vehicle_sales_share", "factor": 1, "unit": "%"},
+        "Sales Share": {"source_mapping": "Vehicle_sales_share_calc_fuel", "factor": 1, "unit": "%"},
         "Scrappage": {"source_mapping": "Scrappage", "factor": 1, "unit": "%"},
         "Stock Share": {"source_mapping": "Stock_share_calc_fuel", "factor": 1, "unit": "%"},
         "Retirements": {"source_mapping": None, "factor": 1, "unit": "%"},
     },
-    
     # Fuel (road)
     'Fuel (road)': {
         "Device Share": {"source_mapping": "Stock_share_calc_fuel", "factor": 1, "unit": "%"},
@@ -52,9 +51,9 @@ LEAP_MEASURE_CONFIG = {
     # Medium (road)
     'Medium (road)': {
         "Stock": {"source_mapping": "Stocks", "factor": 1, "unit": "stocks"},
-        "Stock Share": {"source_mapping": "Stock_share_calc_medium", "factor": 1, "unit": "%"},
-        "Sales": {"source_mapping": "Sales_calc_medium", "factor": 1, "unit": "vehicles"},
-        "Sales Share": {"source_mapping": "Vehicle_sales_share", "factor": 1, "unit": "%"},
+        "Stock Share": {"source_mapping": "Stock_share_calc_transport_type", "factor": 1, "unit": "%"},#we acutally use this so we can guraantee we are only comapring agasint stocks of road vehicles since medium is set after transport type in this context
+        "Sales": {"source_mapping": "Sales", "factor": 1, "unit": "vehicles"},
+        "Sales Share": {"source_mapping": "Vehicle_sales_share_calc_transport_type", "factor": 1, "unit": "%"},#we acutally use this so we can guraantee we are only comapring agasint stocks of road vehicles since medium is set after transport type in this context
         "Retirements": {"source_mapping": None, "factor": 1, "unit": "%"},
     },
     
@@ -70,7 +69,7 @@ LEAP_MEASURE_CONFIG = {
     # Fuel (non-road)
     'Fuel (non-road)': {
         "Activity Level": {"source_mapping": "Activity", "factor": 1, "unit": "Passenger_km_or_freight_tonne_km"},#{"source_mapping": "Activity_share_calc_fuel", "factor": 1, "unit": "%"},
-        # "Final Energy Intensity": {"source_mapping": "Intensity", "factor": 1e-9, "unit": "GJ_per_tonne_km"},#Missing expected variables from LEAP
+        "Final Energy Intensity": {"source_mapping": "Intensity", "factor": 1e-9, "unit": "GJ_per_tonne_km"},#Missing expected variables from LEAP
         # "Total Final Energy Consumption": {"source_mapping": "Energy", "factor": 1, "unit": "pj"},#Missing expected variables from LEAP
         "Total Activity": {"source_mapping": "Activity", "factor": 1, "unit": "Passenger_km_or_freight_tonne_km"},
     },
@@ -104,10 +103,10 @@ SOURCE_MEASURE_TO_UNIT = {
 }
 
 DEFAULT_WEIGHT_PRIORITY = ["Activity"]
-SOURCE_WEIGHT_PRIORITY = {#used for aggregating measures that need weighting when being mapped to leap measures
-    "Efficiency": ["Activity",  "Stocks"],
-    "Mileage": ["Stocks", "Activity"],
-    "Intensity": ["Activity",  "Stocks"],
+SOURCE_WEIGHT_PRIORITY = {#used for aggregating measures that need weighting when being mapped to leap measures. if None then dont uyse a weight.
+    "Efficiency": ["Activity",  "Stocks",None],
+    "Mileage": ["Stocks", "Activity",None],
+    "Intensity": ["Activity",  "Stocks",None],
 }
 
 #this one will contain details of all the measures within the leap model so we can easily set them.
@@ -181,20 +180,27 @@ AGGREGATION_RULES = {
     "Intensity": "weighted",
     "Occupancy_or_load": "weighted",
 
-    # Shares or rates (usually leave as-is or normalize later)
+    # Shares or rates (usually normalize to sum to 100)
     "Vehicle_sales_share": "share",
     "Supply_side_fuel_share": "share",
     "Demand_side_fuel_share": "share",
     "Turnover_rate": "share",
-    "Activity_share_calc_medium": "share",
+    "Activity_share_calc_transport_type": "share",
     "Activity_share_calc_fuel": "share",
+    'Stock_share_calc_transport_type': "share",
+    'Stock_share_calc_fuel': "share",
+    'Stock_share_calc_vehicle_type': "share",
+    'Sales':"sum",
+    'Vehicle_sales_share_calc_transport_type': "share",
+    'Vehicle_sales_share_calc_fuel': "share",
+    'Vehicle_sales_share_vehicle_calc_type': "share",
 
     # Growth rates (apply later via derivative logic)
     "Activity_growth": "growth",
     "Efficiency_growth": "growth",
 }
 
-CALCULATED_MEASURES = ['Stock_share_calc_medium','Stock_share_calc_fuel','Sales_calc_vehicle_type', 'Sales_calc_medium','Stock_share_calc_vehicle_type', 'Activity_share_calc_medium', 'Activity_share_calc_fuel']
+CALCULATED_MEASURES = ['Stock_share_calc_transport_type','Stock_share_calc_fuel','Stock_share_calc_vehicle_type','Sales_calc_vehicle_type', 'Sales_calc_medium', 'Activity_share_calc_transport_type', 'Activity_share_calc_fuel', 'Vehicle_sales_share_calc_transport_type', 'Vehicle_sales_share_calc_fuel', 'Vehicle_sales_share_vehicle_calc_type']
 
 # ============================================================
 
@@ -251,46 +257,62 @@ def apply_scaling(series: pd.Series, leap_measure: str, shortname: str) -> pd.Se
     source_measure = meta.get("source_mapping")
     factor = meta.get("factor", 1)
     src_unit, src_scale = get_source_unit(source_measure)
-
+    
     # total scaling = (source scale to base) * (LEAP-level adjustment)
     total_scale = src_scale * factor
+    
+    # Apply nonlinear conversions
+    if leap_measure == "Final Energy Intensity":
+        # Special handling for energy intensity measures
+        if leap_measure == "Final Energy Intensity":
+            # Convert from PJ/km to GJ/km (inverse of intensity)
+            return series.apply(lambda x: None if x == 0 else 1_000.0 / x)
+        elif leap_measure in ["Fuel Economy", "Final On-Road Fuel Economy"]:
+            # Convert from km/PJ to MJ/100km
+            return series.apply(lambda x: None if x == 0 else 100_000.0 / x)
     return series * total_scale
 
-
-def apply_special_conversions(df: pd.DataFrame, measure: str) -> pd.DataFrame:
+def aggregate_weighted(df, measure, group_cols, weight_col=None):
     """
-    Handles special nonlinear conversions:
-      - Intensity (pj_per_km) → Final Energy Intensity (GJ/km)
-      - Fuel Economy (km_per_pj) → MJ/100km
+    Perform weighted average aggregation using groupby on specified columns.
+    
+    Args:
+        df: DataFrame containing data
+        measure: Column to aggregate
+        group_cols: List of columns to group by
+        weight_col: Column to use as weights (defaults to priority list)
+    
+    Returns:
+        Series with weighted average values
     """
-    if measure == "Final Energy Intensity" and "Intensity" in df.columns:
-        s = df["Intensity"].astype(float)
-        df[measure] = s.apply(lambda x: None if x == 0 else 1_000.0 / x)
-    elif measure == "Fuel Economy" and "Efficiency" in df.columns:
-        # breakpoint()#what is in df?
-        s = df["Efficiency"].astype(float)
-        df[measure] = s.apply(lambda x: None if x == 0 else 100_000.0 / x)
-    elif measure == "Final On-Road Fuel Economy" and "Efficiency" in df.columns:
-        # breakpoint()#what is in df?
-        s = df["Efficiency"].astype(float)
-        df[measure] = s.apply(lambda x: None if x == 0 else 100_000.0 / x)
-        
-    return df
-
-
-def aggregate_weighted(df, measure, weight_col=None):
-    """Weighted average aggregation."""
     if df.empty or measure not in df.columns:
         return None
-    weight_col = weight_col or next((w for w in get_weight_priority(measure) if w in df.columns), None)
-    if not weight_col:
-        return None
-    w = df[weight_col].fillna(0)
-    m = df[measure].fillna(0)
-    total_w = w.sum()
-    if total_w == 0:
-        return None
-    return (m * w).sum() / total_w
+        
+    # Find an appropriate weight column if not specified
+    weight_col = next((w for w in get_weight_priority(measure) if w in df.columns and (df[w].sum()>0 and not df[w].isnull().all())), None)
+    #if none then callculate unweighted mean
+    # if measure == 'Intensity' or measure  == 'Final Energy Intensity':
+    #     breakpoint()  # how to handle energy intensity for air
+    
+    if not weight_col or weight_col not in df.columns:
+        df[measure] = df[measure].mean()
+        return df[measure]
+    # breakpoint()
+    # Create weighted values
+    df = df.copy()
+    df['_weighted_value'] = df[measure].fillna(0) * df[weight_col].fillna(0)
+    df['_weight'] = df[weight_col].fillna(0)
+    
+    # Group and calculate weighted average
+    df[measure] = df.groupby(group_cols).apply(
+        lambda x: x['_weighted_value'].sum() / x['_weight'].sum() if x['_weight'].sum() > 0 else 0
+    ).values[0]
+    #if all of result is 0 then raise a warning
+    if (df[measure] == 0).all():
+        breakpoint()#to do. how to make this not be 0 if activity is all 0.
+        print(f"[WARNING] Weighted aggregation of '{measure}' resulted in all zeros. Check weight column '{weight_col}' for validity.")
+
+    return df[measure]
 
 
 # def list_all_measures():
@@ -306,19 +328,29 @@ def aggregate_weighted(df, measure, weight_col=None):
 
 # print("===========================\n")
 
+def calculate_sales(df):
+    # Calculate sales as the difference in stocks year-over-year. this deliberatly ignores turnover rates for simplicity.  Note that this means that sales_calc measures should be calculated before vehicle_sales_share measures.
+    group_cols = ["Transport Type", "Medium", "Vehicle Type", "Drive", "Fuel"]
+    df = df.sort_values(by=group_cols + ["Date", 'Scenario','Economy'])
+    df['Sales'] = df.groupby(group_cols)["Stocks"].diff().fillna(0)
+    # Convert negative sales to 0 (can happen due to vehicle retirement or data anomalies)
+    df['Sales'] = df['Sales'].clip(lower=0)
+    return df
+
 def calculate_measures(df: pd.DataFrame, measure: str) -> pd.DataFrame:
     """
     Calculate and add specified measures to the DataFrame.
     Currently supports:
-      - Stock_share_calc_medium
+      - Stock_share_calc_transport_type
       - Stock_share_calc_fuel
       - Stock_share_calc_vehicle_type
-      - Sales_calc_vehicle_type
-      - Sales_calc_medium
-      - Activity_share_calc_medium
+      - Activity_share_calc_transport_type
       - Activity_share_calc_fuel
-    The name at the end of the measure is the name of the column that will be grouped until, given the source columns [Transport Type, Medium, Vehicle Type, Drive, Fuel] > where Fuel is actually not a column technically could be derived from Drive.
-    So for Stock_share_calc_medium, it will be grouped until medium with the cols [Transport Type], for Stock_share_calc_fuel it will be grouped until fuel with the cols [Transport Type, Medium, Vehicle Type,Drive], and for Stock_share_calc_vehicle_type it will be grouped until vehicle type with the cols [Transport Type, Medium]. etc.
+        - Vehicle_sales_share_calc_transport_type
+        - Vehicle_sales_share_calc_fuel
+        - Vehicle_sales_share_calc_vehicle_type    
+    The name at the end of the measure is the name of the column that will be grouped until, given the source columns [Transport Type, Medium, Vehicle Type, Drive, Fuel]
+    So for Stock_share_calc_transport_type, it will be grouped until medium with the cols [Transport Type], for Stock_share_calc_fuel it will be grouped until fuel with the cols [Transport Type, Medium, Vehicle Type,Drive], and for Stock_share_calc_vehicle_type it will be grouped until vehicle type with the cols [Transport Type, Medium]. etc. > this way when we want the stock share for bevs within the car segment, then we get the cols for [Transport Type, Medium, Vehicle Type] and calculate the share of stocks for bevs within that group.
     The calc methods are specific to each measure and are defined within the function.
     """
     df_out = df.copy()
@@ -328,7 +360,7 @@ def calculate_measures(df: pd.DataFrame, measure: str) -> pd.DataFrame:
         col_clean = col.replace(" ", "_").lower()
         if col_clean not in measure:
             continue
-        group_cols = source_cols[:source_cols.index(col)]
+        group_cols = ['Date'] + source_cols[:source_cols.index(col)]
         break
     else:
         # This else belongs to the for loop - executes when no break occurs
@@ -341,10 +373,25 @@ def calculate_measures(df: pd.DataFrame, measure: str) -> pd.DataFrame:
         # Calculate activity share - similar to stock share but using Activity column. Note that since passenger and freight km are measured differently, comaprison of aactivity shares isnot valid between passenger and freight modes.
         df_out[measure] = df_out.groupby(group_cols)["Activity"].transform(lambda x: x / x.sum() * 100 if x.sum() != 0 else 0)
    
-    elif 'sales_calc' in measure.lower():
-        # Calculate sales as the difference in stocks year-over-year. this deliberatly ignores turnover rates.
-        df_out = df_out.sort_values(by=group_cols + ["Date"])
-        df_out[measure] = df_out.groupby(group_cols)["Stocks"].diff().fillna(0)
+    # elif 'sales_calc' in measure.lower():
+    #     # Calculate sales as the difference in stocks year-over-year. this deliberatly ignores turnover rates for simplicity.  Note that this means that sales_calc measures should be calculated before vehicle_sales_share measures.
+    #     df_out = df_out.sort_values(by=group_cols + ["Date"])
+    #     # Group by all source columns including Date for proper sales calculation
+    #     # This ensures we're tracking stock changes for each unique vehicle category
+    #     all_group_cols = group_cols + [col for col in source_cols if col not in group_cols]
+    #     df_out[measure] = df_out.groupby(all_group_cols)["Stocks"].diff().fillna(0)
+    #     # Convert negative sales to 0 (can happen due to vehicle retirement or data anomalies)
+    #     df_out[measure] = df_out[measure].clip(lower=0)
+        
+    elif 'vehicle_sales_share' in measure.lower():
+        #we will just calcaulte sales share as the share of sales within the group cols. 
+        if 'Sales' not in df_out.columns:
+            raise ValueError(f"Measure '{measure}' requires Sales to be calculated first.")
+
+        df_out[measure] = df_out.groupby(group_cols)['Sales'].transform(lambda x: x / x.sum() * 100 if x.sum() != 0 else 0)
+    # elif 'vehicle_sales_share' in measure.lower():
+    #     # Calculate vehicle sales share - similar to stock share but using Sales column.
+    #     df_out[measure] = df_out.groupby(group_cols)["Sales"].transform(lambda
     # elif other measures:
     #     df_out[measure] = df_out.groupby(group_cols)["Other Metric"].transform(lambda x: x / x.sum() * 100 if x.sum() != 0 else 0)
 
@@ -356,7 +403,7 @@ def calculate_measures(df: pd.DataFrame, measure: str) -> pd.DataFrame:
 #         src = meta["source_mapping"]
 #         if src not in df_out.columns:
 #             continue
-#         df_out[leap_measure] = apply_scaling(df_out[src], leap_measure)
+#         df_out[leap_measure] = apply_scaling(df_out.loc[:, src], leap_measure)
 
 #     # apply nonlinear relationships afterwards
 #     df_out = apply_special_conversions(df_out, "Final Energy Intensity")
@@ -447,85 +494,209 @@ def get_source_categories(transport_type, medium, vehicle_type=None, drive=None)
     # Deduplicate while preserving order
     return [c for c in dict.fromkeys(cleaned) if c]
 
-def filter_source_dataframe(df, transport, medium, vehicle, drive):
-    """
-    Filter the source dataset using CSV_TREE hierarchy
-    so we only get the relevant rows for a LEAP branch.
-    """
-    if df.empty:
-        return df
+# def filter_source_dataframe(df, transport, medium, vehicle, drive, fuel):
+#     """
+#     Filter the source dataset using CSV_TREE hierarchy
+#     so we only get the relevant rows for a LEAP branch.
+#     """
+#     if df.empty:
+#         return df
 
-    mask = pd.Series(True, index=df.index)
+#     mask = pd.Series(True, index=df.index)
 
-    def _apply(column, value):
-        nonlocal mask
-        if column not in df.columns:
-            mask &= False
-            return
-        if isinstance(value, list):
-            value = [str(v).lower() for v in value if v]
-            if value and "all" not in value and "none" not in value:
-                mask &= df[column].astype(str).str.lower().isin(value)
-        else:
-            if value and str(value).lower() != "all" and str(value).lower() != "none":
-                mask &= df[column].astype(str).str.lower() == str(value).lower()
+#     def _apply(column, value):
+#         nonlocal mask
+#         if column not in df.columns:
+#             mask &= False
+#             return
+#         if isinstance(value, list):
+#             value = [str(v).lower() for v in value if v]
+#             if value and "all" not in value and "none" not in value:
+#                 mask &= df[column].astype(str).str.lower().isin(value)
+#         else:
+#             if value and str(value).lower() != "all" and str(value).lower() != "none":
+#                 mask &= df[column].astype(str).str.lower() == str(value).lower()
     
-    _apply("Transport Type", transport)
-    _apply("Medium", medium)
-    _apply("Vehicle Type", vehicle)
+#     _apply("Transport Type", transport)
+#     _apply("Medium", medium)
+#     _apply("Vehicle Type", vehicle)
+#     #TEMP START - this may need to be replaced with more complex logic to match drives/fuels within CSV_TREE if there are one to many mappings.
+#     _apply("Drive", drive)
+#     _apply("Fuel", fuel)
+#     ##TEMP END
+#     subset = df[mask].copy()
+#     # if subset.empty:
+#     return subset
 
-    subset = df[mask].copy()
-    if subset.empty:
-        return subset
+# if "Drive" not in subset.columns:
+#     return subset
+# decided that this didnt seem necessary . 
+# # match drives/fuels within CSV_TREE
+# candidates = set(get_source_categories(transport, medium, vehicle, drive))#this gives a set of all possible drive/fuel categories for the transport, medium, vehicle combination. we then need to match those up with the drive type we are filtering for. for example, sometimes we might be searching for all drive types that are in the ice category, so we need to match all drives that contain 'ice' in their name.
+# if drive and str(drive).lower() != "all" and str(drive).lower() != "none":
+#     candidates.add(str(drive).lower())
 
-    if "Drive" not in subset.columns:
-        return subset
+# #now filter for drives that match the candidates
+# if not candidates:
+#     breakpoint()#is this supposed to happen?i.e.that there are no candidates for drive types that we are filtering for?
+#     raise ValueError(f"No valid drive/fuel categories found for filtering with transport='{transport}', medium='{medium}', vehicle='{vehicle}', drive='{drive}'")
+#     # return subset
+# if drive == 'bev':
+#     breakpoint()
+# subset["Drive"] = subset["Drive"].astype(str).str.lower()
+# return subset[subset["Drive"].isin(candidates)].copy()
 
-    # match drives/fuels within CSV_TREE
-    candidates = set(get_source_categories(transport, medium, vehicle, drive))
-    if drive and str(drive).lower() != "all" and str(drive).lower() != "none":
-        candidates.add(str(drive).lower())
+def filter_source_dataframe_by_categories(df, columns, categories):
+    """
+    Filter dataframe based on category hierarchy.
+    
+    Args:
+        df_out: DataFrame to filter
+        source_cols_for_grouping: List of grouping columns (will be populated by this function)
+        category_hierarchy: List of categories [ttype, medium, vtype, drive, fuel]
+        
+    Returns:
+        Filtered dataframe
+    """
+    category_to_column = {
+        0: "Transport Type",
+        1: "Medium",
+        2: "Vehicle Type",
+        3: "Drive",
+        4: "Fuel"
+    }
+    filter_cols = [category_to_column[i] for i in range(len(columns))]
+    for col, cat in zip(filter_cols, categories):
+        if cat is not None:
+            df = df[df[col] == cat]
+    return df
 
-    if not candidates:
-        return subset
+def aggregate_measures(df_out, src, source_cols_for_grouping, ttype, medium, vtype, drive, fuel):
+    # Check if we need to aggregate the data
+    source_cols_for_grouping_no_date = source_cols_for_grouping.copy()
+    source_cols_for_grouping_no_date.remove('Date')#we will add date back in later
+    if len(df_out) > 1 and src in AGGREGATION_RULES:
+        agg_type = AGGREGATION_RULES.get(src)
+        
+        ####
+        # #find the first category within ttype, medium, vtype, drive, fuel that is None, then filter so the df matches all the categories up to that point, minus 1. e.g. if medium is None, then dont filter at all. if drive is None, then filter for ttype and medium only. This allows for enough data to be able to aggregate shares of the level, weights and so on. 
+        # category_hierarchy = [ttype, medium, vtype, drive, fuel]
+        # for i, category in enumerate(category_hierarchy):
+        #     if category is None:
+        #         source_cols_for_grouping_minus_one = source_cols_for_grouping[:i]
+        #         break
+        #     # If we reach here, it means the category is valid
+        #     source_cols_for_grouping_minus_one.append(category)
+        source_cols_for_grouping_minus_one = source_cols_for_grouping_no_date[:-1]
+        category_hierarchy_minus_one = [ttype, medium, vtype, drive, fuel][:len(source_cols_for_grouping_minus_one)]
+        category_hierarchy = [ttype, medium, vtype, drive, fuel][:len(source_cols_for_grouping_minus_one)+1]
+        #now filter.
+        df_out = filter_source_dataframe_by_categories(df_out, source_cols_for_grouping_minus_one, category_hierarchy_minus_one)
+        
+        ####     
+                
+        if agg_type == "weighted":
+            # For weighted average, we need to find appropriate weight column
+            # breakpoint()#not sure how this works
+            weight_col = next((w for w in get_weight_priority(src) if w in df_out.columns), None)
+            if weight_col:
+                # For weighted average aggregation
+                weighted_result = aggregate_weighted(df_out, src, group_cols=source_cols_for_grouping_no_date, weight_col=weight_col)
+                if weighted_result is not None:
+                    # Map the aggregated values back to the original dataframe
+                    try:
+                        #first, get the indexes to match               
+                        df_out[src] = weighted_result
+                    except Exception as e:
+                        breakpoint()
+                        raise e
+            else:
+                raise ValueError(f"No suitable weight column found for weighted aggregation of '{src}'")
+        elif agg_type == "sum":
+            # Simple sum aggregation
+            #drop the latest col from source_cols_for_grouping in case we have multiple categories within it and want to sum over them. e.g. where LPV corresponds to car,suv,lt. 
+            df_out = df_out.copy()  # Ensure we have a clean copy
+            df_out.loc[:, src] = df_out.groupby(source_cols_for_grouping_no_date)[src].transform('sum')
 
-    subset["Drive"] = subset["Drive"].astype(str).str.lower()
-    return subset[subset["Drive"].isin(candidates)].copy()
-
-
-def process_measures_for_leap(df: pd.DataFrame, filtered_measure_config: dict, shortname: str) -> dict:
+        elif agg_type == "share":
+            # if len(source_cols_for_grouping_minus_one)>3:
+            #     #what happens when we try to do this for drives shares?
+            #     breakpoint()#MAYBE THIS SHOULD BE DONE USING .apply(
+            #     #     lambda x: x['_weighted_value'].sum() / x['_weight'].sum() if x['_weight'].sum() > 0 else 0
+            #     # )
+            # Convert to percentage share within each group
+            try:
+                df_out.loc[:, src] = df_out.groupby(source_cols_for_grouping_minus_one)[src].transform(
+                lambda x: x / x.sum() * 100 if x.sum() != 0 else x
+                )
+            except Exception as e:
+                breakpoint()
+                
+    else:
+        raise ValueError(f"No aggregation rule defined for source measure: {src}.")
+    #filter for the exact categories again to ensure no extra rows remain after aggregation
+    try:
+        df_filtered = filter_source_dataframe_by_categories(df_out, source_cols_for_grouping_no_date, category_hierarchy)
+    except Exception as e:
+        breakpoint()
+        df_filtered = filter_source_dataframe_by_categories(df_out, source_cols_for_grouping_no_date, category_hierarchy)
+        
+    df_filtered = df_filtered[['Date'] + source_cols_for_grouping_no_date + [src]].copy()
+    #drop duplicates if any remain after aggregation
+    df_filtered = df_filtered.drop_duplicates(subset=['Date'] + source_cols_for_grouping_no_date, keep='first')
+    try:
+        #double check there are no duplicates of years after aggregation
+        if df_filtered.duplicated(subset=['Date']+source_cols_for_grouping_no_date).any():
+            duplicated_dates = df_filtered[df_filtered.duplicated(subset=['Date']+source_cols_for_grouping_no_date, keep=False)]
+            print(f"[WARNING] Found {len(duplicated_dates)} rows with duplicate dates for {src}:")
+            for date, group in duplicated_dates.groupby('Date'):
+                print(f"  Date {date}: {len(group)} occurrences")
+                print(group[['Date'] + source_cols_for_grouping_no_date + [src]])
+            breakpoint()
+            # raise ValueError(f"[ERROR] Duplicate years found after aggregation for source measure: {src}.")
+    except Exception as e:
+        print(f"[ERROR] Exception while checking for duplicates after aggregation: {e}")
+        breakpoint()
+        # raise e
+    return df_filtered
+            
+def process_measures_for_leap(df: pd.DataFrame, filtered_measure_config: dict, shortname: str, source_cols_for_grouping: list,  ttype: str, medium: str, vtype: str, drive: str, fuel: str) -> dict:
     """
     Applies all scaling and nonlinear conversions (e.g. Efficiency → Intensity/Fuel Economy)
     to prepare a dictionary of processed dataframes keyed by LEAP measure.
+    Note that this is done on a whole dataset that hasnt been filtered so we have access to all possible data that might be needed, e.g. for shares or weighted values. When the filtering is required we will use 
+        filter_source_dataframe_by_categories(df, columns, categories)
+    
     """
-    df_out = df.copy()
-    processed = {}
-
+    processed = {}       
+        
     # Apply scaling
     for leap_measure, meta in filtered_measure_config.items():
+        
+        df_out = df.copy()
+        print(leap_measure)
         src = meta["source_mapping"]
         if src in CALCULATED_MEASURES:
-            # Calculate measure if it's a calculated one
-            df_out[src] = calculate_measures(df_out, src)
+            try:
+                # Calculate measure if it's a calculated one
+                df_out.loc[:, src] = calculate_measures(df_out, src)
+            except Exception as e:
+                print(f"[ERROR] Exception while calculating {src}: {e}")
+                breakpoint()
+                
+                df_out.loc[:, src] = calculate_measures(df_out, src)
         elif src not in df_out.columns:
             continue
         
-        df_out[leap_measure] = apply_scaling(df_out[src], leap_measure, shortname)
+        #aggregate if needed
+        # if src == 'Intensity':
+        #     breakpoint() 
+        # breakpoint()#how to tell when agg is requrid. how to tell what the gruping cols are?
+        # group_cols
+        df_out = aggregate_measures(df_out, src, source_cols_for_grouping, ttype, medium, vtype, drive, fuel)
+        
+        df_out[leap_measure] = apply_scaling(df_out.loc[:, src], leap_measure, shortname)
         processed[leap_measure] = df_out[["Date", leap_measure]].copy()
 
-    # Apply nonlinear conversions
-    if "Final Energy Intensity" in filtered_measure_config.keys():
-        df_out = apply_special_conversions(df_out, "Final Energy Intensity")
-
-        processed["Final Energy Intensity"] = df_out[["Date", "Final Energy Intensity"]].copy()
-
-    if "Fuel Economy" in filtered_measure_config.keys():
-        df_out = apply_special_conversions(df_out, "Fuel Economy")
-
-        processed["Fuel Economy"] = df_out[["Date", "Fuel Economy"]].copy()
-    if 'Final On-Road Fuel Economy' in filtered_measure_config.keys():
-        df_out = apply_special_conversions(df_out, 'Final On-Road Fuel Economy')
-
-        processed['Final On-Road Fuel Economy'] = df_out[['Date', 'Final On-Road Fuel Economy']].copy()
 
     return processed

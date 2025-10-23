@@ -1,215 +1,127 @@
-#%%
-# -*- coding: utf-8 -*-
-"""
-Transport → LEAP expression exporter (Excel version for Evaluation Mode).
-Takes your dataset and writes a LEAP Expressions import file.
-Normalizes Vehicle Sales Shares to sum=1 per (Scenario, Medium, Vehicle Type, Year).
-"""
-
 import pandas as pd
-import numpy as np
-# ----------------------------
-# File paths
-# ----------------------------
-TRANSPORT_XLSX = r"data/bd dummy transport file.xlsx"
-OUTPUT_EXPRESSIONS = r"data/leap_expressions_for_import.xlsx"
-
-# ----------------------------
-# Mapping dictionaries
-# ----------------------------
-MEDIUM_MAP = {"road": "Road", "rail": "Rail", "air": "Air", "ship": "Shipping"}
-
-VEHTYPE_MAP = {
-    "2w": "Motorcycles",
-    "car": "Cars",
-    'suv': 'SUVs',
-    'lt': 'Light Trucks',    
-    "bus": "Buses",
-    "lcv": "Light Commercial Vehicles",
-    "ht": "Heavy Trucks",
-    'mt': 'Medium Trucks',
-    "all": "All"
-}
+from pathlib import Path
+from LEAP_transfers_transport_MAPPINGS import LEAP_MEASURE_CONFIG
 
 
-# ---- Drive → Fuel Mapping ----
-DRIVE_TO_FUEL = {
-    # Air
-    "air_av_gas": "Aviation Gasoline",
-    "air_diesel": "Diesel",
-    "air_kerosene": "Kerosene",
-    "air_electric": "Electricity",
-    "air_fuel_oil": "Fuel Oil",
-    "air_gasoline": "Gasoline",
-    "air_hydrogen": "Hydrogen",
-    "air_jet_fuel": "Jet Fuel",
-    "air_lpg": "LPG",
-
-    # Rail
-    "rail_fuel_oil": "Fuel Oil",
-    "rail_electricity": "Electricity",
-    "rail_diesel": "Diesel",
-    "rail_coal": "Coal",
-    "rail_gasoline": "Gasoline",
-    "rail_lpg": "LPG",
-    "rail_kerosene": "Kerosene",
-    "rail_natural_gas": "Natural Gas",
-
-    # Ship
-    "ship_lng": "LNG",
-    "ship_ammonia": "Ammonia",
-    "ship_hydrogen": "Hydrogen",
-    "ship_gasoline": "Gasoline",
-    "ship_fuel_oil": "Fuel Oil",
-    "ship_electric": "Electricity",
-    "ship_diesel": "Diesel",
-    "ship_kerosene": "Kerosene",
-    "ship_lpg": "LPG",
-    "ship_natural_gas": "Natural Gas",
-
-    # Road
-    "ice_d": "Diesel (Blend)",
-    "ice_g": "Gasoline (Blend)",
-    "lpg": "LPG (Blend)",
-    "cng": "CNG (Blend)",
-    "bev": "Electricity",
-    "fcev": "Hydrogen",
-    "lng": "LNG",
-    "phev_d": "Diesel (Blend)",
-    "phev_g": "Gasoline (Blend)",
-}
-
-MEASURE_TO_VARIABLE = {
-    "Activity": "Activity Level",
-    "Efficiency": "Energy Intensity",
-    "Occupancy_or_load": "Occupancy",
-    "Mileage": "Annual Mileage",
-    "Stocks": "Stocks",
-    "New_vehicle_efficiency": "New Vehicle Efficiency",
-    "Average_age": "Average Age",
-    "Turnover_rate": "Turnover Rate",
-    "Activity_growth": "Activity Growth"
-}
-
-SCENARIO_MAP = {
-    "Reference": "Baseline", 
-    #"Target": "High EV"
-}
-
-# ---- Units and scaling (from your concordance) ----
-MEASURE_TO_UNIT = {
-    "Energy": ("PJ", 1),
-    "Stocks": ("Million_stocks", 1e6),
-    "New_vehicle_efficiency": ("Billion_km_per_pj", 1e-9),
-    "Efficiency": ("Billion_km_per_pj", 1e-9),
-    "Turnover_rate": ("%", 1),
-    "Supply_side_fuel_share": ("%", 1),
-    "Demand_side_fuel_share": ("%", 1),
-    "Occupancy_or_load": ("Passengers_or_tonnes", 1),
-    "Activity": ("Billion_passenger_km_or_freight_tonne_km", 1e9),
-    "Mileage": ("Thousand_km_per_stock", 1e3),
-    "Non_road_efficiency_growth": ("%", 1),
-    "Vehicle_sales_share": ("%", 1),
-    "New_vehicle_efficiency_growth": ("%", 1),
-    "Turnover_rate_growth": ("%", 1),
-    "Occupancy_or_load_growth": ("%", 1),
-    "Activity_growth": ("%", 1),
-    "Travel_km": ("Billion_km", 1e9),
-    "Intensity": ("PJ_per_billion_passenger_or_freight_tonne_km", 1e9),
-    "Gdp": ("Real_gdp_millions", 1e6),
-    "Population": ("Population_thousands", 1e3),
-    "Gdp_per_capita": ("Thousand_Gdp_per_capita", 1e3),
-    "Stocks_per_thousand_capita": ("Stocks_per_thousand_capita", 1),
-    "Average_age": ("Age", 1),
-}
-
-# ----------------------------
-# Helpers
-# ----------------------------
-def build_interp_expr(series):
-    pts = [(int(y), float(v)) for (y, v) in series if pd.notna(y) and pd.notna(v)]
-    if not pts: return None
-    pts.sort(key=lambda x: x[0])
-    if len(pts) == 1:
-        return str(pts[0][1])
-    return "Interp(" + ", ".join(f"{y}, {v}" for y, v in pts) + ")"
-
-def normalize_sales_shares(df):
-    """Ensure Vehicle_sales_share sums to 1 per Scenario/Medium/VehicleType/Year."""
-    def scale_group(g):
-        if "Vehicle_sales_share" not in g: 
-            return g
-        s = g["Vehicle_sales_share"].sum(skipna=True)
-        if pd.isna(s) or s == 0:
-            print(f"[WARN] No sales shares for {g.iloc[0]['Scenario']}, {g.iloc[0]['Medium']}, {g.iloc[0]['Vehicle Type']}, {g.iloc[0]['Date']}")
-            return g
-        if abs(s - 1.0) > 1e-6:
-            g["Vehicle_sales_share"] = g["Vehicle_sales_share"] / s
-            print(f"[NORM] Normalized sales shares for {g.iloc[0]['Scenario']}, {g.iloc[0]['Medium']}, {g.iloc[0]['Vehicle Type']}, {g.iloc[0]['Date']} (sum before={s})")
-        return g
-    return df.groupby(["Scenario","Medium","Vehicle Type","Date"], group_keys=False).apply(scale_group)
-
-# ----------------------------
-# Main exporter
-# ----------------------------
-def export_expressions(excel_path, out_path):
-    df = pd.read_excel(excel_path)
-    df = normalize_sales_shares(df)
-
-    records = []
-
-    for (scenario, medium, vtype, drive), df_grp in df.groupby(["Scenario","Medium","Vehicle Type","Drive"]):
-        scen = SCENARIO_MAP.get(str(scenario), str(scenario))
-        med = MEDIUM_MAP.get(str(medium).lower(), str(medium))
-        vt = VEHTYPE_MAP.get(str(vtype).lower(), str(vtype))
-        tech = str(drive).upper()
-
-        branch_path = f"Demand\\Transport\\{med}\\{vt}\\{tech}"
-
-        for measure, leap_var in MEASURE_TO_VARIABLE.items():
-            if measure not in df_grp: 
-                continue
-            # apply scaling
-            unit, factor = MEASURE_TO_UNIT.get(measure, ("", 1))
-            pts = [(row["Date"], row[measure] * factor) for _, row in df_grp.iterrows() if pd.notna(row[measure])]
-            expr = build_interp_expr(pts)
-            if expr:
-                records.append({
-                    "Scenario": scen,
-                    "Branch": branch_path,
-                    "Variable": leap_var,
-                    "Expression": expr,
-                    "Unit": unit
-                })
-
-        # PHEV main fuel fraction
-        if drive in ["phev_d", "phev_g"]:
-            if "Fraction_mainfuel" in df_grp:
-                pts = [(row["Date"], row["Fraction_mainfuel"]) for _, row in df_grp.iterrows() if pd.notna(row["Fraction_mainfuel"])]
-                expr = build_interp_expr(pts)
-            else:
-                expr = "0.7"  # default
-            records.append({
-                "Scenario": scen,
-                "Branch": branch_path,
-                "Variable": "Fraction Used by Main Fuel",
-                "Expression": expr,
-                "Unit": "Fraction"
-            })
-
-    # Save to Excel
-    out_df = pd.DataFrame(records)
-    out_df.to_excel(out_path, index=False)
-    print(f"✅ Expressions exported to {out_path}")
-
-# ----------------------------
-# Run
-# ----------------------------
-#%%
-export_expressions(TRANSPORT_XLSX, OUTPUT_EXPRESSIONS)
-
-#%%
+def get_leap_metadata(measure):
+    """Fetch LEAP_units, LEAP_Scale, LEAP_Per from LEAP_MEASURE_CONFIG if available."""
+    for shortname, config_group in LEAP_MEASURE_CONFIG.items():
+        if measure == shortname or measure in config_group:
+            entry = config_group if isinstance(config_group, dict) else config_group[measure]
+            units = entry.get("LEAP_units", entry.get("unit", ""))
+            scale = entry.get("LEAP_Scale", "")
+            per = entry.get("LEAP_Per", "")
+            return units, scale, per
+    return "", "", ""
 
 
+def create_import_instructions_sheet(writer):
+    """Create instructions sheet inside the Excel file."""
+    instructions = pd.DataFrame({
+        "Step": range(1, 6),
+        "Action": [
+            "Open LEAP → Settings → Import Data...",
+            "Select this Excel file and choose the 'Data' sheet.",
+            "Map Branch Path → Branch, Variable → Variable, Years → Years.",
+            "Select import options (Overwrite, Add, etc.).",
+            "Run import and review LEAP’s message window."
+        ]
+    })
+    instructions.to_excel(writer, sheet_name="Instructions", index=False)
 
 
+def create_leap_import_file(
+    log_df,
+    filename="../../results/leap_import.xlsx",
+    scenario="Current Accounts",
+    region="Region 1",
+    method="Interp",
+    base_year=2022,
+    final_year=2060
+):
+    """
+    Create a LEAP-compatible Excel import file using LEAP_MEASURE_CONFIG metadata.
+    Matches official LEAP Excel import format.
+    """
+
+    print(f"\n=== Creating LEAP Import File (structured) → {filename} ===")
+
+    if log_df is None or log_df.empty:
+        print("[ERROR] No data available for export.")
+        return None
+
+    # --- Filter years ---
+    log_df = log_df[(log_df["Date"] >= base_year) & (log_df["Date"] <= final_year)]
+
+    # --- Pivot to wide format ---
+    pivot_df = (
+        log_df.pivot_table(
+            index=["Branch_Path", "Measure"],
+            columns="Date",
+            values="Value",
+            aggfunc="first"
+        )
+        .reset_index()
+    )
+
+    # --- Identify and sort year columns ---
+    year_cols = sorted([int(c) for c in pivot_df.columns if isinstance(c, (int, float))])
+
+    # --- Fill metadata columns ---
+    pivot_df["Branch Path"] = pivot_df["Branch_Path"]
+    pivot_df["Variable"] = pivot_df["Measure"]
+    pivot_df["Scenario"] = scenario
+    pivot_df["Region"] = region
+    pivot_df["Method"] = method
+
+    # Fetch LEAP metadata from measure config
+    meta = pivot_df["Variable"].apply(lambda m: pd.Series(get_leap_metadata(m)))
+    meta.columns = ["Units", "Scale", "Per..."]
+    pivot_df = pd.concat([pivot_df, meta], axis=1)
+
+    # --- Add Level 1–N columns ---
+    max_levels = pivot_df["Branch_Path"].apply(lambda x: len(str(x).split("\\"))).max()
+    for i in range(1, max_levels + 1):
+        pivot_df[f"Level {i}"] = pivot_df["Branch_Path"].apply(
+            lambda x: str(x).split("\\")[i - 1] if len(str(x).split("\\")) >= i else ""
+        )
+
+    # --- Sort variables within each branch in LEAP-like order ---
+    var_order = [
+        "Total Activity",
+        "Activity Level",
+        "Final Energy Intensity",
+        "Total Final Energy Consumption",
+        "Stock",
+        "Sales Share",
+        "Efficiency",
+        "Turnover Rate",
+        "Occupancy or Load",
+    ]
+    pivot_df["Variable_sort_order"] = pivot_df["Variable"].apply(
+        lambda v: var_order.index(v) if v in var_order else len(var_order)
+    )
+    pivot_df = pivot_df.sort_values(by=["Branch_Path", "Variable_sort_order"]).drop(columns="Variable_sort_order")
+
+    # --- Column order ---
+    base_cols = ["Branch Path", "Variable", "Scenario", "Region", "Scale", "Units", "Per...", "Method"]
+    level_cols = [f"Level {i}" for i in range(1, max_levels + 1)]
+    export_df = pivot_df[base_cols + year_cols + level_cols]
+
+    # --- Add trailing placeholder column for #N/A ---
+    export_df["#N/A"] = pd.NA
+
+    # --- Write to Excel ---
+    out_path = Path(filename)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with pd.ExcelWriter(out_path, engine="openpyxl") as writer:
+        export_df.to_excel(writer, sheet_name="Data", index=False)
+        create_import_instructions_sheet(writer)
+        log_df.to_excel(writer, sheet_name="Source_Log_Data", index=False)
+
+    print(f"✅ Created LEAP import file with {len(export_df)} entries.")
+    print(f" - Years covered: {base_year}–{final_year}")
+    print(f" - Variables: {export_df['Variable'].nunique()}")
+    print(f" - Branches: {export_df['Branch Path'].nunique()}")
+    print("=" * 60)
+    return export_df

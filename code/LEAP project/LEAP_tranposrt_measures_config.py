@@ -10,70 +10,9 @@ import pandas as pd
 from pandas.api.types import is_numeric_dtype
 from LEAP_transfers_transport_MAPPINGS import CSV_TREE
 
+from LEAP_transfers_transport_MAPPINGS import LEAP_MEASURE_CONFIG
 #note that in this below: source_mapping is the name of the measure in the source dataset (e.g. 9th edition dataset) and leap_name is the name of the variable in leap that we want to map it to. factor is the scaling factor to convert from the source dataset, after the SOURCE_MEASURE_TO_UNIT scaling has been applied, to the units expected in leap.
-LEAP_MEASURE_CONFIG = {
-    # Vehicle type (road)
-    'Vehicle type (road)': {
-        "Stock": {"source_mapping": "Stocks", "factor": 1, "unit": "stocks"},
-        "Stock Share": {"source_mapping": "Stock_share_calc_vehicle_type", "factor": 1, "unit": "%"},
-        "Sales": {"source_mapping": "Sales", "factor": 1, "unit": "vehicles"},
-        "Sales Share": {"source_mapping": "Vehicle_sales_share_calc_vehicle_type", "factor": 1, "unit": "%"},
-        "Retirements": {"source_mapping": None, "factor": 1, "unit": "%"},
-    },
-    
-    # Technology (road)
-    'Technology (road)': {
-        "Device Share": {"source_mapping": None, "factor": 1, "unit": "%"},
-        "First Sales Year": {"source_mapping": None, "factor": 1, "unit": "year"},
-        "Fraction of Scrapped Replaced": {"source_mapping": None, "factor": 1, "unit": "%"},
-        "Fuel Economy Correction Factor": {"source_mapping": None, "factor": 1, "unit": "factor"},
-        "Fuel Economy": {"source_mapping": "New_vehicle_efficiency", "factor": 0.1, "unit": "MJ_per_100km"},
-        "Max Scrappage Fraction": {"source_mapping": None, "factor": 1, "unit": "%"},
-        "Mileage Correction Factor": {"source_mapping": None, "factor": 1, "unit": "factor"},
-        "Mileage": {"source_mapping": "Mileage", "factor": 1, "unit": "km_per_stock"},
-        "Sales Share": {"source_mapping": "Vehicle_sales_share_calc_fuel", "factor": 1, "unit": "%"},
-        "Scrappage": {"source_mapping": "Scrappage", "factor": 1, "unit": "%"},
-        "Stock Share": {"source_mapping": "Stock_share_calc_fuel", "factor": 1, "unit": "%"},
-        "Retirements": {"source_mapping": None, "factor": 1, "unit": "%"},
-    },
-    # Fuel (road)
-    'Fuel (road)': {
-        "Device Share": {"source_mapping": "Stock_share_calc_fuel", "factor": 1, "unit": "%"},
-        "Fuel Economy": {"source_mapping": "Efficiency", "factor": 0.1, "unit": "MJ_per_100km"},
-        "Fuel Economy Correction Factor": {"source_mapping": None, "factor": 1, "unit": "factor"},
-        "Final On-Road Fuel Economy": {"source_mapping": "Efficiency", "factor": 0.1, "unit": "MJ_per_100km"},
-        "Mileage": {"source_mapping": "Mileage", "factor": 1, "unit": "km_per_stock"},
-        "Mileage Correction Factor": {"source_mapping": None, "factor": 1, "unit": "factor"},
-        "Average Mileage": {"source_mapping": "Mileage", "factor": 1, "unit": "km_per_stock"},
-        "Final On-Road Mileage": {"source_mapping": "Mileage", "factor": 1, "unit": "km_per_stock"},
-    },
-    
-    # Medium (road)
-    'Medium (road)': {
-        "Stock": {"source_mapping": "Stocks", "factor": 1, "unit": "stocks"},
-        "Stock Share": {"source_mapping": "Stock_share_calc_transport_type", "factor": 1, "unit": "%"},#we acutally use this so we can guraantee we are only comapring agasint stocks of road vehicles since medium is set after transport type in this context
-        "Sales": {"source_mapping": "Sales", "factor": 1, "unit": "vehicles"},
-        "Sales Share": {"source_mapping": "Vehicle_sales_share_calc_transport_type", "factor": 1, "unit": "%"},#we acutally use this so we can guraantee we are only comapring agasint stocks of road vehicles since medium is set after transport type in this context
-        "Retirements": {"source_mapping": None, "factor": 1, "unit": "%"},
-    },
-    
-    # Medium (non-road)
-    'Medium (non-road)': {
-        "Activity Level": {"source_mapping": "Activity", "factor": 1, "unit": "Passenger_km_or_freight_tonne_km"},#{"source_mapping": "Activity_share_calc_medium", "factor": 1, "unit": "%"},
-        "Total Activity": {"source_mapping": "Activity", "factor": 1, "unit": "Passenger_km_or_freight_tonne_km"},
-        # "Final Energy Intensity": {"source_mapping": "Intensity", "factor": 1e-9, "unit": "GJ_per_tonne_km"},
-        # "Total Final Energy Consumption": {"source_mapping": "Energy", "factor": 1, "unit": "pj"},
-        
-    },
-    
-    # Fuel (non-road)
-    'Fuel (non-road)': {
-        "Activity Level": {"source_mapping": "Activity", "factor": 1, "unit": "Passenger_km_or_freight_tonne_km"},#{"source_mapping": "Activity_share_calc_fuel", "factor": 1, "unit": "%"},
-        "Final Energy Intensity": {"source_mapping": "Intensity", "factor": 1e-9, "unit": "GJ_per_tonne_km"},#Missing expected variables from LEAP
-        # "Total Final Energy Consumption": {"source_mapping": "Energy", "factor": 1, "unit": "pj"},#Missing expected variables from LEAP
-        "Total Activity": {"source_mapping": "Activity", "factor": 1, "unit": "Passenger_km_or_freight_tonne_km"},
-    },
-}
+# ============================================================
 
 # Unit + scaling lookup used for converting raw data from the source dataset (i.e. the 9th edition dataset) to its equivalent scaled to 1. i.e. stocks are measured in millions in our source data, so we need to multiply by 1e6 to get the actual number of stocks - thereby making it useful for LEAP and calculations. Not all measures here are used in the leap measures config above, but they are included for completeness.
 SOURCE_MEASURE_TO_UNIT = {
@@ -697,6 +636,4 @@ def process_measures_for_leap(df: pd.DataFrame, filtered_measure_config: dict, s
         
         df_out[leap_measure] = apply_scaling(df_out.loc[:, src], leap_measure, shortname)
         processed[leap_measure] = df_out[["Date", leap_measure]].copy()
-
-
     return processed

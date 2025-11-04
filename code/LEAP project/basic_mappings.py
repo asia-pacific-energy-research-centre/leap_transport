@@ -1,4 +1,5 @@
 
+import pandas as pd
 
 CSV_TREE = {
     "freight": {
@@ -282,4 +283,59 @@ LEAP_STRUCTURE = {
         'Natural gas',
         'Electricity',
     }
+}
+
+######################
+ESTO_TRANSPORT_SECTOR_TUPLES = {
+    ("15_01_domestic_air_transport", "07_petroleum_products", "07_01_motor_gasoline"),
+    ("15_01_domestic_air_transport", "07_petroleum_products", "07_02_aviation_gasoline"),
+    ("15_01_domestic_air_transport", "07_petroleum_products", "07_06_kerosene"),
+    ("15_01_domestic_air_transport", "07_petroleum_products", "07_07_gas_diesel_oil"),
+    ("15_01_domestic_air_transport", "07_petroleum_products", "07_09_lpg"),
+    ("15_01_domestic_air_transport", "07_petroleum_products", "07_x_jet_fuel"),
+
+    ("15_02_road", "07_petroleum_products", "07_01_motor_gasoline"),
+    ("15_02_road", "07_petroleum_products", "07_06_kerosene"),
+    ("15_02_road", "07_petroleum_products", "07_07_gas_diesel_oil"),
+    ("15_02_road", "07_petroleum_products", "07_08_fuel_oil"),
+    ("15_02_road", "07_petroleum_products", "07_09_lpg"),
+    ("15_02_road", "08_gas", "08_01_natural_gas"),
+    ("15_02_road", "16_others", "16_05_biogasoline"),
+    ("15_02_road", "16_others", "16_06_biodiesel"),
+    ("15_02_road", "17_electricity", "x"),
+
+    ("15_03_rail", "01_coal", "01_x_thermal_coal"),
+    ("15_03_rail", "02_coal_products", "x"),
+    ("15_03_rail", "07_petroleum_products", "07_01_motor_gasoline"),
+    ("15_03_rail", "07_petroleum_products", "07_06_kerosene"),
+    ("15_03_rail", "07_petroleum_products", "07_07_gas_diesel_oil"),
+    ("15_03_rail", "07_petroleum_products", "07_08_fuel_oil"),
+    ("15_03_rail", "07_petroleum_products", "07_09_lpg"),
+    ("15_03_rail", "16_others", "16_06_biodiesel"),
+    ("15_03_rail", "17_electricity", "x"),
+
+    ("15_04_domestic_navigation", "07_petroleum_products", "07_01_motor_gasoline"),
+    ("15_04_domestic_navigation", "07_petroleum_products", "07_06_kerosene"),
+    ("15_04_domestic_navigation", "07_petroleum_products", "07_07_gas_diesel_oil"),
+    ("15_04_domestic_navigation", "07_petroleum_products", "07_08_fuel_oil"),
+    ("15_04_domestic_navigation", "07_petroleum_products", "07_09_lpg"),
+    ("15_04_domestic_navigation", "08_gas", "08_01_natural_gas"),
+    ("15_04_domestic_navigation", "16_others", "16_06_biodiesel"),
+    ("15_04_domestic_navigation", "17_electricity", "x"),
+
+    ("15_05_pipeline_transport", "07_petroleum_products", "07_01_motor_gasoline"),
+    ("15_05_pipeline_transport", "07_petroleum_products", "07_07_gas_diesel_oil"),
+    ("15_05_pipeline_transport", "07_petroleum_products", "07_08_fuel_oil"),
+    ("15_05_pipeline_transport", "07_petroleum_products", "07_09_lpg"),
+    ("15_05_pipeline_transport", "08_gas", "08_01_natural_gas"),
+    ("15_05_pipeline_transport", "17_electricity", "x"),
+
+    ("15_06_nonspecified_transport", "07_petroleum_products", "07_01_motor_gasoline"),
+    ("15_06_nonspecified_transport", "07_petroleum_products", "07_07_gas_diesel_oil"),
+    ("15_06_nonspecified_transport", "07_petroleum_products", "07_08_fuel_oil"),
+    ("15_06_nonspecified_transport", "07_petroleum_products", "07_09_lpg"),
+    ("15_06_nonspecified_transport", "07_petroleum_products", "07_x_jet_fuel"),
+    ("15_06_nonspecified_transport", "07_petroleum_products", "07_x_other_petroleum_products"),
+    ("15_06_nonspecified_transport", "08_gas", "08_01_natural_gas"),
+    ("15_06_nonspecified_transport", "17_electricity", "x"),
 }

@@ -109,7 +109,7 @@ def create_leap_import_file(
     export_df = pivot_df[base_cols + year_cols + level_cols]
 
     # --- Add trailing placeholder column for #N/A ---
-    export_df["#N/A"] = pd.NA
+    export_df.loc[:, "#N/A"] = pd.NA
 
     # --- Write to Excel ---
     out_path = Path(filename)

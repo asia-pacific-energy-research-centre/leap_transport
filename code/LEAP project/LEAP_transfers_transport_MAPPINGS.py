@@ -466,22 +466,35 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     
     
     # =========================
-    # Others Levels 1 and 2
+    # Others Levels 1 and 2 > note that these values within the transport dataset are inserted within the script to make it easy to use within the system, but in fact they come from the esto dataset. 
     # =========================
-    ("Nonspecified transport", "Kerosene"): None,
-    ("Nonspecified transport", "Fuel oil"): None,
-    ("Nonspecified transport", "Diesel"): None,
-    ("Nonspecified transport", "LPG"): None,
-    ("Nonspecified transport", "Gasoline"): None,
-    ("Nonspecified transport", "Coal products"): None,
-    ("Nonspecified transport", "Other petroleum products"): None,
-    ("Pipeline transport", "Fuel oil"): None,
-    ("Pipeline transport", "Diesel"): None,
-    ("Pipeline transport", "Natural gas"): None,
-    ("Pipeline transport", "Electricity"): None,
-    ("Nonspecified transport",): None,
-    ('Pipeline transport',): None
+    ("Nonspecified transport", "Kerosene"): ("Nonspecified transport", "Kerosene"),
+    ("Nonspecified transport", "Fuel oil"): ("Nonspecified transport", "Fuel oil"),
+    ("Nonspecified transport", "Diesel"): ("Nonspecified transport", "Diesel"),
+    ("Nonspecified transport", "LPG"): ("Nonspecified transport", "LPG"),
+    ("Nonspecified transport", "Gasoline"): ("Nonspecified transport", "Gasoline"),
+    ("Nonspecified transport", "Coal products"): ("Nonspecified transport", "Coal products"),
+    ("Nonspecified transport", "Other petroleum products"): ("Nonspecified transport", "Other petroleum products"),
+    ("Pipeline transport", "Fuel oil"): ("Pipeline transport", "Fuel oil"),
+    ("Pipeline transport", "Diesel"): ("Pipeline transport", "Diesel"),
+    ("Pipeline transport", "Natural gas"): ("Pipeline transport", "Natural gas"),
+    ("Pipeline transport", "Electricity"): ("Pipeline transport", "Electricity"),
+    ("Nonspecified transport",): ("Nonspecified transport",),
+    ('Pipeline transport',): ("Pipeline transport",)
 }
+
+def extract_esto_sector_fuels_for_leap_branches(leap_branch_list):
+    """
+    Does a backwards search on the ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP to find what keys have the leap branches in their values. this is mostly useful for the Others Levels 1 and 2 mappings where we have a many-to-one mapping.
+    """
+    leap_branch_to_esto_sector_fuel = {}
+    for leap_branch in leap_branch_list:
+        leap_branch_to_esto_sector_fuel[leap_branch] = []
+        for esto_sector_fuel, leap_branches2 in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP.items():
+            if leap_branch in leap_branches2:
+                leap_branch_to_esto_sector_fuel[leap_branch].append(esto_sector_fuel)
+    return leap_branch_to_esto_sector_fuel
+
 
 ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
 
@@ -492,7 +505,8 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
         ("Passenger non road", "Air", "Gasoline")
     ],
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_02_aviation_gasoline"): [
-        ("Passenger non road", "Air", "Aviation gasoline")
+        ("Passenger non road", "Air", "Aviation gasoline"),
+        ("Freight non road","Air","Aviation gasoline")
     ],
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_06_kerosene"): [("Nonspecified transport", "Kerosene")],
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_07_gas_diesel_oil"): [
@@ -502,7 +516,8 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
         ("Passenger non road", "Air", "LPG")
     ],
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_x_jet_fuel"): [
-        ("Passenger non road", "Air", "Jet fuel")
+        ("Passenger non road", "Air", "Jet fuel"),
+        ("Freight non road","Air","Jet fuel")
     ],
 
     # ------------------------------------------------------------
@@ -513,7 +528,19 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
         ("Passenger road","LPVs","ICE medium","Gasoline"),
         ("Passenger road","LPVs","ICE large","Gasoline"),
         ("Passenger road","Motorcycles","ICE","Gasoline"),
-        ("Freight road","LCVs","ICE","Gasoline")
+        ("Freight road","LCVs","ICE","Gasoline"),
+        ("Passenger road","LPVs","HEV small","Gasoline"),
+        ("Passenger road","LPVs","HEV medium","Gasoline"),
+        ("Passenger road","LPVs","HEV large","Gasoline"),
+        ("Passenger road","LPVs","PHEV small","Gasoline"),
+        ("Passenger road","LPVs","PHEV medium","Gasoline"),
+        ("Passenger road","LPVs","PHEV large","Gasoline"),
+        ("Passenger road","Buses","ICE","Gasoline"),
+        ("Freight road","Trucks","ICE medium","Gasoline"),
+        ("Freight road","Trucks","ICE heavy","Gasoline"),
+        ("Freight road","Trucks","EREV medium","Gasoline"),
+        ("Freight road","Trucks","EREV heavy","Gasoline"),
+        ("Freight road","LCVs","PHEV","Gasoline")
     ],
     ("15_02_road", "07_petroleum_products", "07_06_kerosene"): [("Nonspecified transport", "Kerosene")],
     ("15_02_road", "07_petroleum_products", "07_07_gas_diesel_oil"): [
@@ -523,13 +550,27 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
         ("Passenger road","Buses","ICE","Diesel"),
         ("Freight road","LCVs","ICE","Diesel"),
         ("Freight road","Trucks","ICE medium","Diesel"),
-        ("Freight road","Trucks","ICE heavy","Diesel")
+        ("Freight road","Trucks","ICE heavy","Diesel"),
+        ("Passenger road","LPVs","HEV small","Diesel"),
+        ("Passenger road","LPVs","HEV medium","Diesel"),
+        ("Passenger road","LPVs","HEV large","Diesel"),
+        ("Passenger road","LPVs","PHEV small","Diesel"),
+        ("Passenger road","LPVs","PHEV medium","Diesel"),
+        ("Passenger road","LPVs","PHEV large","Diesel"),
+        ("Passenger road","Motorcycles","ICE","Diesel"),
+        ("Freight road","Trucks","EREV medium","Diesel"),
+        ("Freight road","Trucks","EREV heavy","Diesel"),
+        ("Freight road","LCVs","PHEV","Diesel")
     ],
     ("15_02_road", "07_petroleum_products", "07_08_fuel_oil"): [("Nonspecified transport", "Fuel oil")],
     ("15_02_road", "07_petroleum_products", "07_09_lpg"): [
         ("Passenger road","LPVs","ICE medium","LPG"),
         ("Passenger road","LPVs","ICE large","LPG"),
-        ("Passenger road","Buses","ICE","LPG")
+        ("Passenger road","Buses","ICE","LPG"),
+            
+        ("Freight road","LCVs","ICE","LPG"),
+        ("Freight road","Trucks","ICE medium","LPG"),
+        ("Freight road","Trucks","ICE heavy","LPG")
     ],
     ("15_02_road", "08_gas", "08_01_natural_gas"): [
         ("Passenger road","LPVs","ICE medium","CNG"),
@@ -541,12 +582,40 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
     ],
     ("15_02_road", "16_others", "16_05_biogasoline"): [
         ("Passenger road","LPVs","ICE medium","Biogasoline"),
-        ("Passenger road","LPVs","ICE large","Biogasoline")
+        ("Passenger road","LPVs","ICE large","Biogasoline"),
+        ("Passenger road","LPVs","ICE small","Biogasoline"),
+        ("Passenger road","LPVs","HEV small","Biogasoline"),
+        ("Passenger road","LPVs","HEV medium","Biogasoline"),
+        ("Passenger road","LPVs","HEV large","Biogasoline"),
+        ("Passenger road","LPVs","PHEV small","Biogasoline"),
+        ("Passenger road","LPVs","PHEV medium","Biogasoline"),
+        ("Passenger road","LPVs","PHEV large","Biogasoline"),
+        ("Passenger road","Motorcycles","ICE","Biogasoline"),
+        ("Freight road","LCVs","ICE","Biogasoline"),
+        ("Freight road","LCVs","PHEV","Biogasoline"),
+        ("Freight road","Trucks","ICE medium","Biogasoline"),
+        ("Freight road","Trucks","ICE heavy","Biogasoline"),
+        ("Freight road","Trucks","EREV medium","Biogasoline"),
+        ("Freight road","Trucks","EREV heavy","Biogasoline")
     ],
     ("15_02_road", "16_others", "16_06_biodiesel"): [
         ("Passenger road","Buses","ICE","Biodiesel"),
+        ("Passenger road","LPVs","ICE small","Biodiesel"),
+        ("Passenger road","LPVs","ICE medium","Biodiesel"),
+        ("Passenger road","LPVs","ICE large","Biodiesel"),
+        ("Passenger road","LPVs","HEV small","Biodiesel"),
+        ("Passenger road","LPVs","HEV medium","Biodiesel"),
+        ("Passenger road","LPVs","HEV large","Biodiesel"),
+        ("Passenger road","LPVs","PHEV small","Biodiesel"),
+        ("Passenger road","LPVs","PHEV medium","Biodiesel"),
+        ("Passenger road","LPVs","PHEV large","Biodiesel"),
+        ("Passenger road","Motorcycles","ICE","Biodiesel"),
         ("Freight road","LCVs","ICE","Biodiesel"),
-        ("Freight road","Trucks","ICE heavy","Biodiesel")
+        ("Freight road","LCVs","PHEV","Biodiesel"),
+        ("Freight road","Trucks","ICE medium","Biodiesel"),
+        ("Freight road","Trucks","EREV medium","Biodiesel"),
+        ("Freight road","Trucks","EREV heavy","Biodiesel"),
+        ("Freight road","Trucks","ICE heavy","Biodiesel"),
     ],
     ("15_02_road", "17_electricity", "x"): [
         ("Passenger road","LPVs","BEV small","Electricity"),
@@ -555,7 +624,14 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
         ("Passenger road","Buses","BEV","Electricity"),
         ("Passenger road","Motorcycles","BEV","Electricity"),
         ("Freight road","LCVs","BEV","Electricity"),
-        ("Freight road","Trucks","BEV heavy","Electricity")
+        ("Freight road","Trucks","BEV heavy","Electricity"),
+        ("Passenger road","LPVs","PHEV small","Electricity"),
+        ("Passenger road","LPVs","PHEV medium","Electricity"),
+        ("Passenger road","LPVs","PHEV large","Electricity"),
+        ("Freight road","Trucks","BEV medium","Electricity"),
+        ("Freight road","Trucks","EREV medium","Electricity"),
+        ("Freight road","Trucks","EREV heavy","Electricity"),
+        ("Freight road","LCVs","PHEV","Electricity")
     ],
 
     # ------------------------------------------------------------
@@ -647,7 +723,48 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
 }
 #%%
 
+# FUELS WITHOUT ESTO MAPPINGS (Need special handling):
+# These branch tuples cannot be mapped because ESTO data doesn't include these fuel types:
+# Complete this validation code by adding the missing branches to the unmappable set:
 
+# ------------------------------------------------------------
+# FUELS WITHOUT ESTO MAPPINGS (Cannot be mapped)
+# ------------------------------------------------------------
+
+UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT = {
+    # Hydrogen branches (No hydrogen fuel category in ESTO):
+    ('Passenger non road', 'Air', 'Hydrogen'),
+    ('Freight non road', 'Air', 'Hydrogen'), 
+    ('Passenger non road', 'Rail', 'Hydrogen'),
+    ('Freight non road', 'Rail', 'Hydrogen'),
+    ('Passenger non road', 'Shipping', 'Hydrogen'),
+    ('Freight non road', 'Shipping', 'Hydrogen'),
+    ('Passenger road', 'Buses', 'FCEV', 'Hydrogen'),
+    ('Freight road', 'Trucks', 'FCEV medium', 'Hydrogen'),
+    ('Freight road', 'Trucks', 'FCEV heavy', 'Hydrogen'),
+    
+    # Ammonia branches (No ammonia fuel category in ESTO):
+    ('Passenger non road', 'Shipping', 'Ammonia'),
+    ('Freight non road', 'Shipping', 'Ammonia'),
+    
+    # Electric aircraft (No electric aircraft category in current ESTO):
+    ('Passenger non road', 'Air', 'Electricity'),
+    ('Freight non road', 'Air', 'Electricity'),
+    
+    # LNG trucks (No LNG subcategory in standard ESTO road transport):
+    ('Freight road', 'Trucks', 'ICE medium', 'LNG'),
+    ('Freight road', 'Trucks', 'ICE heavy', 'LNG'),
+    
+    # Biogas branches (No separate biogas category - would map to CNG but creates ambiguity):
+    ('Passenger road', 'LPVs', 'ICE medium', 'Biogas'),
+    ('Passenger road', 'LPVs', 'ICE large', 'Biogas'),
+    ('Passenger road', 'Buses', 'ICE', 'Biogas'),
+    ('Freight road', 'LCVs', 'ICE', 'Biogas'),
+    ('Freight road', 'Trucks', 'ICE medium', 'Biogas'),
+    ('Freight road', 'Trucks', 'ICE heavy', 'Biogas'),
+}
+
+#%%
 # ============================================================
 # LEAP_MEASURE_CONFIG
 # Final version — hierarchical, cleaned, and LEAP-ready

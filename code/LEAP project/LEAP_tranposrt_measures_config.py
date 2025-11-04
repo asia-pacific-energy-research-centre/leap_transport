@@ -8,9 +8,9 @@ Easily editable — just update names, add new measures, or fix scaling factors.
 
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
-from LEAP_transfers_transport_MAPPINGS import CSV_TREE
+from basic_mappings import CSV_TREE
 
-from LEAP_transfers_transport_MAPPINGS import LEAP_MEASURE_CONFIG
+from LEAP_transfers_transport_MAPPINGS import LEAP_MEASURE_CONFIG, SHORTNAME_TO_LEAP_BRANCHES
 #note that in this below: source_mapping is the name of the measure in the source dataset (e.g. 9th edition dataset) and leap_name is the name of the variable in leap that we want to map it to. factor is the scaling factor to convert from the source dataset, after the SOURCE_MEASURE_TO_UNIT scaling has been applied, to the units expected in leap.
 # ============================================================
 
@@ -141,12 +141,23 @@ AGGREGATION_RULES = {
 
 CALCULATED_MEASURES = ['Stock_share_calc_transport_type','Stock_share_calc_fuel','Stock_share_calc_vehicle_type','Sales_calc_vehicle_type', 'Sales_calc_medium', 'Activity_share_calc_transport_type', 'Activity_share_calc_fuel', 'Vehicle_sales_share_calc_transport_type', 'Vehicle_sales_share_calc_fuel', 'Vehicle_sales_share_vehicle_calc_type']
 
+SHORTNAME_TO_ANALYSIS_TYPE = {'Transport type (road)':'Stock', 'Vehicle type (road)':'Stock', 'Technology (road)':'Stock', 'Fuel (road)':'Stock', 'Transport type (non-road)':'Intensity', 'Vehicle type (non-road)':'Intensity', 'Fuel (non-road)':'Intensity', 'Others (level 1)':'Intensity', 'Others (level 2)':'Intensity'}
 # ============================================================
 
 # def get_measures_for_analysis(analysis_type, shortname):
 #     """Return all configured measures for a given analysis type."""
 #     return LEAP_MEASURE_CONFIG[shortname].get(analysis_type, {})
-
+def get_leap_branch_to_analysis_type_mapping(leap_branch):
+    #find leap branch in SHORTNAME_TO_LEAP_BRANCHES to get shortname, then use that to find the analysis type
+    for shortname, branches in SHORTNAME_TO_LEAP_BRANCHES.items():
+        if leap_branch in branches:
+            analysis_type = SHORTNAME_TO_ANALYSIS_TYPE.get(shortname, None)
+            if analysis_type is None:
+                print(f"Shortname {shortname} not found in SHORTNAME_TO_ANALYSIS_TYPE mapping. Analysis type cannot be determined.")
+                return None
+            return analysis_type
+    print(f"LEAP branch {leap_branch} not found in SHORTNAME_TO_LEAP_BRANCHES mapping. Analysis type cannot be determined.")
+    return None
 
 def list_all_measures(shortname=None):
     """Pretty-print all measures for human inspection."""
@@ -248,7 +259,7 @@ def aggregate_weighted(df, measure, group_cols, weight_col=None):
     ).values[0]
     #if all of result is 0 then raise a warning
     if (df[measure] == 0).all():
-        breakpoint()#to do. how to make this not be 0 if activity is all 0.
+        # breakpoint()#to do. how to make this not be 0 if activity is all 0.
         print(f"[WARNING] Weighted aggregation of '{measure}' resulted in all zeros. Check weight column '{weight_col}' for validity.")
 
     return df[measure]

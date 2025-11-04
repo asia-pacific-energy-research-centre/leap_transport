@@ -8,7 +8,15 @@
 
 import pandas as pd
 from win32com.client import Dispatch, GetActiveObject, gencache
+from LEAP_transfers_transport_MAPPINGS import (
+    ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+    LEAP_BRANCH_TO_SOURCE_MAP,
+    SHORTNAME_TO_LEAP_BRANCHES,
+    LEAP_MEASURE_CONFIG
+)
+from LEAP_tranposrt_measures_config import SHORTNAME_TO_ANALYSIS_TYPE, get_leap_branch_to_analysis_type_mapping
 
+from LEAP_BRANCH_TO_EXPRESSION_MAPPING import LEAP_BRANCH_TO_EXPRESSION_MAPPING, ALL_YEARS
 # ------------------------------------------------------------
 # Connection & Core Helpers
 # ------------------------------------------------------------
@@ -269,19 +277,18 @@ def validate_shares(df, tolerance=0.01, auto_correct=False):
 
 def build_expression_from_mapping(branch_tuple, df_m, measure):
     """
-    Builds the correct LEAP expression for a branch based on LEAP_BRANCH_TO_EXPRESSION_MAP.
+    Builds the correct LEAP expression for a branch based on LEAP_BRANCH_TO_EXPRESSION_MAPPING.
     
     Parameters:
-    - branch_tuple: tuple key from LEAP_BRANCH_TO_EXPRESSION_MAP
+    - branch_tuple: tuple key from LEAP_BRANCH_TO_EXPRESSION_MAPPING
     - df_m: DataFrame containing 'Date' and the measure column
     - measure: measure name string (e.g., 'Stock Share', 'Activity Level')
 
     Returns:
     - expr: string suitable for LEAP variable.Expression
     """
-    from LEAP_transfers_transport_MAPPINGS import LEAP_BRANCH_TO_EXPRESSION_MAP, ALL_YEARS
 
-    mapping = LEAP_BRANCH_TO_EXPRESSION_MAP.get(branch_tuple, ('Data', ALL_YEARS))
+    mapping = LEAP_BRANCH_TO_EXPRESSION_MAPPING.get(branch_tuple, ('Data', ALL_YEARS))
     mode, arg = mapping
 
     # Default: Data from all available years

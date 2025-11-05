@@ -182,6 +182,7 @@ def analyze_data_quality(df):
         zero_shares = (df['Vehicle_sales_share'] == 0).sum()
         print(f"\nZero vehicle sales shares: {zero_shares} ({(zero_shares/len(df)*100):.1f}%)")
     print("=" * 40)
+    return df
 
 
 # ------------------------------------------------------------

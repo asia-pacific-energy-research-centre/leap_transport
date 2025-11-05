@@ -327,7 +327,7 @@ def calculate_energy_use_for_intensity_analysis_branch(branch_path, branch_tuple
     activity_level = export_df.loc[(export_df['Branch Path'] == branch_path) & (export_df['Variable'] == 'Activity Level'), BASE_YEAR].values
     intensity = export_df.loc[(export_df['Branch Path'] == branch_path) & (export_df['Variable'] == 'Final Energy Intensity'), BASE_YEAR].values
 
-    if (intensity == 0).all() or intensity.size == 0:
+    if (intensity == 0).all():
         breakpoint()
         raise ValueError(f"intensity data missing or zero for branch {branch_path}")
     # Calculate energy use (this is a simplified example)

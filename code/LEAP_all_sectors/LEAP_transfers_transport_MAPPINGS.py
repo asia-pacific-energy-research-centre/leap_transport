@@ -947,7 +947,7 @@ LEAP_MEASURE_CONFIG = {
             "LEAP_Per": None
         },
         "Final Energy Intensity": {
-            "source_mapping": "Intensity",
+            "source_mapping": "Efficiency",
             "factor": 1e-9,
             "unit": "GJ_per_tonne_km",
             "LEAP_units": "Gigajoule",
@@ -1158,7 +1158,7 @@ LEAP_MEASURE_CONFIG = {
     #NOTE THE SINCE ACTIVITY IS IRRELEVANT WE WILL CALCAULTE IT SO THAT ENERGY = ACTIVITY * INTENSITY HOLDS TRUE. PERHAPS WE CAN JUST SET IT TO THE DESIRED ENERGY AND INTENSITY TO 1?
     'Others (level 1)': {
         "Activity Level": {
-            "source_mapping": 'Activity',
+            "source_mapping": None,
             "factor": 1,
             "unit": "Unspecified Unit",
             "LEAP_units": "Unspecified Unit",
@@ -1168,7 +1168,7 @@ LEAP_MEASURE_CONFIG = {
     },
     'Others (level 2)': {
         "Activity Level": {
-            "source_mapping": 'Activity',
+            "source_mapping": None,
             "factor": 1,
             "unit": "Unspecified Unit",
             "LEAP_units": "Unspecified Unit",
@@ -1176,7 +1176,7 @@ LEAP_MEASURE_CONFIG = {
             "LEAP_Per": None
         },
         "Final Energy Intensity": {
-            "source_mapping": 'Intensity',
+            "source_mapping": None,
             "factor": 1,
             "unit": "Unspecified Unit",
             "LEAP_units": "Unspecified Unit",

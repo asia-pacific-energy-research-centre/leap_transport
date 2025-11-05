@@ -245,7 +245,7 @@ def aggregate_weighted(df, measure, group_cols, weight_col=None):
     #     breakpoint()  # how to handle energy intensity for air
     
     if not weight_col or weight_col not in df.columns:
-        df.loc[:, measure] = df[measure].mean()
+        df[measure] = df[measure].mean()
         return df[measure]
     # breakpoint()
     # Create weighted values
@@ -254,7 +254,7 @@ def aggregate_weighted(df, measure, group_cols, weight_col=None):
     df['_weight'] = df[weight_col].fillna(0)
     
     # Group and calculate weighted average
-    df.loc[:, measure] = df.groupby(group_cols).apply(
+    df[measure] = df.groupby(group_cols).apply(
         lambda x: x['_weighted_value'].sum() / x['_weight'].sum() if x['_weight'].sum() > 0 else 0
     ).values[0]
     #if all of result is 0 then raise a warning
@@ -542,7 +542,7 @@ def aggregate_measures(df_out, src, source_cols_for_grouping, ttype, medium, vty
                     # Map the aggregated values back to the original dataframe
                     try:
                         #first, get the indexes to match               
-                        df_out.loc[:, src] = weighted_result
+                        df_out[src] = weighted_result
                     except Exception as e:
                         breakpoint()
                         raise e

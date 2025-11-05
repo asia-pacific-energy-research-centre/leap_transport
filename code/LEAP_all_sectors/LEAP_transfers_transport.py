@@ -282,8 +282,8 @@ def load_transport_into_leap_v3(
         else:
             ttype, medium, vtype, drive, fuel, branch_path, source_cols_for_grouping = process_branch_mapping(leap_tuple, src_tuple, TRANSPORT_ROOT=TRANSPORT_ROOT)
 
-        # if branch_path =='Demand\Transport\Passenger non road\Air\Hydrogen' or 'Air' in branch_path:
-        #     breakpoint()#check why intensity is not being set for air transport hydrogen
+        # if 'Biodiesel' in branch_path:
+        #     breakpoint()
         if SET_VARS_IN_LEAP_USING_COM:
             try:
                 branch = L.Branch(branch_path)

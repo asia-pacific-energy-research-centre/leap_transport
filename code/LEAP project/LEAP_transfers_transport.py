@@ -14,7 +14,7 @@ from LEAP_transfers_transport_core import (
 )
 from LEAP_transfers_transport_MAPPINGS import LEAP_BRANCH_TO_SOURCE_MAP, SHORTNAME_TO_LEAP_BRANCHES, LEAP_MEASURE_CONFIG
 from LEAP_tranposrt_measures_config import calculate_sales, process_measures_for_leap, list_all_measures
-from LEAP_transfers_transport_excel import create_leap_import_file
+from LEAP_transfers_transport_excel import summarize_and_create_export_df, save_export_file
 
 from LEAP_transfers_transport_MAPPINGS import (
     ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
@@ -27,7 +27,7 @@ from LEAP_BRANCH_TO_EXPRESSION_MAPPING import LEAP_BRANCH_TO_EXPRESSION_MAPPING
 
 from basic_mappings import ESTO_TRANSPORT_SECTOR_TUPLES,add_fuel_column
 
-from LEAP_mappings_validation import validate_all_mappings_with_measures, validate_final_energy_use_for_base_year_equals_esto_totals
+from LEAP_mappings_validation import validate_all_mappings_with_measures, validate_and_fix_shares_normalise_to_one, validate_final_energy_use_for_base_year_equals_esto_totals
 
 # ------------------------------------------------------------
 # Modular process functions
@@ -165,7 +165,6 @@ def write_measures_to_leap(
             written_this_branch += 1
     return written_this_branch, missing_variables, leap_data_log
 
-
 # def write_measures_to_leap(
 #     L, df_copy, leap_tuple, src_tuple, branch_path, filtered_measure_config,
 #     shortname, source_cols_for_grouping, save_log, leap_data_log, SET_VARS_IN_LEAP_USING_COM
@@ -192,28 +191,6 @@ def write_measures_to_leap(
 #     return written_this_branch, missing_variables, leap_data_log
 
 
-def summarize_and_export(total_written, total_skipped, missing_branches, missing_variables,
-                         leap_data_log, save_log, log_filename, create_import_files, import_filename):
-    """Print summary and save logs / import files."""
-    print("\n=== Summary ===")
-    print(f"✅ Variables written: {total_written}")
-    print(f"⚠️  Skipped (no data or invalid tuples): {total_skipped}")
-    print(f"❌ Missing LEAP branches: {missing_branches}")
-    print(f"❌ Missing variables: {missing_variables}")
-    print("================\n")
-    if save_log and leap_data_log is not None and not leap_data_log.empty:
-        print(f"Saving LEAP data log to {log_filename}...")
-        save_leap_data_log(leap_data_log, log_filename)
-        if create_import_files:
-            print("\n=== Exporting LEAP import-compatible files ===")
-            export_df = create_leap_import_file(leap_data_log, import_filename)
-            if export_df is not None:
-                print(f"LEAP import file created at: {import_filename}")
-                return export_df
-    print("No LEAP import file created.")
-    return None
-
-
 # ------------------------------------------------------------
 # Main Loader
 # ------------------------------------------------------------
@@ -227,7 +204,7 @@ def load_transport_into_leap_v3(
     save_log=True,
     log_filename="../../results/leap_data_log.xlsx",
     SET_VARS_IN_LEAP_USING_COM=True,
-    create_import_files=False,
+    SAVE_IMPORT_FILE=True,
     import_filename="../../results/leap_import.xlsx",
     TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx',
     TRANSPORT_ROOT = r"Demand\Transport"
@@ -322,20 +299,34 @@ def load_transport_into_leap_v3(
         missing_variables += missing_vars
         if written == 0:
             total_skipped += 1
-    breakpoint()#how does it lookright now? I think we watned to do soemthign with the dataset somehow? maybe it was to isnett all the units and stuff
-    export_df = summarize_and_export(
-        total_written, total_skipped, missing_branches, missing_variables,
-        leap_data_log, save_log, log_filename, create_import_files, import_filename
+     
+    
+    if save_log and leap_data_log is not None and not leap_data_log.empty:
+        save_leap_data_log(leap_data_log, log_filename, log_tuple=(total_written, total_skipped, missing_branches, missing_variables))
+        
+    export_df = summarize_and_create_export_df(
+        leap_data_log, scenario="Current Accounts", region="Region 1", method="Interp", base_year=2022, final_year=2060
     )
-    breakpoint()    
     validate_final_energy_use_for_base_year_equals_esto_totals(economy, scenario, base_year, final_year, export_df, TRANSPORT_ESTO_BALANCES_PATH)
     print("\n=== Transport data successfully filled into LEAP. ===\n")
-
+    breakpoint()
+    #save export df to a pickle for later use
+    export_df.to_pickle('export_df.pkl')
+    export_df = validate_and_fix_shares_normalise_to_one(export_df, base_year, LEAP_BRANCH_TO_EXPRESSION_MAPPING, EXAMPLE_SAMPLE_SIZE=5)
+    
+    # breakpoint()#how does it lookright now? I think we watned to do soemthign with the dataset somehow? maybe it was to isnett all the units and stuff
+    if SAVE_IMPORT_FILE:
+        save_export_file(
+            export_df, leap_data_log, import_filename, base_year, final_year
+        )
+    
+    
 #%%
 # ------------------------------------------------------------
 # Optional: run directly
 # ------------------------------------------------------------
-if __name__ == "__main__":
+RUN = False
+if __name__ == "__main__" and RUN:
     pd.options.display.float_format = "{:,.3f}".format
     list_all_measures()
     load_transport_into_leap_v3(
@@ -347,10 +338,14 @@ if __name__ == "__main__":
         final_year=2060,
         save_log=True,
         log_filename="../../results/BD_transport_leap_data_log.xlsx",
-        SET_VARS_IN_LEAP_USING_COM=True,
-        create_import_files=True,
+        SET_VARS_IN_LEAP_USING_COM=False,
+        SAVE_IMPORT_FILE=True,
         import_filename="../../results/BD_transport_leap_import.xlsx",
         TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx',
         TRANSPORT_ROOT = r"Demand\Transport"
     )
 #%%
+
+export_df =  pd.read_pickle('export_df.pkl')
+base_year = 2022
+export_df = validate_and_fix_shares_normalise_to_one(export_df, base_year, LEAP_BRANCH_TO_EXPRESSION_MAPPING, EXAMPLE_SAMPLE_SIZE=5)

@@ -30,21 +30,14 @@ def create_import_instructions_sheet(writer):
     instructions.to_excel(writer, sheet_name="Instructions", index=False)
 
 
-def create_leap_import_file(
-    log_df,
-    filename="../../results/leap_import.xlsx",
-    scenario="Current Accounts",
-    region="Region 1",
-    method="Interp",
-    base_year=2022,
-    final_year=2060
+def summarize_and_create_export_df(log_df, scenario, region, method, base_year, final_year
 ):
     """
     Create a LEAP-compatible Excel import file using LEAP_MEASURE_CONFIG metadata.
     Matches official LEAP Excel import format.
     """
-
-    print(f"\n=== Creating LEAP Import File (structured) → {filename} ===")
+    
+    print(f"\n=== Creating LEAP Import File (structured) ===")
 
     if log_df is None or log_df.empty:
         print("[ERROR] No data available for export.")
@@ -127,7 +120,12 @@ def create_leap_import_file(
 
     # --- Add trailing placeholder column for #N/A ---
     export_df.loc[:, "#N/A"] = pd.NA
+    
+    return export_df
 
+
+def save_export_file(export_df, log_df, filename, base_year, final_year):
+    """Save the export DataFrame and log DataFrame to an Excel file."""
     # --- Write to Excel ---
     out_path = Path(filename)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -141,4 +139,4 @@ def create_leap_import_file(
     print(f" - Variables: {export_df['Variable'].nunique()}")
     print(f" - Branches: {export_df['Branch Path'].nunique()}")
     print("=" * 60)
-    return export_df
+    

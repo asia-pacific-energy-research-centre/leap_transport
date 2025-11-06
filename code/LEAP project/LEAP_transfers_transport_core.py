@@ -276,8 +276,16 @@ def log_leap_data(log_df, leap_tuple, src_tuple, branch_path, measure, df_m):
     return log_df
 
 
-def save_leap_data_log(log_df, filename="leap_data_log.xlsx"):
+def save_leap_data_log(log_df, filename="leap_data_log.xlsx", log_tuple=None):
     """Save the complete LEAP data log to Excel with summaries."""
+    if log_tuple is None:
+        log_tuple = ('N/A', 'N/A', 'N/A', 'N/A')
+    print("\n=== Summary ===")
+    print(f"✅ Variables written: {log_tuple[0]}")
+    print(f"⚠️  Skipped (no data or invalid tuples): {log_tuple[1]}")
+    print(f"❌ Missing LEAP branches: {log_tuple[2]}")
+    print(f"❌ Missing variables: {log_tuple[3]}")
+    print("================\n")
     print(f"\n=== Saving LEAP Data Log to {filename} ===")
     with pd.ExcelWriter(filename, engine='openpyxl') as writer:
         log_df.to_excel(writer, sheet_name='All_Data', index=False)

@@ -139,9 +139,25 @@ AGGREGATION_RULES = {
     "Efficiency_growth": "growth",
 }
 
+AGGREGATION_BASE_MEASURES = {
+    'Stock_share_calc_transport_type': 'Stocks',
+    'Stock_share_calc_fuel': 'Stocks',
+    'Stock_share_calc_vehicle_type': 'Stocks',
+    'Sales_calc_vehicle_type': 'Stocks',
+    'Activity_share_calc_transport_type': 'Activity',
+    'Activity_share_calc_fuel': 'Activity',
+    'Vehicle_sales_share_calc_transport_type': 'Stocks',
+    'Vehicle_sales_share_calc_fuel': 'Stocks',
+    'Vehicle_sales_share_vehicle_calc_type': 'Stocks',
+    
+}
+
 CALCULATED_MEASURES = ['Stock_share_calc_transport_type','Stock_share_calc_fuel','Stock_share_calc_vehicle_type','Sales_calc_vehicle_type', 'Sales_calc_medium', 'Activity_share_calc_transport_type', 'Activity_share_calc_fuel', 'Vehicle_sales_share_calc_transport_type', 'Vehicle_sales_share_calc_fuel', 'Vehicle_sales_share_vehicle_calc_type']
 
 SHORTNAME_TO_ANALYSIS_TYPE = {'Transport type (road)':'Stock', 'Vehicle type (road)':'Stock', 'Technology (road)':'Stock', 'Fuel (road)':'Stock', 'Transport type (non-road)':'Intensity', 'Vehicle type (non-road)':'Intensity', 'Fuel (non-road)':'Intensity', 'Others (level 1)':'Intensity', 'Others (level 2)':'Intensity'}
+
+SHARE_MEASURES = ['Stock Share', 'Device Share', 'Sales Share']
+
 # ============================================================
 
 # def get_measures_for_analysis(analysis_type, shortname):
@@ -215,11 +231,11 @@ def apply_scaling(series: pd.Series, leap_measure: str, shortname: str) -> pd.Se
     if leap_measure == "Final Energy Intensity":
         # Special handling for energy intensity measures
         if leap_measure == "Final Energy Intensity":
-            # Convert from PJ/km to GJ/km (inverse of intensity)
-            return series.apply(lambda x: None if x == 0 else 1_000.0 / x)
+            # Convert from PJ/km to GJ/km (inverse of intensity) except if the value is 1 - then keep as 1 since it is likely a placeholder
+            return series.apply(lambda x: None if x == 0 else 1_000.0 / x if x != 1 else 1)
         elif leap_measure in ["Fuel Economy", "Final On-Road Fuel Economy"]:
             # Convert from km/PJ to MJ/100km
-            return series.apply(lambda x: None if x == 0 else 100_000.0 / x)
+            return series.apply(lambda x: None if x == 0 else 100_000.0 / x if x != 1 else 1)
     return series * total_scale
 
 def aggregate_weighted(df, measure, group_cols, weight_col=None):
@@ -323,7 +339,7 @@ def calculate_measures(df: pd.DataFrame, measure: str) -> pd.DataFrame:
         #we will just calcaulte sales share as the share of sales within the group cols. 
         if 'Sales' not in df_out.columns:
             raise ValueError(f"Measure '{measure}' requires Sales to be calculated first.")
-
+    
         df_out[measure] = df_out.groupby(group_cols)['Sales'].transform(lambda x: x / x.sum() * 100 if x.sum() != 0 else 0)
     # elif 'vehicle_sales_share' in measure.lower():
     #     # Calculate vehicle sales share - similar to stock share but using Sales column.
@@ -523,11 +539,11 @@ def aggregate_measures(df_out, src, source_cols_for_grouping, ttype, medium, vty
         #         break
         #     # If we reach here, it means the category is valid
         #     source_cols_for_grouping_minus_one.append(category)
-        source_cols_for_grouping_minus_one = source_cols_for_grouping_no_date[:-1]
-        category_hierarchy_minus_one = [ttype, medium, vtype, drive, fuel][:len(source_cols_for_grouping_minus_one)]
-        category_hierarchy = [ttype, medium, vtype, drive, fuel][:len(source_cols_for_grouping_minus_one)+1]
+        source_cols_for_grouping_minus_one_no_date = source_cols_for_grouping_no_date[:-1]
+        category_hierarchy_minus_one = [ttype, medium, vtype, drive, fuel][:len(source_cols_for_grouping_minus_one_no_date)]
+        category_hierarchy = [ttype, medium, vtype, drive, fuel][:len(source_cols_for_grouping_minus_one_no_date)+1]
         #now filter.
-        df_out = filter_source_dataframe_by_categories(df_out, source_cols_for_grouping_minus_one, category_hierarchy_minus_one)
+        df_out = filter_source_dataframe_by_categories(df_out, source_cols_for_grouping_minus_one_no_date, category_hierarchy_minus_one)
         
         ####     
                 
@@ -562,13 +578,23 @@ def aggregate_measures(df_out, src, source_cols_for_grouping, ttype, medium, vty
             #     # )
             # Convert to percentage share within each group
             try:
-                df_out.loc[:, src] = df_out.groupby(source_cols_for_grouping_minus_one)[src].transform(
-                lambda x: x / x.sum() * 100 if x.sum() != 0 else x
-                )
+                # For share calculation, use the original base measure before conversion
+                base_measure = AGGREGATION_BASE_MEASURES.get(src, None)
+                if base_measure in df_out.columns:
+                    df_out.loc[:, src] = df_out.groupby(source_cols_for_grouping_minus_one_no_date+['Date'])[base_measure].transform(
+                        lambda x: x / x.sum() * 100 if x.sum() != 0 else x
+                    )
+                    # if fuel == None:
+                    #     #double check they add up to 1 within each group
+                    #     breakpoint()
+                else:
+                    breakpoint()
+                    raise ValueError(f"Base measure '{base_measure}' not found in DataFrame for share calculation of '{src}'")
             except Exception as e:
                 breakpoint()
                 
     else:
+        breakpoint()
         raise ValueError(f"No aggregation rule defined for source measure: {src}.")
     #filter for the exact categories again to ensure no extra rows remain after aggregation
     try:
@@ -605,12 +631,15 @@ def process_measures_for_leap(df: pd.DataFrame, filtered_measure_config: dict, s
     
     """
     processed = {}       
-        
+    print(f"Processing measures for LEAP branch: {shortname}")
     # Apply scaling
     for leap_measure, meta in filtered_measure_config.items():
-        
+        # if ttype == 'Nonspecified transport' and leap_measure == 'Final Energy Intensity':
+        #     breakpoint()  # investigate why 1000 is occuring
+        # if drive == 'bev' and leap_measure == 'Stock Share':
+        #     breakpoint()  # investigate why 1000 is occuring#why is the stock share ended up as >1
         df_out = df.copy()
-        print(leap_measure)
+        print('Recording measure:', leap_measure)
         src = meta["source_mapping"]
         if src in CALCULATED_MEASURES:
             try:

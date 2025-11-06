@@ -4,7 +4,7 @@
 from collections import defaultdict, Counter
 import pandas as pd
 from LEAP_tranposrt_measures_config import (
-    get_leap_branch_to_analysis_type_mapping
+    get_leap_branch_to_analysis_type_mapping, SHARE_MEASURES
 )
 from LEAP_transfers_transport_MAPPINGS import (
     ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
@@ -301,7 +301,7 @@ def validate_all_mappings_with_measures(
 #%%
 
 def calculate_energy_use_for_stock_analysis_branch(branch_path, branch_tuple, export_df, BASE_YEAR):
-    breakpoint()
+    
     # Placeholder function to calculate energy use for stock-based branches
     # This would involve retrieving stocks, mileage, and efficiency from the excel import sheet for leap
 
@@ -319,7 +319,7 @@ def calculate_energy_use_for_stock_analysis_branch(branch_path, branch_tuple, ex
     return energy_use.sum() if energy_use.size > 0 else 0
 
 def calculate_energy_use_for_intensity_analysis_branch(branch_path, branch_tuple, export_df, BASE_YEAR):
-    breakpoint()
+    
     # Placeholder function to calculate energy use for intensity-based branches
     # This would involve retrieving activity level and intensity from the excel import sheet for leap
 
@@ -358,7 +358,7 @@ def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, SCENARIO
         for leap_branch in leap_branches:
             if 'Nonspecified transport' in leap_branch:
                 #todo this. want to make ti so we can calcualte the nonspecified values now in the same way thgat is done in 
-                breakpoint()#is this right if we insert the esto energy?
+                # breakpoint()#is this right if we insert the esto energy?
                 continue  # Skip nonspecified branches since they don't have direct ESTO equivalents
             analysis_type = get_leap_branch_to_analysis_type_mapping(leap_branch)
             leap_ttype, leap_vtype, leap_drive, leap_fuel = (list(leap_branch) + [None] * (4 - len(leap_branch)))[:4]
@@ -384,10 +384,17 @@ def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, SCENARIO
         leap_energy_use_totals[esto_key] = total_energy_use
         #now find the esto_energy_totals:
         if 'Nonspecified transport' in leap_branch:
-            esto_energy_total = extract_esto_energy_use_for_leap_branches(leap_branches, esto_energy_use, ECONOMY, BASE_YEAR, FINAL_YEAR)#todo
-            breakpoint()#how to get the right df format here. it is currently a dict list
+            esto_energy_total_list = extract_esto_energy_use_for_leap_branches(leap_branches, esto_energy_use, ECONOMY, BASE_YEAR, FINAL_YEAR)#todo
+            # breakpoint()#how to get the right df format here. it is currently a dict list
             try:
-                esto_energy_total = pd.DataFrame(esto_energy_total)
+                esto_energy_total = pd.DataFrame()
+                for item in esto_energy_total_list:
+                    esto_energy_total_i = pd.DataFrame(item)
+                    esto_energy_total = pd.concat([esto_energy_total, esto_energy_total_i], ignore_index=True)
+                #and then extract onl the base year then sum energy if we need
+                esto_energy_total = esto_energy_total.loc[esto_energy_total['Date'] == BASE_YEAR]
+                esto_energy_total[BASE_YEAR] = esto_energy_total['Energy']
+                    
             except Exception as e:
                 breakpoint()
                 print(f"Error converting ESTO nonspecified data to DataFrame for key {esto_key}: {e}")
@@ -408,7 +415,7 @@ def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, SCENARIO
                 breakpoint()
                 raise ValueError(f"Multiple or no rows found in ESTO data for key {esto_key}")
             else:
-                breakpoint()
+                print(f"⚠️  No ESTO data found for key {esto_key}, setting total to 0.")
                 #for now jsut skip it since its not a big deal
                 esto_energy_totals[esto_key] = 0
                 continue
@@ -424,7 +431,6 @@ def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, SCENARIO
     
     validate_non_specified_energy_use_for_base_year_equals_esto_totals(BASE_YEAR, export_df, esto_energy_use_filtered)
     
-
 def validate_non_specified_energy_use_for_base_year_equals_esto_totals(BASE_YEAR, export_df, esto_energy_use_filtered, TRANSPORT_ROOT = r"Demand\Transport"):
     """
     #handle non specified slightly differently.. we will add up all of the fuel use for nonspecified branches and compare to the use for their corresponding branches in the esto data set:
@@ -476,3 +482,133 @@ def validate_non_specified_energy_use_for_base_year_equals_esto_totals(BASE_YEAR
             print(f"Discrepancy found for Nonspecified branch {branch}: LEAP = {leap_total}, ESTO = {esto_total}")
             # You can add additional handling logic here if needed
     print("Nonspecified branch validation complete.")
+    
+    
+def validate_and_fix_shares_normalise_to_one(df, BASE_YEAR, LEAP_BRANCH_TO_EXPRESSION_MAPPING, EXAMPLE_SAMPLE_SIZE=5):
+    """
+    Validate and (if needed) normalize share measures so that sibling branches sum to 1.
+    Updates df in-place for columns 'value' and/or BASE_YEAR when present.
+    """
+    tol = 1e-3
+
+    def to_tuple(branch):
+        if isinstance(branch, tuple):
+            return branch
+        if pd.isna(branch):
+            return ()
+        return tuple(str(branch).split('\\'))
+
+    #make the df tall to make it easier to work with
+    df_wide = df.copy()
+    df = pd.melt(
+        df_wide,
+        id_vars=['Branch Path', 'Variable', 'Scenario', 'Region', 'Scale', 'Units', 'Per...', 'Method','Level 1', 'Level 2', 'Level 3', 'Level 4', 'Level 5', 'Level 6', '#N/A'],
+        var_name='Date',
+        value_name='value'
+    )
+    
+    # Pre-compute branch hierarchies for all branches at once
+    df['branch_tuple'] = df['Branch Path'].apply(to_tuple)
+    
+    for measure in SHARE_MEASURES:
+        measure_data = df[df['Variable'] == measure].copy()
+        if measure_data.empty:
+            continue
+
+        # Create parent-child mapping vectorized
+        measure_data['branch_levels'] = measure_data['branch_tuple'].apply(len)
+        
+        issues_found = []
+        
+        # Group by Date first for efficiency
+        for date in measure_data['Date'].unique():
+            breakpoint()
+            date_data = measure_data[measure_data['Date'] == date].copy()
+            
+            # For each hierarchy level, calculate parent sums
+            max_levels = date_data['branch_levels'].max() if not date_data.empty else 0
+            
+            for level in range(1, max_levels + 1):
+                level_data = date_data[date_data['branch_levels'] == level].copy()
+                if level_data.empty:
+                    continue
+                
+                # Create parent paths for all branches at this level
+                level_data['parent_tuple'] = level_data['branch_tuple'].apply(
+                    lambda x: x[:-1] if len(x) > 0 else ()
+                )
+                
+                # Group by parent and calculate sums
+                parent_sums = level_data.groupby('parent_tuple')['value'].agg(['sum', 'count']).reset_index()
+                parent_sums.columns = ['parent_tuple', 'total_sum', 'child_count']
+                
+                # Find parents where sum != 1.0 (within tolerance)
+                problematic_parents = parent_sums[abs(parent_sums['total_sum'] - 1.0) > tol]
+                
+                if not problematic_parents.empty:
+                    # Merge back to get children needing normalization
+                    normalization_data = level_data.merge(
+                        problematic_parents[['parent_tuple', 'total_sum']], 
+                        on='parent_tuple', 
+                        how='inner'
+                    )
+                    
+                    # Calculate normalized values #todo need to find a way to deal with split equally better since we should ideally have real numbers otherwise we are just making things up
+                    def calculate_normalized_value(row, SPLIT_EQUALLY=True):
+                        if row['total_sum'] == 0.0 and row['child_count'] == 1:
+                            return 1.0
+                        elif row['total_sum'] == 0.0 and SPLIT_EQUALLY:
+                            return 1.0 / row['child_count']
+                        elif row['total_sum'] == 0.0:
+                            return 0.0
+                        else:
+                            return row['value'] / row['total_sum']
+                    
+                    # Add child count info
+                    normalization_data = normalization_data.merge(
+                        parent_sums[['parent_tuple', 'child_count']], 
+                        on='parent_tuple'
+                    )
+                    
+                    normalization_data['normalized_value'] = normalization_data.apply(
+                        calculate_normalized_value, axis=1
+                    )
+                    
+                    # Update original dataframe using vectorized operations
+                    for idx, row in normalization_data.iterrows():
+                        mask = (
+                            (df['Variable'] == measure) & 
+                            (df['branch_tuple'] == row['branch_tuple']) & 
+                            (df['Date'] == date)
+                        )
+                        df.loc[mask, 'value'] = row['normalized_value']
+                    
+                    # Record issues for reporting
+                    for parent_tuple in problematic_parents['parent_tuple'].unique():
+                        parent_info = problematic_parents[problematic_parents['parent_tuple'] == parent_tuple].iloc[0]
+                        children_info = normalization_data[
+                            normalization_data['parent_tuple'] == parent_tuple
+                        ][['branch_tuple', 'value', 'normalized_value']].values.tolist()
+                        
+                        issues_found.append({
+                            'parent': parent_tuple,
+                            'year': date,
+                            'total_share': parent_info['total_sum'],
+                            'children': [(c, o, n) for c, o, n in children_info],
+                            'Variable': measure
+                        })
+
+        # Report issues (same as before)
+        if issues_found:
+            print(f"⚠️  {len(issues_found)} normalization issues found and corrected for variable '{measure}':")
+            for issue in issues_found[:EXAMPLE_SAMPLE_SIZE]:
+                parent_str = ' -> '.join(issue['parent']) if issue['parent'] else 'Root'
+                total = issue.get('total_share', 0.0)
+                year = issue.get('year', 'Unknown')
+                print(f"   • Parent: {parent_str}, Year: {year}, Original Total: {total:.3f}")
+                for child, original, normalized in issue['children'][:3]:
+                    child_str = ' -> '.join(child) if isinstance(child, tuple) else str(child)
+                    print(f"     - {child_str}: {original:.3f} → {normalized:.3f}")
+        else:
+            print(f"✅ All shares already normalized to 1.0 for variable '{measure}'")
+    return df

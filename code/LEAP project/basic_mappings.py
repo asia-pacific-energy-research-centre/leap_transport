@@ -288,6 +288,7 @@ LEAP_STRUCTURE = {
 ######################
 ESTO_TRANSPORT_SECTOR_TUPLES = {
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_02_aviation_gasoline"),
+    ("15_01_domestic_air_transport", "07_petroleum_products", "07_01_motor_gasoline"),
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_06_kerosene"),
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_07_gas_diesel_oil"),
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_09_lpg"),

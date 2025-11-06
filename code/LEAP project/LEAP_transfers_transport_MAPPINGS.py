@@ -227,6 +227,8 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Nonspecified transport", "Gasoline"),
         ("Nonspecified transport", "Coal products"),
         ("Nonspecified transport", "Other petroleum products"),
+        ("Nonspecified transport", "Natural gas"),
+        ("Nonspecified transport", "Electricity"),
         ("Pipeline transport", "Fuel oil"),
         ("Pipeline transport", "Diesel"),
         ("Pipeline transport", "Natural gas"),
@@ -251,6 +253,7 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Passenger non road", "Rail", "Diesel"):         ("passenger", "rail", "all", "rail_diesel", "Diesel"),
     ("Passenger non road", "Rail", "Hydrogen"):       ("passenger", "rail", "all", "rail_electricity", "Electricity"),  # proxy
     ("Passenger non road", "Rail", "Coal"):           ("passenger", "rail", "all", "rail_coal", "Coal"),
+    ("Passenger non road", "Rail", "Biodiesel"):      ("passenger", "rail", "all", "rail_diesel", "Diesel"),
 
     ("Passenger non road", "Shipping", "Electricity"):("passenger", "ship", "all", "ship_electric", "Electricity"),
     ("Passenger non road", "Shipping", "Hydrogen"):   ("passenger", "ship", "all", "ship_hydrogen", "Hydrogen"),
@@ -260,6 +263,7 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Passenger non road", "Shipping", "Gasoline"):   ("passenger", "ship", "all", "ship_gasoline", "Gasoline"),
     ("Passenger non road", "Shipping", "Ammonia"):    ("passenger", "ship", "all", "ship_ammonia", "Ammonia"),
     ("Passenger non road", "Shipping", "Biogasoline"): ("passenger", "ship", "all", "ship_gasoline", "Gasoline"),
+    ("Passenger non road", "Shipping", "Biodiesel"):   ("passenger", "ship", "all", "ship_diesel", "Diesel"),
     
     # =========================
     # NON-ROAD: FREIGHT
@@ -273,6 +277,7 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Freight non road", "Rail", "Diesel"):           ("freight", "rail", "all", "rail_diesel", "Diesel"),
     ("Freight non road", "Rail", "Hydrogen"):         ("freight", "rail", "all", "rail_electricity", "Electricity"),    # proxy
     ("Freight non road", "Rail", "Coal"):             ("freight", "rail", "all", "rail_coal", "Coal"),
+    ("Freight non road", "Rail", "Biodiesel"): ("freight", "rail", "all", "rail_diesel", "Diesel"),
 
     ("Freight non road", "Shipping", "Electricity"):  ("freight", "ship", "all", "ship_electric", "Electricity"),
     ("Freight non road", "Shipping", "Hydrogen"):     ("freight", "ship", "all", "ship_hydrogen", "Hydrogen"),
@@ -282,6 +287,7 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Freight non road", "Shipping", "Gasoline"):     ("freight", "ship", "all", "ship_gasoline", "Gasoline"),
     ("Freight non road", "Shipping", "Ammonia"):      ("freight", "ship", "all", "ship_ammonia", "Ammonia"),
     ("Freight non road", "Shipping", "Biogasoline"): ("freight", "ship", "all", "ship_gasoline", "Gasoline"),
+    ("Freight non road", "Shipping", "Biodiesel"): ("freight", "ship", "all", "ship_diesel", "Diesel"),
 
     # =====================================================
     # ROAD: PASSENGER ROAD → LPVs
@@ -485,6 +491,9 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Nonspecified transport", "Gasoline"): ("Nonspecified transport", "Gasoline"),
     ("Nonspecified transport", "Coal products"): ("Nonspecified transport", "Coal products"),
     ("Nonspecified transport", "Other petroleum products"): ("Nonspecified transport", "Other petroleum products"),
+    ("Nonspecified transport", "Natural gas"): ("Nonspecified transport", "Natural gas"),
+    ("Nonspecified transport", "Electricity"): ("Nonspecified transport", "Electricity"),
+    
     ("Pipeline transport", "Fuel oil"): ("Pipeline transport", "Fuel oil"),
     ("Pipeline transport", "Diesel"): ("Pipeline transport", "Diesel"),
     ("Pipeline transport", "Natural gas"): ("Pipeline transport", "Natural gas"),
@@ -498,6 +507,10 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
     # ------------------------------------------------------------
     # 15_01_domestic_air_transport → Passenger non-road Air
     # ------------------------------------------------------------
+    
+    ("15_01_domestic_air_transport", "07_petroleum_products", "07_01_motor_gasoline"): [
+        ("Nonspecified transport", "Gasoline")
+    ],
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_02_aviation_gasoline"): [
         ("Passenger non road", "Air", "Aviation gasoline"),
         ("Freight non road","Air","Aviation gasoline")
@@ -713,8 +726,8 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_09_lpg"): [("Nonspecified transport", "LPG")],
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_x_jet_fuel"): [("Nonspecified transport", "Kerosene")],
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_x_other_petroleum_products"): [("Nonspecified transport", "Other petroleum products")],
-    ("15_06_nonspecified_transport", "08_gas", "08_01_natural_gas"): [("Nonspecified transport", "Gasoline")],
-    ("15_06_nonspecified_transport", "17_electricity", "x"): [("Nonspecified transport", "Gasoline")],
+    ("15_06_nonspecified_transport", "08_gas", "08_01_natural_gas"): [("Nonspecified transport", "Natural gas")],
+    ("15_06_nonspecified_transport", "17_electricity", "x"): [("Nonspecified transport", "Electricity")],
 }
 #%%
 
@@ -995,7 +1008,7 @@ LEAP_MEASURE_CONFIG = {
             "LEAP_Per": None
         },
         "Stock Share": {
-            "source_mapping": "Vehicle_sales_share",
+            "source_mapping": "Stock_share_calc_vehicle_type",
             "factor": 1,
             "unit": "%",
             "LEAP_units": "Share",

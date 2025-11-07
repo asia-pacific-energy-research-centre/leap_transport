@@ -203,6 +203,9 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Passenger non road", "Air", "Electricity"),
         ("Passenger non road", "Air", "Jet fuel"),
         ("Passenger non road", "Air", "Aviation gasoline"),
+        ("Passenger non road", "Air", "Biojet"),
+        ("Passenger non road", "Air", "Diesel"),
+        ("Passenger non road", "Air", "LPG"),
         
         ("Passenger non road", "Rail", "Electricity"),
         ("Passenger non road", "Rail", "Diesel"),
@@ -225,6 +228,7 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Freight non road", "Air", "Electricity"),
         ("Freight non road", "Air", "Jet fuel"),
         ("Freight non road", "Air", "Aviation gasoline"),
+        ("Freight non road", "Air", "Biojet"),
         
         ("Freight non road", "Rail", "Electricity"),
         ("Freight non road", "Rail", "Diesel"),
@@ -276,6 +280,8 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Passenger non road", "Air", "Electricity"):     ("passenger", "air",  "all", "air_electric", "Electricity"),
     ("Passenger non road", "Air", "Jet fuel"):        ("passenger", "air",  "all", "air_jet_fuel", "Jet fuel"),
     ("Passenger non road", "Air", "Aviation gasoline"): ("passenger", "air", "all", "air_av_gas", "Aviation gasoline"),
+    ("Passenger non road", "Air", "Diesel"):          ("passenger", "air",  "all", "air_diesel", "Diesel"),
+    ("Passenger non road", "Air", "LPG"):             ("passenger", "air",  "all", "air_lpg", "LPG"),
     ("Passenger non road", "Air", "Biojet"):         ("passenger", "air",  "all", "air_biojet", "Biojet"),# proxy
 
     ("Passenger non road", "Rail", "Electricity"):    ("passenger", "rail", "all", "rail_electricity", "Electricity"),
@@ -1002,7 +1008,9 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
     ],
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_x_jet_fuel"): [
         ("Passenger non road", "Air", "Jet fuel"),
-        ("Freight non road","Air","Jet fuel")
+        ("Freight non road","Air","Jet fuel"),
+        ("Passenger non road", "Air", "Biojet"),
+        ("Freight non road", "Air", "Biojet"),
     ],
 
     # ------------------------------------------------------------
@@ -1200,6 +1208,10 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
         ("Passenger non road","Shipping","Biodiesel"),
         ("Freight non road","Shipping","Biodiesel")
     ],
+    ("15_04_domestic_navigation", "16_others", "16_05_biogasoline"): [
+        ("Passenger non road","Shipping","Biogasoline"),
+        ("Freight non road","Shipping","Biogasoline"),
+    ],
     ("15_04_domestic_navigation", "17_electricity", "x"): [
         ("Passenger non road","Shipping","Electricity"),
         ("Freight non road","Shipping","Electricity")
@@ -1269,9 +1281,7 @@ UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT = {
     ('Freight road', 'Trucks', 'ICE medium', 'Biogas'),
     ('Freight road', 'Trucks', 'ICE heavy', 'Biogas'),
 
-    # Biogasline in ships: #these occur because ships use like no gasoline as it is. 
-    ('Passenger non road', 'Shipping', 'Biogasoline'),
-    ('Freight non road', 'Shipping', 'Biogasoline'),
+    # Biogasline in ships: #these occur because ships use like no gasoline as it is.
     
     # Others that are just the lower level branches that have no fuel specified:
     ('Nonspecified transport',),

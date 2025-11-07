@@ -304,8 +304,6 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Pipeline transport", "Diesel"),
         ("Pipeline transport", "Natural gas"),
         ("Pipeline transport", "Electricity"),
-        ("Nonspecified transport", "Efuel"),
-        ("Pipeline transport", "Efuel"),
     ]
 }
 
@@ -628,13 +626,11 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Nonspecified transport", "Other petroleum products"): ("Nonspecified transport", "Other petroleum products"),
     ("Nonspecified transport", "Natural gas"): ("Nonspecified transport", "Natural gas"),
     ("Nonspecified transport", "Electricity"): ("Nonspecified transport", "Electricity"),
-    ("Nonspecified transport", "Efuel"): ("Nonspecified transport", "Efuel"),
 
     ("Pipeline transport", "Fuel oil"): ("Pipeline transport", "Fuel oil"),
     ("Pipeline transport", "Diesel"): ("Pipeline transport", "Diesel"),
     ("Pipeline transport", "Natural gas"): ("Pipeline transport", "Natural gas"),
     ("Pipeline transport", "Electricity"): ("Pipeline transport", "Electricity"),
-    ("Pipeline transport", "Efuel"): ("Pipeline transport", "Efuel"),
     ("Nonspecified transport",): ("Nonspecified transport",),
     ("Pipeline transport",): ("Pipeline transport",)
 }
@@ -1090,8 +1086,6 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_x_jet_fuel"): [
         ("Passenger non road", "Air", "Jet fuel"),
         ("Freight non road", "Air", "Jet fuel"),
-        ("Passenger non road", "Air", "Efuel"),
-        ("Freight non road", "Air", "Efuel"),
     ],
 
     # ------------------------------------------------------------
@@ -1123,47 +1117,26 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
     ("15_02_road", "07_petroleum_products", "07_06_kerosene"): [("Nonspecified transport", "Kerosene")],
     ("15_02_road", "07_petroleum_products", "07_07_gas_diesel_oil"): [
         ("Passenger road", "LPVs", "ICE small", "Diesel"),
-        ("Passenger road", "LPVs", "ICE small", "Efuel"),
         ("Passenger road", "LPVs", "ICE medium", "Diesel"),
-        ("Passenger road", "LPVs", "ICE medium", "Efuel"),
         ("Passenger road", "LPVs", "ICE large", "Diesel"),
-        ("Passenger road", "LPVs", "ICE large", "Efuel"),
         ("Passenger road", "Buses", "ICE", "Diesel"),
-        ("Passenger road", "Buses", "ICE", "Efuel"),
         ("Freight road", "LCVs", "ICE", "Diesel"),
-        ("Freight road", "LCVs", "ICE", "Efuel"),
         ("Freight road", "Trucks", "ICE medium", "Diesel"),
-        ("Freight road", "Trucks", "ICE medium", "Efuel"),
         ("Freight road", "Trucks", "ICE heavy", "Diesel"),
-        ("Freight road", "Trucks", "ICE heavy", "Efuel"),
         ("Passenger road", "LPVs", "HEV small", "Diesel"),
-        ("Passenger road", "LPVs", "HEV small", "Efuel"),
         ("Passenger road", "LPVs", "HEV medium", "Diesel"),
-        ("Passenger road", "LPVs", "HEV medium", "Efuel"),
         ("Passenger road", "LPVs", "HEV large", "Diesel"),
-        ("Passenger road", "LPVs", "HEV large", "Efuel"),
         ("Passenger road", "LPVs", "PHEV small", "Diesel"),
-        ("Passenger road", "LPVs", "PHEV small", "Efuel"),
         ("Passenger road", "LPVs", "PHEV medium", "Diesel"),
-        ("Passenger road", "LPVs", "PHEV medium", "Efuel"),
         ("Passenger road", "LPVs", "PHEV large", "Diesel"),
-        ("Passenger road", "LPVs", "PHEV large", "Efuel"),
         ("Passenger road", "Motorcycles", "ICE", "Diesel"),
-        ("Passenger road", "Motorcycles", "ICE", "Efuel"),
         ("Freight road", "Trucks", "EREV medium", "Diesel"),
-        ("Freight road", "Trucks", "EREV medium", "Efuel"),
         ("Freight road", "Trucks", "EREV heavy", "Diesel"),
-        ("Freight road", "Trucks", "EREV heavy", "Efuel"),
         ("Freight road", "LCVs", "PHEV", "Diesel"),
-        ("Freight road", "LCVs", "PHEV", "Efuel"),
         ("Passenger road", "Buses", "EREV", "Diesel"),
-        ("Passenger road", "Buses", "EREV", "Efuel"),
         ("Passenger road", "Buses", "PHEV", "Diesel"),
-        ("Passenger road", "Buses", "PHEV", "Efuel"),
         ("Freight road", "Trucks", "PHEV heavy", "Diesel"),
-        ("Freight road", "Trucks", "PHEV heavy", "Efuel"),
         ("Freight road", "Trucks", "PHEV medium", "Diesel"),
-        ("Freight road", "Trucks", "PHEV medium", "Efuel"),
     ],
     ("15_02_road", "07_petroleum_products", "07_08_fuel_oil"): [("Nonspecified transport", "Fuel oil")],
     ("15_02_road", "07_petroleum_products", "07_09_lpg"): [
@@ -1267,8 +1240,6 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
     ("15_03_rail", "07_petroleum_products", "07_07_gas_diesel_oil"): [
         ("Passenger non road", "Rail", "Diesel"),
         ("Freight non road", "Rail", "Diesel"),
-        ("Passenger non road", "Rail", "Efuel"),
-        ("Freight non road", "Rail", "Efuel"),
     ],
     ("15_03_rail", "07_petroleum_products", "07_08_fuel_oil"): [
         ("Nonspecified transport", "Fuel oil")
@@ -1296,8 +1267,6 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
     ("15_04_domestic_navigation", "07_petroleum_products", "07_07_gas_diesel_oil"): [
         ("Passenger non road", "Shipping", "Diesel"),
         ("Freight non road", "Shipping", "Diesel"),
-        ("Passenger non road", "Shipping", "Efuel"),
-        ("Freight non road", "Shipping", "Efuel"),
     ],
     ("15_04_domestic_navigation", "07_petroleum_products", "07_08_fuel_oil"): [
         ("Passenger non road", "Shipping", "Fuel oil"),
@@ -1325,7 +1294,6 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
     ("15_05_pipeline_transport", "07_petroleum_products", "07_01_motor_gasoline"): [("Nonspecified transport", "Gasoline")],
     ("15_05_pipeline_transport", "07_petroleum_products", "07_07_gas_diesel_oil"): [
         ("Pipeline transport", "Diesel"),
-        ("Pipeline transport", "Efuel"),
     ],
     ("15_05_pipeline_transport", "07_petroleum_products", "07_08_fuel_oil"): [("Pipeline transport", "Fuel oil")],
     ("15_05_pipeline_transport", "07_petroleum_products", "07_09_lpg"): [("Nonspecified transport", "LPG")],
@@ -1338,7 +1306,6 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_01_motor_gasoline"): [("Nonspecified transport", "Gasoline")],
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_07_gas_diesel_oil"): [
         ("Nonspecified transport", "Diesel"),
-        ("Nonspecified transport", "Efuel"),
     ],
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_08_fuel_oil"): [("Nonspecified transport", "Fuel oil")],
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_09_lpg"): [("Nonspecified transport", "LPG")],
@@ -1394,6 +1361,40 @@ UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT = {
     ("Freight road", "LCVs", "ICE", "Biogas"),
     ("Freight road", "Trucks", "ICE medium", "Biogas"),
     ("Freight road", "Trucks", "ICE heavy", "Biogas"),
+    
+    #all efuel branches (no efuel category in ESTO)
+    # All Efuel branches for passenger road
+    ("Passenger road", "LPVs", "ICE small", "Efuel"),
+    ("Passenger road", "LPVs", "ICE medium", "Efuel"),
+    ("Passenger road", "LPVs", "ICE large", "Efuel"),
+    ("Passenger road", "LPVs", "PHEV small", "Efuel"),
+    ("Passenger road", "LPVs", "PHEV medium", "Efuel"),
+    ("Passenger road", "LPVs", "PHEV large", "Efuel"),
+    ("Passenger road", "LPVs", "HEV small", "Efuel"),
+    ("Passenger road", "LPVs", "HEV medium", "Efuel"),
+    ("Passenger road", "LPVs", "HEV large", "Efuel"),
+    ("Passenger road", "Buses", "ICE", "Efuel"),
+    ("Passenger road", "Buses", "PHEV", "Efuel"),
+    ("Passenger road", "Buses", "EREV", "Efuel"),
+    ("Passenger road", "Motorcycles", "ICE", "Efuel"),
+    
+    # All Efuel branches for freight road
+    ("Freight road", "Trucks", "ICE heavy", "Efuel"),
+    ("Freight road", "Trucks", "ICE medium", "Efuel"),
+    ("Freight road", "Trucks", "EREV heavy", "Efuel"),
+    ("Freight road", "Trucks", "EREV medium", "Efuel"),
+    ("Freight road", "Trucks", "PHEV heavy", "Efuel"),
+    ("Freight road", "Trucks", "PHEV medium", "Efuel"),
+    ("Freight road", "LCVs", "ICE", "Efuel"),
+    ("Freight road", "LCVs", "PHEV", "Efuel"),
+    
+    # All Efuel branches for non-road transport
+    ("Passenger non road", "Air", "Efuel"),
+    ("Freight non road", "Air", "Efuel"),
+    ("Passenger non road", "Rail", "Efuel"),
+    ("Freight non road", "Rail", "Efuel"),
+    ("Passenger non road", "Shipping", "Efuel"),
+    ("Freight non road", "Shipping", "Efuel"),
     
     # Others that are just the lower level branches that have no fuel specified:
     ("Nonspecified transport",),

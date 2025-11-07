@@ -55,53 +55,73 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Passenger road", "LPVs", "BEV large", "Electricity"),
         ("Passenger road", "LPVs", "ICE small", "Gasoline"),
         ("Passenger road", "LPVs", "ICE small", "Diesel"),
+        ("Passenger road", "LPVs", "ICE small", "Efuel"),
         ("Passenger road", "LPVs", "ICE small", "Biogasoline"),
         ("Passenger road", "LPVs", "ICE small", "Biodiesel"),
+        ("Passenger road", "LPVs", "ICE small", "Efuel"),
         ("Passenger road", "LPVs", "ICE medium", "Gasoline"),
         ("Passenger road", "LPVs", "ICE medium", "Diesel"),
+        ("Passenger road", "LPVs", "ICE medium", "Efuel"),
         ("Passenger road", "LPVs", "ICE medium", "Biogasoline"),
         ("Passenger road", "LPVs", "ICE medium", "Biodiesel"),
+        ("Passenger road", "LPVs", "ICE medium", "Efuel"),
         ("Passenger road", "LPVs", "ICE medium", "LPG"),
         ("Passenger road", "LPVs", "ICE medium", "CNG"),
         ("Passenger road", "LPVs", "ICE medium", "Biogas"),
         ("Passenger road", "LPVs", "ICE large", "Gasoline"),
         ("Passenger road", "LPVs", "ICE large", "Diesel"),
+        ("Passenger road", "LPVs", "ICE large", "Efuel"),
         ("Passenger road", "LPVs", "ICE large", "Biogasoline"),
         ("Passenger road", "LPVs", "ICE large", "Biodiesel"),
+        ("Passenger road", "LPVs", "ICE large", "Efuel"),
         ("Passenger road", "LPVs", "ICE large", "LPG"),
         ("Passenger road", "LPVs", "ICE large", "CNG"),
         ("Passenger road", "LPVs", "ICE large", "Biogas"),
         ("Passenger road", "LPVs", "PHEV small", "Electricity"),
         ("Passenger road", "LPVs", "PHEV small", "Gasoline"),
         ("Passenger road", "LPVs", "PHEV small", "Diesel"),
+        ("Passenger road", "LPVs", "PHEV small", "Efuel"),
         ("Passenger road", "LPVs", "PHEV small", "Biogasoline"),
         ("Passenger road", "LPVs", "PHEV small", "Biodiesel"),
+        ("Passenger road", "LPVs", "PHEV small", "Efuel"),
         ("Passenger road", "LPVs", "PHEV medium", "Electricity"),
         ("Passenger road", "LPVs", "PHEV medium", "Gasoline"),
         ("Passenger road", "LPVs", "PHEV medium", "Diesel"),
+        ("Passenger road", "LPVs", "PHEV medium", "Efuel"),
         ("Passenger road", "LPVs", "PHEV medium", "Biogasoline"),
         ("Passenger road", "LPVs", "PHEV medium", "Biodiesel"),
+        ("Passenger road", "LPVs", "PHEV medium", "Efuel"),
         ("Passenger road", "LPVs", "PHEV large", "Electricity"),
         ("Passenger road", "LPVs", "PHEV large", "Gasoline"),
         ("Passenger road", "LPVs", "PHEV large", "Diesel"),
+        ("Passenger road", "LPVs", "PHEV large", "Efuel"),
         ("Passenger road", "LPVs", "PHEV large", "Biogasoline"),
         ("Passenger road", "LPVs", "PHEV large", "Biodiesel"),
+        ("Passenger road", "LPVs", "PHEV large", "Efuel"),
         ("Passenger road", "LPVs", "HEV small", "Gasoline"),
         ("Passenger road", "LPVs", "HEV small", "Diesel"),
+        ("Passenger road", "LPVs", "HEV small", "Efuel"),
         ("Passenger road", "LPVs", "HEV small", "Biogasoline"),
         ("Passenger road", "LPVs", "HEV small", "Biodiesel"),
+        ("Passenger road", "LPVs", "HEV small", "Efuel"),
         ("Passenger road", "LPVs", "HEV medium", "Gasoline"),
         ("Passenger road", "LPVs", "HEV medium", "Diesel"),
+        ("Passenger road", "LPVs", "HEV medium", "Efuel"),
         ("Passenger road", "LPVs", "HEV medium", "Biogasoline"),
         ("Passenger road", "LPVs", "HEV medium", "Biodiesel"),
+        ("Passenger road", "LPVs", "HEV medium", "Efuel"),
         ("Passenger road", "LPVs", "HEV large", "Gasoline"),
         ("Passenger road", "LPVs", "HEV large", "Diesel"),
+        ("Passenger road", "LPVs", "HEV large", "Efuel"),
         ("Passenger road", "LPVs", "HEV large", "Biogasoline"),
         ("Passenger road", "LPVs", "HEV large", "Biodiesel"),
+        ("Passenger road", "LPVs", "HEV large", "Efuel"),
         # Bus fuels
         ("Passenger road", "Buses", "BEV", "Electricity"),
         ("Passenger road", "Buses", "ICE", "Diesel"),
+        ("Passenger road", "Buses", "ICE", "Efuel"),
         ("Passenger road", "Buses", "ICE", "Biodiesel"),
+        ("Passenger road", "Buses", "ICE", "Efuel"),
         ("Passenger road", "Buses", "ICE", "Biogasoline"),
         ("Passenger road", "Buses", "ICE", "Gasoline"),
         ("Passenger road", "Buses", "ICE", "LPG"),
@@ -111,24 +131,31 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Passenger road", "Buses", "PHEV", "Electricity"),
         ("Passenger road", "Buses", "PHEV", "Gasoline"),
         ("Passenger road", "Buses", "PHEV", "Diesel"),
+        ("Passenger road", "Buses", "PHEV", "Efuel"),
         ("Passenger road", "Buses", "PHEV", "Biogasoline"),
         ("Passenger road", "Buses", "PHEV", "Biodiesel"),
+        ("Passenger road", "Buses", "PHEV", "Efuel"),
         ("Passenger road", "Buses", "EREV", "Electricity"),
         ("Passenger road", "Buses", "EREV", "Gasoline"),
         ("Passenger road", "Buses", "EREV", "Diesel"),
+        ("Passenger road", "Buses", "EREV", "Efuel"),
         ("Passenger road", "Buses", "EREV", "Biogasoline"),
         ("Passenger road", "Buses", "EREV", "Biodiesel"),
+        ("Passenger road", "Buses", "EREV", "Efuel"),
         # Motorcycles fuels
         ("Passenger road", "Motorcycles", "ICE", "Gasoline"),
         ("Passenger road", "Motorcycles", "ICE", "Diesel"),
+        ("Passenger road", "Motorcycles", "ICE", "Efuel"),
         ("Passenger road", "Motorcycles", "ICE", "Biogasoline"),
         ("Passenger road", "Motorcycles", "ICE", "Biodiesel"),
+        ("Passenger road", "Motorcycles", "ICE", "Efuel"),
         ("Passenger road", "Motorcycles", "BEV", "Electricity"),
         # Freight road fuels
         ("Freight road", "Trucks", "ICE heavy", "Gasoline"),
         ("Freight road", "Trucks", "ICE heavy", "Diesel"),
         ("Freight road", "Trucks", "ICE heavy", "Biogasoline"),
         ("Freight road", "Trucks", "ICE heavy", "Biodiesel"),
+        ("Freight road", "Trucks", "ICE heavy", "Efuel"),
         ("Freight road", "Trucks", "ICE heavy", "LPG"),
         ("Freight road", "Trucks", "ICE heavy", "CNG"),
         ("Freight road", "Trucks", "ICE heavy", "LNG"),
@@ -137,6 +164,7 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Freight road", "Trucks", "ICE medium", "Diesel"),
         ("Freight road", "Trucks", "ICE medium", "Biogasoline"),
         ("Freight road", "Trucks", "ICE medium", "Biodiesel"),
+        ("Freight road", "Trucks", "ICE medium", "Efuel"),
         ("Freight road", "Trucks", "ICE medium", "LPG"),
         ("Freight road", "Trucks", "ICE medium", "CNG"),
         ("Freight road", "Trucks", "ICE medium", "LNG"),
@@ -148,11 +176,13 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Freight road", "Trucks", "EREV medium", "Electricity"),
         ("Freight road", "Trucks", "EREV medium", "Biogasoline"),
         ("Freight road", "Trucks", "EREV medium", "Biodiesel"),
+        ("Freight road", "Trucks", "EREV medium", "Efuel"),
         ("Freight road", "Trucks", "EREV heavy", "Gasoline"),
         ("Freight road", "Trucks", "EREV heavy", "Diesel"),
         ("Freight road", "Trucks", "EREV heavy", "Electricity"),
         ("Freight road", "Trucks", "EREV heavy", "Biogasoline"),
         ("Freight road", "Trucks", "EREV heavy", "Biodiesel"),
+        ("Freight road", "Trucks", "EREV heavy", "Efuel"),
         ("Freight road", "Trucks", "FCEV heavy", "Hydrogen"),
         ("Freight road", "Trucks", "FCEV medium", "Hydrogen"),
         ("Freight road", "Trucks", "PHEV heavy", "Electricity"),
@@ -160,16 +190,20 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Freight road", "Trucks", "PHEV heavy", "Diesel"),
         ("Freight road", "Trucks", "PHEV heavy", "Biogasoline"),
         ("Freight road", "Trucks", "PHEV heavy", "Biodiesel"),
+        ("Freight road", "Trucks", "PHEV heavy", "Efuel"),
         ("Freight road", "Trucks", "PHEV medium", "Electricity"),
         ("Freight road", "Trucks", "PHEV medium", "Gasoline"),
         ("Freight road", "Trucks", "PHEV medium", "Diesel"),
         ("Freight road", "Trucks", "PHEV medium", "Biogasoline"),
         ("Freight road", "Trucks", "PHEV medium", "Biodiesel"),
+        ("Freight road", "Trucks", "PHEV medium", "Efuel"),
         # LCVs fuels
         ("Freight road", "LCVs", "ICE", "Gasoline"),
         ("Freight road", "LCVs", "ICE", "Diesel"),
+        ("Freight road", "LCVs", "ICE", "Efuel"),
         ("Freight road", "LCVs", "ICE", "Biogasoline"),
         ("Freight road", "LCVs", "ICE", "Biodiesel"),
+        ("Freight road", "LCVs", "ICE", "Efuel"),
         ("Freight road", "LCVs", "ICE", "LPG"),
         ("Freight road", "LCVs", "ICE", "CNG"),
         ("Freight road", "LCVs", "ICE", "Biogas"),
@@ -177,8 +211,10 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Freight road", "LCVs", "PHEV", "Electricity"),
         ("Freight road", "LCVs", "PHEV", "Gasoline"),
         ("Freight road", "LCVs", "PHEV", "Diesel"),
+        ("Freight road", "LCVs", "PHEV", "Efuel"),
         ("Freight road", "LCVs", "PHEV", "Biogasoline"),
         ("Freight road", "LCVs", "PHEV", "Biodiesel"),
+        ("Freight road", "LCVs", "PHEV", "Efuel"),
     ],
 
     #################################################
@@ -202,11 +238,13 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Passenger non road", "Air", "Hydrogen"),
         ("Passenger non road", "Air", "Electricity"),
         ("Passenger non road", "Air", "Jet fuel"),
+        ("Passenger non road", "Air", "Efuel"),
         ("Passenger non road", "Air", "Aviation gasoline"),
         ("Passenger non road", "Air", "Biojet"),
         
         ("Passenger non road", "Rail", "Electricity"),
         ("Passenger non road", "Rail", "Diesel"),
+        ("Passenger non road", "Rail", "Efuel"),
         ("Passenger non road", "Rail", "Hydrogen"),
         ("Passenger non road", "Rail", "Coal"),
         ("Passenger non road", "Rail", "Biodiesel"),
@@ -214,6 +252,7 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Passenger non road", "Shipping", "Electricity"),
         ("Passenger non road", "Shipping", "Hydrogen"),
         ("Passenger non road", "Shipping", "Diesel"),
+        ("Passenger non road", "Shipping", "Efuel"),
         ("Passenger non road", "Shipping", "Fuel oil"),
         ("Passenger non road", "Shipping", "LNG"),
         ("Passenger non road", "Shipping", "Gasoline"),
@@ -224,11 +263,13 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Freight non road", "Air", "Hydrogen"),
         ("Freight non road", "Air", "Electricity"),
         ("Freight non road", "Air", "Jet fuel"),
+        ("Freight non road", "Air", "Efuel"),
         ("Freight non road", "Air", "Aviation gasoline"),
         ("Freight non road", "Air", "Biojet"),
         
         ("Freight non road", "Rail", "Electricity"),
         ("Freight non road", "Rail", "Diesel"),
+        ("Freight non road", "Rail", "Efuel"),
         ("Freight non road", "Rail", "Hydrogen"),
         ("Freight non road", "Rail", "Coal"),
         ("Freight non road", "Rail", "Biodiesel"),
@@ -236,6 +277,7 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Freight non road", "Shipping", "Electricity"),
         ("Freight non road", "Shipping", "Hydrogen"),
         ("Freight non road", "Shipping", "Diesel"),
+        ("Freight non road", "Shipping", "Efuel"),
         ("Freight non road", "Shipping", "Fuel oil"),
         ("Freight non road", "Shipping", "LNG"),
         ("Freight non road", "Shipping", "Gasoline"),
@@ -262,6 +304,8 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Pipeline transport", "Diesel"),
         ("Pipeline transport", "Natural gas"),
         ("Pipeline transport", "Electricity"),
+        ("Nonspecified transport", "Efuel"),
+        ("Pipeline transport", "Efuel"),
     ]
 }
 
@@ -276,11 +320,13 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Passenger non road", "Air", "Hydrogen"):        ("passenger", "air", "all", "air_hydrogen", "Hydrogen"),
     ("Passenger non road", "Air", "Electricity"):     ("passenger", "air", "all", "air_electric", "Electricity"),
     ("Passenger non road", "Air", "Jet fuel"):        ("passenger", "air", "all", "air_jet_fuel", "Jet fuel"),
+    ("Passenger non road", "Air", "Efuel"):          ("passenger", "air", "all", "air_jet_fuel", "Efuel"),
     ("Passenger non road", "Air", "Aviation gasoline"): ("passenger", "air", "all", "air_av_gas", "Aviation gasoline"),
     ("Passenger non road", "Air", "Biojet"):         ("passenger", "air", "all", "air_biojet", "Biojet"), # proxy
 
     ("Passenger non road", "Rail", "Electricity"):    ("passenger", "rail", "all", "rail_electricity", "Electricity"),
     ("Passenger non road", "Rail", "Diesel"):         ("passenger", "rail", "all", "rail_diesel", "Diesel"),
+    ("Passenger non road", "Rail", "Efuel"):          ("passenger", "rail", "all", "rail_diesel", "Efuel"),
     ("Passenger non road", "Rail", "Hydrogen"):       ("passenger", "rail", "all", "rail_hydrogen", "Hydrogen"), # proxy
     ("Passenger non road", "Rail", "Coal"):           ("passenger", "rail", "all", "rail_coal", "Coal"),
     ("Passenger non road", "Rail", "Biodiesel"):      ("passenger", "rail", "all", "rail_biodiesel", "Biodiesel"), # proxy
@@ -288,6 +334,7 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Passenger non road", "Shipping", "Electricity"):("passenger", "ship", "all", "ship_electric", "Electricity"),
     ("Passenger non road", "Shipping", "Hydrogen"):   ("passenger", "ship", "all", "ship_hydrogen", "Hydrogen"),
     ("Passenger non road", "Shipping", "Diesel"):     ("passenger", "ship", "all", "ship_diesel", "Diesel"),
+    ("Passenger non road", "Shipping", "Efuel"):      ("passenger", "ship", "all", "ship_diesel", "Efuel"),
     ("Passenger non road", "Shipping", "Fuel oil"):   ("passenger", "ship", "all", "ship_fuel_oil", "Fuel oil"),
     ("Passenger non road", "Shipping", "LNG"):        ("passenger", "ship", "all", "ship_lng", "LNG"),
     ("Passenger non road", "Shipping", "Gasoline"):   ("passenger", "ship", "all", "ship_gasoline", "Gasoline"),
@@ -301,11 +348,13 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Freight non road", "Air", "Hydrogen"):          ("freight", "air", "all", "air_hydrogen", "Hydrogen"),
     ("Freight non road", "Air", "Electricity"):       ("freight", "air", "all", "air_electric", "Electricity"),
     ("Freight non road", "Air", "Jet fuel"):          ("freight", "air", "all", "air_jet_fuel", "Jet fuel"),
+    ("Freight non road", "Air", "Efuel"):            ("freight", "air", "all", "air_jet_fuel", "Efuel"),
     ("Freight non road", "Air", "Aviation gasoline"): ("freight", "air", "all", "air_av_gas", "Aviation gasoline"),
     ("Freight non road", "Air", "Biojet"):           ("freight", "air", "all", "air_biojet", "Biojet"), # proxy
 
     ("Freight non road", "Rail", "Electricity"):      ("freight", "rail", "all", "rail_electricity", "Electricity"),
     ("Freight non road", "Rail", "Diesel"):           ("freight", "rail", "all", "rail_diesel", "Diesel"),
+    ("Freight non road", "Rail", "Efuel"):            ("freight", "rail", "all", "rail_diesel", "Efuel"),
     ("Freight non road", "Rail", "Hydrogen"):         ("freight", "rail", "all", "rail_hydrogen", "Hydrogen"), # proxy
     ("Freight non road", "Rail", "Coal"):             ("freight", "rail", "all", "rail_coal", "Coal"),
     ("Freight non road", "Rail", "Biodiesel"):       ("freight", "rail", "all", "rail_biodiesel", "Biodiesel"), # proxy
@@ -313,6 +362,7 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Freight non road", "Shipping", "Electricity"):  ("freight", "ship", "all", "ship_electric", "Electricity"),
     ("Freight non road", "Shipping", "Hydrogen"):     ("freight", "ship", "all", "ship_hydrogen", "Hydrogen"),
     ("Freight non road", "Shipping", "Diesel"):       ("freight", "ship", "all", "ship_diesel", "Diesel"),
+    ("Freight non road", "Shipping", "Efuel"):        ("freight", "ship", "all", "ship_diesel", "Efuel"),
     ("Freight non road", "Shipping", "Fuel oil"):     ("freight", "ship", "all", "ship_fuel_oil", "Fuel oil"),
     ("Freight non road", "Shipping", "LNG"):          ("freight", "ship", "all", "ship_lng", "LNG"),
     ("Freight non road", "Shipping", "Gasoline"):     ("freight", "ship", "all", "ship_gasoline", "Gasoline"),
@@ -329,11 +379,13 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
 
     ("Passenger road", "LPVs", "ICE small", "Gasoline"):      ("passenger", "road", "car", "ice_g", "Gasoline"),
     ("Passenger road", "LPVs", "ICE small", "Diesel"):        ("passenger", "road", "car", "ice_d", "Diesel"),
+    ("Passenger road", "LPVs", "ICE small", "Efuel"):        ("passenger", "road", "car", "ice_d", "Efuel"),
     ("Passenger road", "LPVs", "ICE small", "Biogasoline"):       ("passenger", "road", "car", "ice_g", "Biogasoline"), #proxy
     ("Passenger road", "LPVs", "ICE small", "Biodiesel"):       ("passenger", "road", "car", "ice_d", "Biodiesel"), #proxy
 
     ("Passenger road", "LPVs", "ICE medium", "Gasoline"):     ("passenger", "road", "suv", "ice_g", "Gasoline"),
     ("Passenger road", "LPVs", "ICE medium", "Diesel"):       ("passenger", "road", "suv", "ice_d", "Diesel"),
+    ("Passenger road", "LPVs", "ICE medium", "Efuel"):        ("passenger", "road", "suv", "ice_d", "Efuel"),
     ("Passenger road", "LPVs", "ICE medium", "Biodiesel"):       ("passenger", "road", "suv", "ice_d", "Biodiesel"), #proxy
     ("Passenger road", "LPVs", "ICE medium", "Biogasoline"):      ("passenger", "road", "suv", "ice_g", "Biogasoline"), #proxy
     ("Passenger road", "LPVs", "ICE medium", "LPG"):          ("passenger", "road", "suv", "lpg", "LPG"),
@@ -342,6 +394,7 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
 
     ("Passenger road", "LPVs", "ICE large", "Gasoline"):      ("passenger", "road", "lt", "ice_g", "Gasoline"),
     ("Passenger road", "LPVs", "ICE large", "Diesel"):        ("passenger", "road", "lt", "ice_d", "Diesel"),
+    ("Passenger road", "LPVs", "ICE large", "Efuel"):        ("passenger", "road", "lt", "ice_d", "Efuel"),
     ("Passenger road", "LPVs", "ICE large", "Biodiesel"):        ("passenger", "road", "lt", "ice_d", "Biodiesel"), #proxy
     ("Passenger road", "LPVs", "ICE large", "Biogasoline"):       ("passenger", "road", "lt", "ice_g", "Biogasoline"), #proxy
     ("Passenger road", "LPVs", "ICE large", "LPG"):           ("passenger", "road", "lt", "lpg", "LPG"),
@@ -351,31 +404,37 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Passenger road", "LPVs", "PHEV small", "Electricity"):  ("passenger", "road", "car", "phev_g", "Electricity"),
     ("Passenger road", "LPVs", "PHEV small", "Gasoline"):     ("passenger", "road", "car", "phev_g", "Gasoline"),
     ("Passenger road", "LPVs", "PHEV small", "Diesel"):       ("passenger", "road", "car", "phev_d", "Diesel"),
+    ("Passenger road", "LPVs", "PHEV small", "Efuel"):       ("passenger", "road", "car", "phev_d", "Efuel"),
     ("Passenger road", "LPVs", "PHEV small", "Biodiesel"):       ("passenger", "road", "car", "phev_d", "Biodiesel"), #proxy
     ("Passenger road", "LPVs", "PHEV small", "Biogasoline"):      ("passenger", "road", "car", "phev_g", "Biogasoline"), #proxy
 
     ("Passenger road", "LPVs", "PHEV medium", "Electricity"): ("passenger", "road", "suv", "phev_g", "Electricity"),
     ("Passenger road", "LPVs", "PHEV medium", "Gasoline"):    ("passenger", "road", "suv", "phev_g", "Gasoline"),
     ("Passenger road", "LPVs", "PHEV medium", "Diesel"):      ("passenger", "road", "suv", "phev_d", "Diesel"),
+    ("Passenger road", "LPVs", "PHEV medium", "Efuel"):      ("passenger", "road", "suv", "phev_d", "Efuel"),
     ("Passenger road", "LPVs", "PHEV medium", "Biodiesel"):      ("passenger", "road", "suv", "phev_d", "Biodiesel"), #proxy
     ("Passenger road", "LPVs", "PHEV medium", "Biogasoline"):     ("passenger", "road", "suv", "phev_g", "Biogasoline"), #proxy
 
     ("Passenger road", "LPVs", "PHEV large", "Electricity"):  ("passenger", "road", "lt", "phev_g", "Electricity"),
     ("Passenger road", "LPVs", "PHEV large", "Gasoline"):     ("passenger", "road", "lt", "phev_g", "Gasoline"),
     ("Passenger road", "LPVs", "PHEV large", "Diesel"):       ("passenger", "road", "lt", "phev_d", "Diesel"),
+    ("Passenger road", "LPVs", "PHEV large", "Efuel"):       ("passenger", "road", "lt", "phev_d", "Efuel"),
     ("Passenger road", "LPVs", "PHEV large", "Biodiesel"):       ("passenger", "road", "lt", "phev_d", "Biodiesel"), #proxy
     ("Passenger road", "LPVs", "PHEV large", "Biogasoline"):      ("passenger", "road", "lt", "phev_g", "Biogasoline"), #proxy
 
     ("Passenger road", "LPVs", "HEV small", "Gasoline"):      ("passenger", "road", "car", "hev_g", "Gasoline"), #proxy
     ("Passenger road", "LPVs", "HEV small", "Diesel"):        ("passenger", "road", "car", "hev_d", "Diesel"), #proxy
+    ("Passenger road", "LPVs", "HEV small", "Efuel"):        ("passenger", "road", "car", "hev_d", "Efuel"),
     ("Passenger road", "LPVs", "HEV small", "Biodiesel"):        ("passenger", "road", "car", "hev_d", "Biodiesel"), #proxy
     ("Passenger road", "LPVs", "HEV small", "Biogasoline"):       ("passenger", "road", "car", "hev_g", "Biogasoline"), #proxy
     ("Passenger road", "LPVs", "HEV medium", "Gasoline"):     ("passenger", "road", "suv", "hev_g", "Gasoline"), #proxy
     ("Passenger road", "LPVs", "HEV medium", "Diesel"):       ("passenger", "road", "suv", "hev_d", "Diesel"), #proxy
+    ("Passenger road", "LPVs", "HEV medium", "Efuel"):       ("passenger", "road", "suv", "hev_d", "Efuel"),
     ("Passenger road", "LPVs", "HEV medium", "Biodiesel"):       ("passenger", "road", "suv", "hev_d", "Biodiesel"), #proxy
     ("Passenger road", "LPVs", "HEV medium", "Biogasoline"):      ("passenger", "road", "suv", "hev_g", "Biogasoline"), #proxy
     ("Passenger road", "LPVs", "HEV large", "Gasoline"):      ("passenger", "road", "lt", "hev_g", "Gasoline"), #proxy
     ("Passenger road", "LPVs", "HEV large", "Diesel"):        ("passenger", "road", "lt", "hev_d", "Diesel"), #proxy
+    ("Passenger road", "LPVs", "HEV large", "Efuel"):        ("passenger", "road", "lt", "hev_d", "Efuel"),
     ("Passenger road", "LPVs", "HEV large", "Biodiesel"):        ("passenger", "road", "lt", "hev_d", "Biodiesel"), #proxy
     ("Passenger road", "LPVs", "HEV large", "Biogasoline"):       ("passenger", "road", "lt", "hev_g", "Biogasoline"), #proxy
 
@@ -384,6 +443,7 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     # =========================
     ("Passenger road", "Buses", "BEV", "Electricity"):        ("passenger", "road", "bus", "bev", "Electricity"),
     ("Passenger road", "Buses", "ICE", "Diesel"):             ("passenger", "road", "bus", "ice_d", "Diesel"),
+    ("Passenger road", "Buses", "ICE", "Efuel"):             ("passenger", "road", "bus", "ice_d", "Efuel"),
     ("Passenger road", "Buses", "ICE", "Gasoline"):           ("passenger", "road", "bus", "ice_g", "Gasoline"),
     ("Passenger road", "Buses", "ICE", "LPG"):                ("passenger", "road", "bus", "lpg", "LPG"),
     ("Passenger road", "Buses", "ICE", "CNG"):                ("passenger", "road", "bus", "cng", "CNG"),
@@ -395,6 +455,7 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Passenger road", "Buses", "PHEV", "Electricity"):       ("passenger", "road", "bus", "phev_g", "Electricity"),
     ("Passenger road", "Buses", "PHEV", "Gasoline"):          ("passenger", "road", "bus", "phev_g", "Gasoline"),
     ("Passenger road", "Buses", "PHEV", "Diesel"):            ("passenger", "road", "bus", "phev_d", "Diesel"),
+    ("Passenger road", "Buses", "PHEV", "Efuel"):            ("passenger", "road", "bus", "phev_d", "Efuel"),
     ("Passenger road", "Buses", "PHEV", "Biodiesel"):         ("passenger", "road", "bus", "phev_d", "Biodiesel"), #proxy
     ("Passenger road", "Buses", "PHEV", "Biogasoline"):       ("passenger", "road", "bus", "phev_g", "Biogasoline"), #proxy
 
@@ -402,6 +463,7 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Passenger road", "Buses", "EREV", "Electricity"):       ("passenger", "road", "bus", "erev_g", "Electricity"), #proxy
     ("Passenger road", "Buses", "EREV", "Gasoline"):          ("passenger", "road", "bus", "erev_g", "Gasoline"), #proxy
     ("Passenger road", "Buses", "EREV", "Diesel"):            ("passenger", "road", "bus", "erev_d", "Diesel"), #proxy
+    ("Passenger road", "Buses", "EREV", "Efuel"):            ("passenger", "road", "bus", "erev_d", "Efuel"),
     ("Passenger road", "Buses", "EREV", "Biodiesel"):         ("passenger", "road", "bus", "erev_d", "Biodiesel"), #proxy
     ("Passenger road", "Buses", "EREV", "Biogasoline"):       ("passenger", "road", "bus", "erev_g", "Biogasoline"), #proxy
 
@@ -410,6 +472,7 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     # =========================
     ("Passenger road", "Motorcycles", "ICE", "Gasoline"):     ("passenger", "road", "2w", "ice_g", "Gasoline"),
     ("Passenger road", "Motorcycles", "ICE", "Diesel"):       ("passenger", "road", "2w", "ice_d", "Diesel"),
+    ("Passenger road", "Motorcycles", "ICE", "Efuel"):       ("passenger", "road", "2w", "ice_d", "Efuel"),
     ("Passenger road", "Motorcycles", "ICE", "Biodiesel"):      ("passenger", "road", "2w", "ice_d", "Biodiesel"), #proxy
     ("Passenger road", "Motorcycles", "ICE", "Biogasoline"):      ("passenger", "road", "2w", "ice_g", "Biogasoline"), #proxy
     ("Passenger road", "Motorcycles", "BEV", "Electricity"):  ("passenger", "road", "2w", "bev", "Electricity"),
@@ -419,6 +482,7 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     # =========================
     ("Freight road", "Trucks", "ICE heavy", "Gasoline"):      ("freight", "road", "ht", "ice_g", "Gasoline"),
     ("Freight road", "Trucks", "ICE heavy", "Diesel"):        ("freight", "road", "ht", "ice_d", "Diesel"),
+    ("Freight road", "Trucks", "ICE heavy", "Efuel"):        ("freight", "road", "ht", "ice_d", "Efuel"),
     ("Freight road", "Trucks", "ICE heavy", "Biodiesel"):        ("freight", "road", "ht", "ice_d", "Biodiesel"), #proxy
     ("Freight road", "Trucks", "ICE heavy", "Biogasoline"):       ("freight", "road", "ht", "ice_g", "Biogasoline"), #proxy
     ("Freight road", "Trucks", "ICE heavy", "LPG"):           ("freight", "road", "ht", "lpg", "LPG"),
@@ -428,6 +492,7 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
 
     ("Freight road", "Trucks", "ICE medium", "Gasoline"):     ("freight", "road", "mt", "ice_g", "Gasoline"),
     ("Freight road", "Trucks", "ICE medium", "Diesel"):       ("freight", "road", "mt", "ice_d", "Diesel"),
+    ("Freight road", "Trucks", "ICE medium", "Efuel"):       ("freight", "road", "mt", "ice_d", "Efuel"),
     ("Freight road", "Trucks", "ICE medium", "Biodiesel"):       ("freight", "road", "mt", "ice_d", "Biodiesel"), #proxy
     ("Freight road", "Trucks", "ICE medium", "Biogasoline"):      ("freight", "road", "mt", "ice_g", "Biogasoline"), #proxy
     ("Freight road", "Trucks", "ICE medium", "LNG"):          ("freight", "road", "mt", "lng", "LNG"),
@@ -441,12 +506,14 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Freight road", "Trucks", "EREV medium", "Gasoline"):    ("freight", "road", "mt", "erev_g", "Gasoline"), #proxy
     ("Freight road", "Trucks", "EREV medium", "Electricity"): ("freight", "road", "mt", "erev_g", "Electricity"), #proxy
     ("Freight road", "Trucks", "EREV medium", "Diesel"):      ("freight", "road", "mt", "erev_d", "Diesel"), #proxy
+    ("Freight road", "Trucks", "EREV medium", "Efuel"):      ("freight", "road", "mt", "erev_d", "Efuel"),
     ("Freight road", "Trucks", "EREV medium", "Biodiesel"):      ("freight", "road", "mt", "erev_d", "Biodiesel"), #proxy
     ("Freight road", "Trucks", "EREV medium", "Biogasoline"):     ("freight", "road", "mt", "erev_g", "Biogasoline"), #proxy
 
     ("Freight road", "Trucks", "EREV heavy", "Gasoline"):     ("freight", "road", "ht", "erev_g", "Gasoline"), #proxy
     ("Freight road", "Trucks", "EREV heavy", "Electricity"):  ("freight", "road", "ht", "erev_g", "Electricity"), #proxy
     ("Freight road", "Trucks", "EREV heavy", "Diesel"):       ("freight", "road", "ht", "erev_d", "Diesel"), #proxy
+    ("Freight road", "Trucks", "EREV heavy", "Efuel"):       ("freight", "road", "ht", "erev_d", "Efuel"),
     ("Freight road", "Trucks", "EREV heavy", "Biodiesel"):       ("freight", "road", "ht", "erev_d", "Biodiesel"), #proxy
     ("Freight road", "Trucks", "EREV heavy", "Biogasoline"):      ("freight", "road", "ht", "erev_g", "Biogasoline"), #proxy
 
@@ -457,12 +524,14 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Freight road", "Trucks", "PHEV medium", "Gasoline"):    ("freight", "road", "mt", "phev_g", "Gasoline"),
     ("Freight road", "Trucks", "PHEV medium", "Electricity"): ("freight", "road", "mt", "phev_g", "Electricity"),
     ("Freight road", "Trucks", "PHEV medium", "Diesel"):      ("freight", "road", "mt", "phev_d", "Diesel"),
+    ("Freight road", "Trucks", "PHEV medium", "Efuel"):      ("freight", "road", "mt", "phev_d", "Efuel"),
     ("Freight road", "Trucks", "PHEV medium", "Biodiesel"):   ("freight", "road", "mt", "phev_d", "Biodiesel"), #proxy
     ("Freight road", "Trucks", "PHEV medium", "Biogasoline"): ("freight", "road", "mt", "phev_g", "Biogasoline"), #proxy
 
     ("Freight road", "Trucks", "PHEV heavy", "Gasoline"):     ("freight", "road", "ht", "phev_g", "Gasoline"),
     ("Freight road", "Trucks", "PHEV heavy", "Electricity"):  ("freight", "road", "ht", "phev_g", "Electricity"),
     ("Freight road", "Trucks", "PHEV heavy", "Diesel"):       ("freight", "road", "ht", "phev_d", "Diesel"),
+    ("Freight road", "Trucks", "PHEV heavy", "Efuel"):       ("freight", "road", "ht", "phev_d", "Efuel"),
     ("Freight road", "Trucks", "PHEV heavy", "Biodiesel"):    ("freight", "road", "ht", "phev_d", "Biodiesel"), #proxy
     ("Freight road", "Trucks", "PHEV heavy", "Biogasoline"):  ("freight", "road", "ht", "phev_g", "Biogasoline"), #proxy
 
@@ -471,6 +540,7 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     # =========================
     ("Freight road", "LCVs", "ICE", "Gasoline"):              ("freight", "road", "lcv", "ice_g", "Gasoline"),
     ("Freight road", "LCVs", "ICE", "Diesel"):                ("freight", "road", "lcv", "ice_d", "Diesel"),
+    ("Freight road", "LCVs", "ICE", "Efuel"):                ("freight", "road", "lcv", "ice_d", "Efuel"),
     ("Freight road", "LCVs", "ICE", "Biodiesel"):                ("freight", "road", "lcv", "ice_d", "Biodiesel"), #proxy
     ("Freight road", "LCVs", "ICE", "Biogasoline"):               ("freight", "road", "lcv", "ice_g", "Biogasoline"), #proxy
     ("Freight road", "LCVs", "ICE", "CNG"):                   ("freight", "road", "lcv", "cng", "CNG"),
@@ -480,6 +550,7 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Freight road", "LCVs", "PHEV", "Electricity"):          ("freight", "road", "lcv", "phev_g", "Electricity"),
     ("Freight road", "LCVs", "PHEV", "Gasoline"):             ("freight", "road", "lcv", "phev_g", "Gasoline"),
     ("Freight road", "LCVs", "PHEV", "Diesel"):               ("freight", "road", "lcv", "phev_d", "Diesel"),
+    ("Freight road", "LCVs", "PHEV", "Efuel"):               ("freight", "road", "lcv", "phev_d", "Efuel"),
     ("Freight road", "LCVs", "PHEV", "Biodiesel"):               ("freight", "road", "lcv", "phev_d", "Biodiesel"), #proxy
     ("Freight road", "LCVs", "PHEV", "Biogasoline"):              ("freight", "road", "lcv", "phev_g", "Biogasoline"), #proxy
 
@@ -557,11 +628,13 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Nonspecified transport", "Other petroleum products"): ("Nonspecified transport", "Other petroleum products"),
     ("Nonspecified transport", "Natural gas"): ("Nonspecified transport", "Natural gas"),
     ("Nonspecified transport", "Electricity"): ("Nonspecified transport", "Electricity"),
-    
+    ("Nonspecified transport", "Efuel"): ("Nonspecified transport", "Efuel"),
+
     ("Pipeline transport", "Fuel oil"): ("Pipeline transport", "Fuel oil"),
     ("Pipeline transport", "Diesel"): ("Pipeline transport", "Diesel"),
     ("Pipeline transport", "Natural gas"): ("Pipeline transport", "Natural gas"),
     ("Pipeline transport", "Electricity"): ("Pipeline transport", "Electricity"),
+    ("Pipeline transport", "Efuel"): ("Pipeline transport", "Efuel"),
     ("Nonspecified transport",): ("Nonspecified transport",),
     ("Pipeline transport",): ("Pipeline transport",)
 }
@@ -680,66 +753,82 @@ COMBINATION_SOURCE_ROWS = {#THESE SHOULD BE ALL COMBINATIONS WITH #combination I
     ("freight", "road", "truck"): [
         ("freight", "road", "ht", "ice_g", "Gasoline"),
         ("freight", "road", "ht", "ice_d", "Diesel"),
+        ("freight", "road", "ht", "ice_d", "Efuel"),
         ("freight", "road", "ht", "bev", "Electricity"),
         ("freight", "road", "ht", "phev_g", "Gasoline"),
         ("freight", "road", "ht", "phev_d", "Diesel"),
+        ("freight", "road", "ht", "phev_d", "Efuel"),
         ("freight", "road", "ht", "fcev", "Hydrogen"),
-        
+
         ("freight", "road", "mt", "ice_g", "Gasoline"),
         ("freight", "road", "mt", "ice_d", "Diesel"),
+        ("freight", "road", "mt", "ice_d", "Efuel"),
         ("freight", "road", "mt", "bev", "Electricity"),
         ("freight", "road", "mt", "phev_g", "Gasoline"),
         ("freight", "road", "mt", "phev_d", "Diesel"),
+        ("freight", "road", "mt", "phev_d", "Efuel"),
         ("freight", "road", "mt", "fcev", "Hydrogen"),
     ],
     ("freight", "road", "ht", "ice"): [
         ("freight", "road", "ht", "ice_g", "Gasoline"),
         ("freight", "road", "ht", "ice_d", "Diesel"),
+        ("freight", "road", "ht", "ice_d", "Efuel"),
     ],
     ("freight", "road", "ht", "phev"): [
         ("freight", "road", "ht", "phev_g", "Gasoline"),
         ("freight", "road", "ht", "phev_d", "Diesel"),
+        ("freight", "road", "ht", "phev_d", "Efuel"),
     ],
     ("freight", "road", "lcv", "ice"): [
         ("freight", "road", "lcv", "ice_g", "Gasoline"),
         ("freight", "road", "lcv", "ice_d", "Diesel"),
+        ("freight", "road", "lcv", "ice_d", "Efuel"),
     ],
     ("freight", "road", "lcv", "phev"): [
         ("freight", "road", "lcv", "phev_g", "Gasoline"),
         ("freight", "road", "lcv", "phev_d", "Diesel"),
+        ("freight", "road", "lcv", "phev_d", "Efuel"),
     ],
     ("freight", "road", "mt", "ice"): [
         ("freight", "road", "mt", "ice_g", "Gasoline"),
         ("freight", "road", "mt", "ice_d", "Diesel"),
+        ("freight", "road", "mt", "ice_d", "Efuel"),
     ],
     ("freight", "road", "mt", "phev"): [
         ("freight", "road", "mt", "phev_g", "Gasoline"),
         ("freight", "road", "mt", "phev_d", "Diesel"),
+        ("freight", "road", "mt", "phev_d", "Efuel"),
     ],
     ("passenger", "road", "lpv"): [
         ("passenger", "road", "car", "ice_g", "Gasoline"),
         ("passenger", "road", "car", "ice_d", "Diesel"),
+        ("passenger", "road", "car", "ice_d", "Efuel"),
         ("passenger", "road", "car", "bev", "Electricity"),
         ("passenger", "road", "car", "phev_g", "Gasoline"),
         ("passenger", "road", "car", "phev_d", "Diesel"),
+        ("passenger", "road", "car", "phev_d", "Efuel"),
         ("passenger", "road", "car", "cng", "CNG"),
         ("passenger", "road", "car", "lpg", "LPG"),
         ("passenger", "road", "car", "fcev", "Hydrogen"),
         
         ("passenger", "road", "suv", "ice_g", "Gasoline"),
         ("passenger", "road", "suv", "ice_d", "Diesel"),
+        ("passenger", "road", "suv", "ice_d", "Efuel"),
         ("passenger", "road", "suv", "bev", "Electricity"),
         ("passenger", "road", "suv", "phev_g", "Gasoline"),
         ("passenger", "road", "suv", "phev_d", "Diesel"),
+        ("passenger", "road", "suv", "phev_d", "Efuel"),
         ("passenger", "road", "suv", "cng", "CNG"),
         ("passenger", "road", "suv", "lpg", "LPG"),
         ("passenger", "road", "suv", "fcev", "Hydrogen"),
         
         ("passenger", "road", "lt", "ice_g", "Gasoline"),
         ("passenger", "road", "lt", "ice_d", "Diesel"),
+        ("passenger", "road", "lt", "ice_d", "Efuel"),
         ("passenger", "road", "lt", "bev", "Electricity"),
         ("passenger", "road", "lt", "phev_g", "Gasoline"),
         ("passenger", "road", "lt", "phev_d", "Diesel"),
+        ("passenger", "road", "lt", "phev_d", "Efuel"),
         ("passenger", "road", "lt", "cng", "CNG"),
         ("passenger", "road", "lt", "lpg", "LPG"),
         ("passenger", "road", "lt", "fcev", "Hydrogen"),
@@ -772,15 +861,18 @@ COMBINATION_SOURCE_ROWS = {#THESE SHOULD BE ALL COMBINATIONS WITH #combination I
     ("passenger", "road", "2w", "ice"): [
         ("passenger", "road", "2w", "ice_g", "Gasoline"),
         ("passenger", "road", "2w", "ice_d", "Diesel"),
+        ("passenger", "road", "2w", "ice_d", "Efuel"),
     ],
     ("passenger", "road", "bus", "ice"): [
         ("passenger", "road", "bus", "ice_g", "Gasoline"),
         ("passenger", "road", "bus", "ice_d", "Diesel"),
+        ("passenger", "road", "bus", "ice_d", "Efuel"),
     ],
     ("passenger", "road", "bus", "phev"): [
         ("passenger", "road", "bus", "phev_g", "Gasoline"),
         ("passenger", "road", "bus", "phev_d", "Diesel"),
-    ], 
+        ("passenger", "road", "bus", "phev_d", "Efuel"),
+    ],
     #non road:
     ("passenger", "non road"): 
         [tup for tup in ALL_PATHS_SOURCE if len(tup) == 5 and tup[1] != "road" and tup[0] == "passenger"],
@@ -998,6 +1090,8 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_x_jet_fuel"): [
         ("Passenger non road", "Air", "Jet fuel"),
         ("Freight non road", "Air", "Jet fuel"),
+        ("Passenger non road", "Air", "Efuel"),
+        ("Freight non road", "Air", "Efuel"),
     ],
 
     # ------------------------------------------------------------
@@ -1029,26 +1123,47 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
     ("15_02_road", "07_petroleum_products", "07_06_kerosene"): [("Nonspecified transport", "Kerosene")],
     ("15_02_road", "07_petroleum_products", "07_07_gas_diesel_oil"): [
         ("Passenger road", "LPVs", "ICE small", "Diesel"),
+        ("Passenger road", "LPVs", "ICE small", "Efuel"),
         ("Passenger road", "LPVs", "ICE medium", "Diesel"),
+        ("Passenger road", "LPVs", "ICE medium", "Efuel"),
         ("Passenger road", "LPVs", "ICE large", "Diesel"),
+        ("Passenger road", "LPVs", "ICE large", "Efuel"),
         ("Passenger road", "Buses", "ICE", "Diesel"),
+        ("Passenger road", "Buses", "ICE", "Efuel"),
         ("Freight road", "LCVs", "ICE", "Diesel"),
+        ("Freight road", "LCVs", "ICE", "Efuel"),
         ("Freight road", "Trucks", "ICE medium", "Diesel"),
+        ("Freight road", "Trucks", "ICE medium", "Efuel"),
         ("Freight road", "Trucks", "ICE heavy", "Diesel"),
+        ("Freight road", "Trucks", "ICE heavy", "Efuel"),
         ("Passenger road", "LPVs", "HEV small", "Diesel"),
+        ("Passenger road", "LPVs", "HEV small", "Efuel"),
         ("Passenger road", "LPVs", "HEV medium", "Diesel"),
+        ("Passenger road", "LPVs", "HEV medium", "Efuel"),
         ("Passenger road", "LPVs", "HEV large", "Diesel"),
+        ("Passenger road", "LPVs", "HEV large", "Efuel"),
         ("Passenger road", "LPVs", "PHEV small", "Diesel"),
+        ("Passenger road", "LPVs", "PHEV small", "Efuel"),
         ("Passenger road", "LPVs", "PHEV medium", "Diesel"),
+        ("Passenger road", "LPVs", "PHEV medium", "Efuel"),
         ("Passenger road", "LPVs", "PHEV large", "Diesel"),
+        ("Passenger road", "LPVs", "PHEV large", "Efuel"),
         ("Passenger road", "Motorcycles", "ICE", "Diesel"),
+        ("Passenger road", "Motorcycles", "ICE", "Efuel"),
         ("Freight road", "Trucks", "EREV medium", "Diesel"),
+        ("Freight road", "Trucks", "EREV medium", "Efuel"),
         ("Freight road", "Trucks", "EREV heavy", "Diesel"),
+        ("Freight road", "Trucks", "EREV heavy", "Efuel"),
         ("Freight road", "LCVs", "PHEV", "Diesel"),
+        ("Freight road", "LCVs", "PHEV", "Efuel"),
         ("Passenger road", "Buses", "EREV", "Diesel"),
+        ("Passenger road", "Buses", "EREV", "Efuel"),
         ("Passenger road", "Buses", "PHEV", "Diesel"),
+        ("Passenger road", "Buses", "PHEV", "Efuel"),
         ("Freight road", "Trucks", "PHEV heavy", "Diesel"),
+        ("Freight road", "Trucks", "PHEV heavy", "Efuel"),
         ("Freight road", "Trucks", "PHEV medium", "Diesel"),
+        ("Freight road", "Trucks", "PHEV medium", "Efuel"),
     ],
     ("15_02_road", "07_petroleum_products", "07_08_fuel_oil"): [("Nonspecified transport", "Fuel oil")],
     ("15_02_road", "07_petroleum_products", "07_09_lpg"): [
@@ -1151,7 +1266,9 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
     ("15_03_rail", "07_petroleum_products", "07_06_kerosene"): [("Nonspecified transport", "Kerosene")],
     ("15_03_rail", "07_petroleum_products", "07_07_gas_diesel_oil"): [
         ("Passenger non road", "Rail", "Diesel"),
-        ("Freight non road", "Rail", "Diesel")
+        ("Freight non road", "Rail", "Diesel"),
+        ("Passenger non road", "Rail", "Efuel"),
+        ("Freight non road", "Rail", "Efuel"),
     ],
     ("15_03_rail", "07_petroleum_products", "07_08_fuel_oil"): [
         ("Nonspecified transport", "Fuel oil")
@@ -1178,7 +1295,9 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
     ("15_04_domestic_navigation", "07_petroleum_products", "07_06_kerosene"): [("Nonspecified transport", "Kerosene")],
     ("15_04_domestic_navigation", "07_petroleum_products", "07_07_gas_diesel_oil"): [
         ("Passenger non road", "Shipping", "Diesel"),
-        ("Freight non road", "Shipping", "Diesel")
+        ("Freight non road", "Shipping", "Diesel"),
+        ("Passenger non road", "Shipping", "Efuel"),
+        ("Freight non road", "Shipping", "Efuel"),
     ],
     ("15_04_domestic_navigation", "07_petroleum_products", "07_08_fuel_oil"): [
         ("Passenger non road", "Shipping", "Fuel oil"),
@@ -1204,7 +1323,10 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
     # 15_05_pipeline_transport → lump into Nonspecified
     # ------------------------------------------------------------
     ("15_05_pipeline_transport", "07_petroleum_products", "07_01_motor_gasoline"): [("Nonspecified transport", "Gasoline")],
-    ("15_05_pipeline_transport", "07_petroleum_products", "07_07_gas_diesel_oil"): [("Pipeline transport", "Diesel")],
+    ("15_05_pipeline_transport", "07_petroleum_products", "07_07_gas_diesel_oil"): [
+        ("Pipeline transport", "Diesel"),
+        ("Pipeline transport", "Efuel"),
+    ],
     ("15_05_pipeline_transport", "07_petroleum_products", "07_08_fuel_oil"): [("Pipeline transport", "Fuel oil")],
     ("15_05_pipeline_transport", "07_petroleum_products", "07_09_lpg"): [("Nonspecified transport", "LPG")],
     ("15_05_pipeline_transport", "08_gas", "08_01_natural_gas"): [("Pipeline transport", "Natural gas")],
@@ -1214,7 +1336,10 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
     # 15_06_nonspecified_transport → direct mapping to Nonspecified
     # ------------------------------------------------------------
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_01_motor_gasoline"): [("Nonspecified transport", "Gasoline")],
-    ("15_06_nonspecified_transport", "07_petroleum_products", "07_07_gas_diesel_oil"): [("Nonspecified transport", "Diesel")],
+    ("15_06_nonspecified_transport", "07_petroleum_products", "07_07_gas_diesel_oil"): [
+        ("Nonspecified transport", "Diesel"),
+        ("Nonspecified transport", "Efuel"),
+    ],
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_08_fuel_oil"): [("Nonspecified transport", "Fuel oil")],
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_09_lpg"): [("Nonspecified transport", "LPG")],
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_x_jet_fuel"): [("Nonspecified transport", "Kerosene")],

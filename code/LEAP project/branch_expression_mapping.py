@@ -1152,3 +1152,68 @@ LEAP_BRANCH_TO_EXPRESSION_MAPPING = {
 #%%
 
 #%%
+#use this to add new entries more easily
+def _ensure_entries(branches, measures, expression=('Data', ALL_YEARS)):
+    for branch in branches:
+        for measure in measures:
+            key = (measure,) + branch
+            LEAP_BRANCH_TO_EXPRESSION_MAPPING.setdefault(key, expression)
+
+
+ROAD_FUEL_MEASURES = [
+    'Average Mileage',
+    'Device Share',
+    'Final On-Road Fuel Economy',
+    'Final On-Road Mileage',
+    'Fuel Economy',
+    'Fuel Economy Correction Factor',
+    'Mileage',
+    'Mileage Correction Factor',
+]
+
+NONROAD_FUEL_MEASURES = [
+    'Activity Level',
+    'Final Energy Intensity',
+]
+
+_ensure_entries(
+    [
+        ('Passenger road', 'Buses', 'ICE', 'Biodiesel'),
+        ('Passenger road', 'Buses', 'ICE', 'Biogasoline'),
+        ('Passenger road', 'Buses', 'PHEV', 'Electricity'),
+        ('Passenger road', 'Buses', 'PHEV', 'Gasoline'),
+        ('Passenger road', 'Buses', 'PHEV', 'Diesel'),
+        ('Passenger road', 'Buses', 'PHEV', 'Biodiesel'),
+        ('Passenger road', 'Buses', 'PHEV', 'Biogasoline'),
+        ('Passenger road', 'Buses', 'EREV', 'Electricity'),
+        ('Passenger road', 'Buses', 'EREV', 'Gasoline'),
+        ('Passenger road', 'Buses', 'EREV', 'Diesel'),
+        ('Passenger road', 'Buses', 'EREV', 'Biodiesel'),
+        ('Passenger road', 'Buses', 'EREV', 'Biogasoline'),
+        ('Freight road', 'Trucks', 'PHEV heavy', 'Electricity'),
+        ('Freight road', 'Trucks', 'PHEV heavy', 'Gasoline'),
+        ('Freight road', 'Trucks', 'PHEV heavy', 'Diesel'),
+        ('Freight road', 'Trucks', 'PHEV heavy', 'Biodiesel'),
+        ('Freight road', 'Trucks', 'PHEV heavy', 'Biogasoline'),
+        ('Freight road', 'Trucks', 'PHEV medium', 'Electricity'),
+        ('Freight road', 'Trucks', 'PHEV medium', 'Gasoline'),
+        ('Freight road', 'Trucks', 'PHEV medium', 'Diesel'),
+        ('Freight road', 'Trucks', 'PHEV medium', 'Biodiesel'),
+        ('Freight road', 'Trucks', 'PHEV medium', 'Biogasoline'),
+    ],
+    ROAD_FUEL_MEASURES,
+)
+
+_ensure_entries(
+    [
+        ('Passenger non road', 'Air', 'Biojet'),
+        ('Passenger non road', 'Air', 'Diesel'),
+        ('Passenger non road', 'Air', 'LPG'),
+        ('Freight non road', 'Air', 'Biojet'),
+        ('Passenger non road', 'Shipping', 'Biogasoline'),
+        ('Freight non road', 'Shipping', 'Biogasoline'),
+    ],
+    NONROAD_FUEL_MEASURES,
+)
+
+#%%

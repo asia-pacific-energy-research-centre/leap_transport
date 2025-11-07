@@ -995,10 +995,10 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
     ],
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_06_kerosene"): [("Nonspecified transport", "Kerosene")],
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_07_gas_diesel_oil"): [
-        ("Passenger non road", "Air", "Diesel")
+        ("Nonspecified transport", "Diesel")
     ],
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_09_lpg"): [
-        ("Passenger non road", "Air", "LPG")
+        ("Nonspecified transport", "LPG")
     ],
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_x_jet_fuel"): [
         ("Passenger non road", "Air", "Jet fuel"),

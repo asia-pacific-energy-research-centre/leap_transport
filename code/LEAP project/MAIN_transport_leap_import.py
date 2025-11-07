@@ -18,7 +18,6 @@ from transport_leap_core import (
     create_leap_data_log,
     log_leap_data,
     save_leap_data_log,
-    validate_shares,
     build_expression_from_mapping,
 )
 from transport_branch_mappings import (
@@ -49,6 +48,7 @@ from basic_mappings import (
 )
 
 from transport_mappings_validation import (
+    validate_shares,
     validate_all_mappings_with_measures,
     validate_and_fix_shares_normalise_to_one,
     validate_final_energy_use_for_base_year_equals_esto_totals,

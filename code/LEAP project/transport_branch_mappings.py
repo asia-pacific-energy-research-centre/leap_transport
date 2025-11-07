@@ -204,8 +204,6 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Passenger non road", "Air", "Jet fuel"),
         ("Passenger non road", "Air", "Aviation gasoline"),
         ("Passenger non road", "Air", "Biojet"),
-        ("Passenger non road", "Air", "Diesel"),
-        ("Passenger non road", "Air", "LPG"),
         
         ("Passenger non road", "Rail", "Electricity"),
         ("Passenger non road", "Rail", "Diesel"),
@@ -222,7 +220,6 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Passenger non road", "Shipping", "Ammonia"),
         ("Passenger non road", "Shipping", "Biodiesel"),
         ("Passenger non road", "Shipping", "Biogasoline"),
-        
         
         ("Freight non road", "Air", "Hydrogen"),
         ("Freight non road", "Air", "Electricity"),
@@ -280,8 +277,6 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Passenger non road", "Air", "Electricity"):     ("passenger", "air",  "all", "air_electric", "Electricity"),
     ("Passenger non road", "Air", "Jet fuel"):        ("passenger", "air",  "all", "air_jet_fuel", "Jet fuel"),
     ("Passenger non road", "Air", "Aviation gasoline"): ("passenger", "air", "all", "air_av_gas", "Aviation gasoline"),
-    ("Passenger non road", "Air", "Diesel"):          ("passenger", "air",  "all", "air_diesel", "Diesel"),
-    ("Passenger non road", "Air", "LPG"):             ("passenger", "air",  "all", "air_lpg", "LPG"),
     ("Passenger non road", "Air", "Biojet"):         ("passenger", "air",  "all", "air_biojet", "Biojet"),# proxy
 
     ("Passenger non road", "Rail", "Electricity"):    ("passenger", "rail", "all", "rail_electricity", "Electricity"),
@@ -1000,17 +995,9 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
         ("Freight non road","Air","Aviation gasoline")
     ],
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_06_kerosene"): [("Nonspecified transport", "Kerosene")],
-    ("15_01_domestic_air_transport", "07_petroleum_products", "07_07_gas_diesel_oil"): [
-        ("Nonspecified transport", "Diesel")
-    ],
-    ("15_01_domestic_air_transport", "07_petroleum_products", "07_09_lpg"): [
-        ("Nonspecified transport", "LPG")
-    ],
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_x_jet_fuel"): [
         ("Passenger non road", "Air", "Jet fuel"),
         ("Freight non road","Air","Jet fuel"),
-        ("Passenger non road", "Air", "Biojet"),
-        ("Freight non road", "Air", "Biojet"),
     ],
 
     # ------------------------------------------------------------
@@ -1208,10 +1195,6 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
         ("Passenger non road","Shipping","Biodiesel"),
         ("Freight non road","Shipping","Biodiesel")
     ],
-    ("15_04_domestic_navigation", "16_others", "16_05_biogasoline"): [
-        ("Passenger non road","Shipping","Biogasoline"),
-        ("Freight non road","Shipping","Biogasoline"),
-    ],
     ("15_04_domestic_navigation", "17_electricity", "x"): [
         ("Passenger non road","Shipping","Electricity"),
         ("Freight non road","Shipping","Electricity")
@@ -1265,10 +1248,16 @@ UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT = {
     ('Passenger non road', 'Shipping', 'Ammonia'),
     ('Freight non road', 'Shipping', 'Ammonia'),
     
+    # Biogasline in ships: #these occur because ships use like no gasoline as it is.
+    ("Passenger non road","Shipping","Biogasoline"),
+    ("Freight non road","Shipping","Biogasoline"),
+    
     # Electric aircraft (No electric aircraft category in current ESTO):
     ('Passenger non road', 'Air', 'Electricity'),
     ('Freight non road', 'Air', 'Electricity'),
-    
+    # Biojet branches (No biojet fuel category in ESTO):
+    ("Passenger non road", "Air", "Biojet"),
+    ("Freight non road", "Air", "Biojet"),
     # LNG trucks (No LNG subcategory in standard ESTO road transport):
     ('Freight road', 'Trucks', 'ICE medium', 'LNG'),
     ('Freight road', 'Trucks', 'ICE heavy', 'LNG'),
@@ -1280,8 +1269,6 @@ UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT = {
     ('Freight road', 'LCVs', 'ICE', 'Biogas'),
     ('Freight road', 'Trucks', 'ICE medium', 'Biogas'),
     ('Freight road', 'Trucks', 'ICE heavy', 'Biogas'),
-
-    # Biogasline in ships: #these occur because ships use like no gasoline as it is.
     
     # Others that are just the lower level branches that have no fuel specified:
     ('Nonspecified transport',),

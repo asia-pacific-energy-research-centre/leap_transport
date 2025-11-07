@@ -348,7 +348,7 @@ LEAP_STRUCTURE = {
     #######################
     "Passenger non road": {
         "Rail": ["Electricity", "Diesel", "Hydrogen", "Coal", "Biodiesel"],
-        "Air": ["Hydrogen", "Electricity", "Jet fuel", "Aviation gasoline", "Biojet", "Diesel", "LPG"],
+        "Air": ["Hydrogen", "Electricity", "Jet fuel", "Aviation gasoline", "Biojet"],
         "Shipping": [
             "Electricity",
             "Hydrogen",
@@ -395,8 +395,6 @@ ESTO_TRANSPORT_SECTOR_TUPLES = {
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_02_aviation_gasoline"),
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_01_motor_gasoline"),
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_06_kerosene"),
-    ("15_01_domestic_air_transport", "07_petroleum_products", "07_07_gas_diesel_oil"),
-    ("15_01_domestic_air_transport", "07_petroleum_products", "07_09_lpg"),
     ("15_01_domestic_air_transport", "07_petroleum_products", "07_x_jet_fuel"),
 
     ("15_02_road", "07_petroleum_products", "07_01_motor_gasoline"),
@@ -444,7 +442,6 @@ ESTO_TRANSPORT_SECTOR_TUPLES = {
     ("15_06_nonspecified_transport", "08_gas", "08_01_natural_gas"),
     ("15_06_nonspecified_transport", "17_electricity", "x"),
 }
-
 
 ALL_PATHS_LEAP = convert_dict_tree_to_set_of_tuples(LEAP_STRUCTURE, path=())
 ALL_PATHS_SOURCE = convert_dict_tree_to_set_of_tuples(SOURCE_CSV_TREE, path=())

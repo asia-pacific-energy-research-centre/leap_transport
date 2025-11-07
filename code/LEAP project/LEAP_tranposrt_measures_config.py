@@ -8,7 +8,7 @@ Easily editable — just update names, add new measures, or fix scaling factors.
 
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
-from basic_mappings import CSV_TREE
+from basic_mappings import SOURCE_CSV_TREE
 
 from LEAP_transfers_transport_MAPPINGS import LEAP_MEASURE_CONFIG, SHORTNAME_TO_LEAP_BRANCHES
 #note that in this below: source_mapping is the name of the measure in the source dataset (e.g. 9th edition dataset) and leap_name is the name of the variable in leap that we want to map it to. factor is the scaling factor to convert from the source dataset, after the SOURCE_MEASURE_TO_UNIT scaling has been applied, to the units expected in leap.
@@ -367,11 +367,11 @@ def calculate_measures(df: pd.DataFrame, measure: str) -> pd.DataFrame:
 # ============================================================
 def get_source_categories(transport_type, medium, vehicle_type=None, drive=None):
     """
-    Navigate CSV_TREE dynamically to find all applicable source entries.
+    Navigate SOURCE_CSV_TREE dynamically to find all applicable source entries.
     Returns a list of drive/fuel identifiers.
     """
     
-    transport_node = CSV_TREE.get(str(transport_type).lower(), {})
+    transport_node = SOURCE_CSV_TREE.get(str(transport_type).lower(), {})
     medium_node = transport_node.get(str(medium).lower(), {})
 
     if not medium_node:
@@ -448,7 +448,7 @@ def get_source_categories(transport_type, medium, vehicle_type=None, drive=None)
 
 # def filter_source_dataframe(df, transport, medium, vehicle, drive, fuel):
 #     """
-#     Filter the source dataset using CSV_TREE hierarchy
+#     Filter the source dataset using SOURCE_CSV_TREE hierarchy
 #     so we only get the relevant rows for a LEAP branch.
 #     """
 #     if df.empty:
@@ -472,7 +472,7 @@ def get_source_categories(transport_type, medium, vehicle_type=None, drive=None)
 #     _apply("Transport Type", transport)
 #     _apply("Medium", medium)
 #     _apply("Vehicle Type", vehicle)
-#     #TEMP START - this may need to be replaced with more complex logic to match drives/fuels within CSV_TREE if there are one to many mappings.
+#     #TEMP START - this may need to be replaced with more complex logic to match drives/fuels within SOURCE_CSV_TREE if there are one to many mappings.
 #     _apply("Drive", drive)
 #     _apply("Fuel", fuel)
 #     ##TEMP END
@@ -483,7 +483,7 @@ def get_source_categories(transport_type, medium, vehicle_type=None, drive=None)
 # if "Drive" not in subset.columns:
 #     return subset
 # decided that this didnt seem necessary . 
-# # match drives/fuels within CSV_TREE
+# # match drives/fuels within SOURCE_CSV_TREE
 # candidates = set(get_source_categories(transport, medium, vehicle, drive))#this gives a set of all possible drive/fuel categories for the transport, medium, vehicle combination. we then need to match those up with the drive type we are filtering for. for example, sometimes we might be searching for all drive types that are in the ice category, so we need to match all drives that contain 'ice' in their name.
 # if drive and str(drive).lower() != "all" and str(drive).lower() != "none":
 #     candidates.add(str(drive).lower())
@@ -622,7 +622,7 @@ def aggregate_measures(df_out, src, source_cols_for_grouping, ttype, medium, vty
         # raise e
     return df_filtered
             
-def process_measures_for_leap(df: pd.DataFrame, filtered_measure_config: dict, shortname: str, source_cols_for_grouping: list,  ttype: str, medium: str, vtype: str, drive: str, fuel: str) -> dict:
+def process_measures_for_leap(df: pd.DataFrame, filtered_measure_config: dict, shortname: str, source_cols_for_grouping: list,  ttype: str, medium: str, vtype: str, drive: str, fuel: str, src_tuple: tuple ) -> dict:
     """
     Applies all scaling and nonlinear conversions (e.g. Efficiency → Intensity/Fuel Economy)
     to prepare a dictionary of processed dataframes keyed by LEAP measure.
@@ -634,6 +634,12 @@ def process_measures_for_leap(df: pd.DataFrame, filtered_measure_config: dict, s
     print(f"Processing measures for LEAP branch: {shortname}")
     # Apply scaling
     for leap_measure, meta in filtered_measure_config.items():
+        
+        #todo want to create a method here for identifying if the src_tuple maps to a category which is mapped to multiple soruce categories. e.g. if src_tuple is ('freight','road','lcv','ice') then this maps to both ice_d, ice_g. Then we should calculate the measures using the aggregated data for both ice_d and ice_g combined rather than just ice_d or ice_g individually.
+        def get_aggregated_categories(src_tuple):
+            # This is a placeholder for the actual logic to find all relevant categories
+            # For now, it just returns the original tuple
+            return [src_tuple]
         # if ttype == 'Nonspecified transport' and leap_measure == 'Final Energy Intensity':
         #     breakpoint()  # investigate why 1000 is occuring
         # if drive == 'bev' and leap_measure == 'Stock Share':

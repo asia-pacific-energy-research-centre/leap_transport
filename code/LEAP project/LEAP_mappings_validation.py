@@ -482,11 +482,10 @@ def validate_non_specified_energy_use_for_base_year_equals_esto_totals(BASE_YEAR
             print(f"Discrepancy found for Nonspecified branch {branch}: LEAP = {leap_total}, ESTO = {esto_total}")
             # You can add additional handling logic here if needed
     print("Nonspecified branch validation complete.")
-    
-    
+
 def validate_and_fix_shares_normalise_to_one(df, BASE_YEAR, LEAP_BRANCH_TO_EXPRESSION_MAPPING, EXAMPLE_SAMPLE_SIZE=5):
     """
-    Validate and (if needed) normalize share measures so that sibling branches sum to 1.
+    Validate and (if needed) normalize share measures so that sibling branches sum to 100.
     Updates df in-place for columns 'value' and/or BASE_YEAR when present.
     """
     tol = 1e-3
@@ -522,7 +521,7 @@ def validate_and_fix_shares_normalise_to_one(df, BASE_YEAR, LEAP_BRANCH_TO_EXPRE
         
         # Group by Date first for efficiency
         for date in measure_data['Date'].unique():
-            breakpoint()
+            # breakpoint()
             date_data = measure_data[measure_data['Date'] == date].copy()
             
             # For each hierarchy level, calculate parent sums
@@ -542,8 +541,8 @@ def validate_and_fix_shares_normalise_to_one(df, BASE_YEAR, LEAP_BRANCH_TO_EXPRE
                 parent_sums = level_data.groupby('parent_tuple')['value'].agg(['sum', 'count']).reset_index()
                 parent_sums.columns = ['parent_tuple', 'total_sum', 'child_count']
                 
-                # Find parents where sum != 1.0 (within tolerance)
-                problematic_parents = parent_sums[abs(parent_sums['total_sum'] - 1.0) > tol]
+                # Find parents where sum != 100.0 (within tolerance)
+                problematic_parents = parent_sums[abs(parent_sums['total_sum'] - 100.0) > tol]
                 
                 if not problematic_parents.empty:
                     # Merge back to get children needing normalization
@@ -556,13 +555,13 @@ def validate_and_fix_shares_normalise_to_one(df, BASE_YEAR, LEAP_BRANCH_TO_EXPRE
                     # Calculate normalized values #todo need to find a way to deal with split equally better since we should ideally have real numbers otherwise we are just making things up
                     def calculate_normalized_value(row, SPLIT_EQUALLY=True):
                         if row['total_sum'] == 0.0 and row['child_count'] == 1:
-                            return 1.0
+                            return 100.0
                         elif row['total_sum'] == 0.0 and SPLIT_EQUALLY:
-                            return 1.0 / row['child_count']
+                            return 100.0 / row['child_count']
                         elif row['total_sum'] == 0.0:
                             return 0.0
                         else:
-                            return row['value'] / row['total_sum']
+                            return (row['value'] / row['total_sum']) * 100.0
                     
                     # Add child count info
                     normalization_data = normalization_data.merge(
@@ -610,5 +609,116 @@ def validate_and_fix_shares_normalise_to_one(df, BASE_YEAR, LEAP_BRANCH_TO_EXPRE
                     child_str = ' -> '.join(child) if isinstance(child, tuple) else str(child)
                     print(f"     - {child_str}: {original:.3f} → {normalized:.3f}")
         else:
-            print(f"✅ All shares already normalized to 1.0 for variable '{measure}'")
+            print(f"✅ All shares already normalized to 100.0 for variable '{measure}'")
+            
+    #make it wide again:
+    df = df.pivot(
+        index=['Branch Path', 'Variable', 'Scenario', 'Region', 'Scale', 'Units', 'Per...', 'Method','Level 1', 'Level 2', 'Level 3', 'Level 4', 'Level 5', 'Level 6', '#N/A'],
+        columns='Date',
+        values='value'
+    ).reset_index()
+    breakpoint()
     return df
+
+
+
+######################
+# ------------------------------------------------------------
+#VALIDATION
+# ------------------------------------------------------------
+# ============================================================
+# LEAP_transfers_transport_validation.py
+# ============================================================
+# Validates and optionally corrects stock/sales shares consistency
+# across all hierarchical levels of the transport dataset.
+# ============================================================
+
+import pandas as pd
+
+def validate_shares(df, tolerance=0.01, auto_correct=False, road_only=False):
+    """
+    Validate that stocks and sales shares sum to ~1.0 at each hierarchy level.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input dataframe containing at least:
+        ['Scenario', 'Transport Type', 'Medium', 'Vehicle Type', 'Date',
+         'Vehicle_sales_share', 'Stock Share'] (if applicable)
+    tolerance : float
+        Allowed deviation from 1.0 before flagging (default 0.01 = ±1%)
+    auto_correct : bool
+        If True, renormalize groups that deviate within 5*tolerance.
+
+    Returns
+    -------
+    df : pandas.DataFrame
+        Possibly corrected DataFrame.
+    report : pandas.DataFrame
+        Report summarizing which groups failed validation.
+    """
+
+    print("\n=== Validating Transport Shares Consistency ===")
+    issues = []
+
+    if road_only:
+        df_non_road = df[df["Medium"] != "road"].copy()
+        df = df[df["Medium"] == "road"].copy()
+    def check_and_fix(group, column):
+        """Helper to check one share column per group."""
+        total = group[column].sum(skipna=True)
+        deviation = abs(total - 1.0)
+        status = "OK"
+        if pd.isna(total) or len(group) == 0:
+            status = "Empty"
+        elif deviation > tolerance:
+            status = "FAIL"
+            if auto_correct and deviation < 5 * tolerance:
+                group[column] /= total
+                status = "Corrected"
+        return total, deviation, status, group
+
+    # Define combinations to check
+    group_levels = [
+        ["Scenario", "Transport Type", "Medium", "Vehicle Type", "Date"],
+        # ["Scenario", "Transport Type", "Medium", "Date"],#i think we just want the most detailed levelsand we calcualte the upper levels from these later in calculate_measures()
+    ]
+
+    # Check both shares if available
+    for col in ["Vehicle_sales_share", "Stock Share"]:
+        if col not in df.columns:
+            continue
+        for levels in group_levels:
+            grouped = df.groupby(levels, group_keys=False)
+            for key, g in grouped:
+                total, dev, status, new_g = check_and_fix(g, col)
+                issues.append({
+                    "Share Type": col,
+                    "Group": key,
+                    "Total": total,
+                    "Deviation": dev,
+                    "Status": status,
+                    "Group Size": len(g)
+                })
+                if auto_correct and status == "Corrected":
+                    df.loc[g.index, col] = new_g[col].values
+
+    report = pd.DataFrame(issues)
+    fails = report[report["Status"].isin(["FAIL", "Corrected"])]
+
+    #exclude base year values if it is on Vehicle_sales_share
+    fails = fails[~(fails["Share Type"].eq("Vehicle_sales_share") & fails["Group"].apply(lambda x: x[-1] == 2022))]
+
+    print(f"Checked {len(report)} groups.")
+    if len(fails) == 0:
+        print("✅ All share groups are consistent.")
+    else:
+        print(f"⚠️  {len(fails)} groups deviated from 1.0 "
+              f"({(len(fails)/len(report))*100:.1f}% of total).")
+        print("Sample issues:")
+        print(fails.head(10).to_string(index=False))
+
+    print("=" * 60)
+    if road_only:
+        df = pd.concat([df, df_non_road], ignore_index=True)
+    return df, report

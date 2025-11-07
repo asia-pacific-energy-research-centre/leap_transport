@@ -12,7 +12,7 @@ from LEAP_transfers_transport_core import (
     diagnose_leap_branch, normalize_sales_shares, analyze_data_quality,
     ensure_activity_levels, create_leap_data_log, log_leap_data, save_leap_data_log, validate_shares, build_expression_from_mapping, extract_other_type_rows_from_esto_and_insert_into_transport_df
 )
-from LEAP_transfers_transport_MAPPINGS import LEAP_BRANCH_TO_SOURCE_MAP, SHORTNAME_TO_LEAP_BRANCHES, LEAP_MEASURE_CONFIG
+from LEAP_transfers_transport_MAPPINGS import LEAP_BRANCH_TO_SOURCE_MAP, SHORTNAME_TO_LEAP_BRANCHES, LEAP_MEASURE_CONFIG, create_new_source_rows_based_on_combinations, create_new_source_rows_based_on_proxies_with_no_activity
 from LEAP_tranposrt_measures_config import calculate_sales, process_measures_for_leap, list_all_measures
 from LEAP_transfers_transport_excel import summarize_and_create_export_df, save_export_file
 
@@ -25,21 +25,40 @@ from LEAP_transfers_transport_MAPPINGS import (
 )
 from LEAP_BRANCH_TO_EXPRESSION_MAPPING import LEAP_BRANCH_TO_EXPRESSION_MAPPING
 
-from basic_mappings import ESTO_TRANSPORT_SECTOR_TUPLES,add_fuel_column
+from basic_mappings import ESTO_TRANSPORT_SECTOR_TUPLES,add_fuel_column,EXPECTED_COLS_IN_SOURCE
 
 from LEAP_mappings_validation import validate_all_mappings_with_measures, validate_and_fix_shares_normalise_to_one, validate_final_energy_use_for_base_year_equals_esto_totals
 
 # ------------------------------------------------------------
 # Modular process functions
 # ------------------------------------------------------------
+
 def prepare_input_data(excel_path, economy, base_year, final_year, TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx'):
     """Load and preprocess transport data for a specific economy."""    
     print(f"\n=== Loading Transport Data for {economy} ===")
     df = pd.read_excel(excel_path)
     df = df[df["Economy"] == economy]
     df = df[(df["Date"] >= base_year) & (df["Date"] <= final_year)]
+    #check EXPECTED_COLS_IN_SOURCE are all in df
+    missing_cols = [col for col in EXPECTED_COLS_IN_SOURCE if col not in df.columns]
+    if missing_cols:
+        breakpoint()
+        raise ValueError(f"Missing expected columns in source data: {missing_cols}")
     df = add_fuel_column(df)
     df.loc[df["Medium"] != "road", ["Stocks", 'Vehicle_sales_share']] = 0
+    new_rows1, rows_to_remove = create_new_source_rows_based_on_combinations(df)
+    new_rows2 = create_new_source_rows_based_on_proxies_with_no_activity(df)
+    if not new_rows1.empty or not new_rows2.empty:
+        new_rows = pd.concat([new_rows1, new_rows2], ignore_index=True)
+        df = pd.concat([df, new_rows], ignore_index=True)
+        
+        df = df.merge(rows_to_remove.drop_duplicates(), how='outer', indicator=True)
+        df = df[df['_merge'] == 'left_only'].drop(columns=['_merge'])
+    else:
+        breakpoint()
+        raise ValueError("No new source rows were created from proxies; check the mapping and source data just in case.")
+    
+    df = allocate_fuel_alternatives_energy_and_activity(df, economy)        
     df = calculate_sales(df)
     analyze_data_quality(df)
     df = normalize_sales_shares(df)
@@ -93,29 +112,6 @@ def process_branch_mapping(leap_tuple, src_tuple, TRANSPORT_ROOT=r"Demand\Transp
     )
     return ttype, medium, vtype, drive, fuel, branch_path, source_cols_for_grouping
 
-
-def define_value_based_on_src_tuple(meta_values, src_tuple):
-    ttype, medium, vtype, drive, fuel = tuple(list(src_tuple) + [None] * (5 - len(src_tuple)))[:5]
-    for col in ['LEAP_units', 'LEAP_Scale', 'LEAP_Per']:
-        val = meta_values.get(col)
-        if val is not None and isinstance(val, str) and '$' in val:
-            # extract the options. if there are multiple $'s throw an error, code is not designed for that
-            parts = val.split('$')
-            if len(parts) != 2:
-                raise ValueError(f"Unexpected format for metadata value: {val}")
-            #now we have special code based on what the pklaceholder is
-            if val == 'Passenger-km$Tonne-km':
-                if ttype == 'passenger':
-                    resolved_value = 'Passenger-km'
-                elif ttype == 'freight':
-                    resolved_value = 'Tonne-km'
-                else:
-                    raise ValueError(f"Unexpected ttype for resolving Passenger-km$Tonne-km: {ttype}")
-                meta_values[col] = resolved_value
-            else:
-                raise ValueError(f"Unknown placeholder in metadata value: {val}")
-    return meta_values
-
 def write_measures_to_leap(
     L, df_copy, leap_tuple, src_tuple, branch_path, filtered_measure_config,
     shortname, source_cols_for_grouping, save_log, leap_data_log, SET_VARS_IN_LEAP_USING_COM
@@ -123,7 +119,7 @@ def write_measures_to_leap(
     """Process measures for a branch and write them into LEAP."""
     ttype, medium, vtype, drive, fuel = tuple(list(src_tuple) + [None] * (5 - len(src_tuple)))[:5]
     processed_measures = process_measures_for_leap(
-        df_copy, filtered_measure_config, shortname, source_cols_for_grouping, ttype, medium, vtype, drive, fuel
+        df_copy, filtered_measure_config, shortname, source_cols_for_grouping, ttype, medium, vtype, drive, fuel, src_tuple
     )
     written_this_branch = missing_variables = 0
     for measure, df_m in processed_measures.items():
@@ -288,7 +284,7 @@ def load_transport_into_leap_v3(
                 first_of_each_length_diagnosed.add(len(leap_tuple))
             elif diagnose_method == 'all':
                 diagnose_leap_branch(L, branch_path, leap_tuple, expected_measures)
-
+        
         written, missing_vars, leap_data_log = write_measures_to_leap(
             L, df_copy, leap_tuple, src_tuple, branch_path, filtered_measure_config,
             shortname, source_cols_for_grouping, save_log, leap_data_log, SET_VARS_IN_LEAP_USING_COM
@@ -309,9 +305,9 @@ def load_transport_into_leap_v3(
     )
     validate_final_energy_use_for_base_year_equals_esto_totals(economy, scenario, base_year, final_year, export_df, TRANSPORT_ESTO_BALANCES_PATH)
     print("\n=== Transport data successfully filled into LEAP. ===\n")
-    breakpoint()
+    # breakpoint()
     #save export df to a pickle for later use
-    export_df.to_pickle('export_df.pkl')
+    # export_df.to_pickle('export_df.pkl')
     export_df = validate_and_fix_shares_normalise_to_one(export_df, base_year, LEAP_BRANCH_TO_EXPRESSION_MAPPING, EXAMPLE_SAMPLE_SIZE=5)
     
     # breakpoint()#how does it lookright now? I think we watned to do soemthign with the dataset somehow? maybe it was to isnett all the units and stuff
@@ -325,7 +321,7 @@ def load_transport_into_leap_v3(
 # ------------------------------------------------------------
 # Optional: run directly
 # ------------------------------------------------------------
-RUN = False
+RUN = True
 if __name__ == "__main__" and RUN:
     pd.options.display.float_format = "{:,.3f}".format
     list_all_measures()
@@ -338,7 +334,7 @@ if __name__ == "__main__" and RUN:
         final_year=2060,
         save_log=True,
         log_filename="../../results/BD_transport_leap_data_log.xlsx",
-        SET_VARS_IN_LEAP_USING_COM=False,
+        SET_VARS_IN_LEAP_USING_COM=True,
         SAVE_IMPORT_FILE=True,
         import_filename="../../results/BD_transport_leap_import.xlsx",
         TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx',
@@ -346,6 +342,6 @@ if __name__ == "__main__" and RUN:
     )
 #%%
 
-export_df =  pd.read_pickle('export_df.pkl')
-base_year = 2022
-export_df = validate_and_fix_shares_normalise_to_one(export_df, base_year, LEAP_BRANCH_TO_EXPRESSION_MAPPING, EXAMPLE_SAMPLE_SIZE=5)
+# export_df =  pd.read_pickle('export_df.pkl')
+# base_year = 2022
+# export_df = validate_and_fix_shares_normalise_to_one(export_df, base_year, LEAP_BRANCH_TO_EXPRESSION_MAPPING, EXAMPLE_SAMPLE_SIZE=5)

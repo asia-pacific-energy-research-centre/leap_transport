@@ -1,6 +1,6 @@
 #%%
 import pandas as pd
-
+from basic_mappings import ALL_PATHS_SOURCE
 SHORTNAME_TO_LEAP_BRANCHES = {
     # Mapping to names used for reference in LEAP
     'Transport type (road)': [
@@ -248,12 +248,13 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Passenger non road", "Air", "Electricity"):     ("passenger", "air",  "all", "air_electric", "Electricity"),
     ("Passenger non road", "Air", "Jet fuel"):        ("passenger", "air",  "all", "air_jet_fuel", "Jet fuel"),
     ("Passenger non road", "Air", "Aviation gasoline"): ("passenger", "air", "all", "air_av_gas", "Aviation gasoline"),
+    ("Passenger non road", "Air", "Biojet"):         ("passenger", "air",  "all", "air_biojet", "Biojet"),# proxy
 
     ("Passenger non road", "Rail", "Electricity"):    ("passenger", "rail", "all", "rail_electricity", "Electricity"),
     ("Passenger non road", "Rail", "Diesel"):         ("passenger", "rail", "all", "rail_diesel", "Diesel"),
-    ("Passenger non road", "Rail", "Hydrogen"):       ("passenger", "rail", "all", "rail_electricity", "Electricity"),  # proxy
+    ("Passenger non road", "Rail", "Hydrogen"):       ("passenger", "rail", "all", "rail_hydrogen", "Hydrogen"),  # proxy
     ("Passenger non road", "Rail", "Coal"):           ("passenger", "rail", "all", "rail_coal", "Coal"),
-    ("Passenger non road", "Rail", "Biodiesel"):      ("passenger", "rail", "all", "rail_diesel", "Diesel"),
+    ("Passenger non road", "Rail", "Biodiesel"):      ("passenger", "rail", "all", "rail_biodiesel", "Biodiesel"),# proxy
 
     ("Passenger non road", "Shipping", "Electricity"):("passenger", "ship", "all", "ship_electric", "Electricity"),
     ("Passenger non road", "Shipping", "Hydrogen"):   ("passenger", "ship", "all", "ship_hydrogen", "Hydrogen"),
@@ -262,9 +263,9 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Passenger non road", "Shipping", "LNG"):        ("passenger", "ship", "all", "ship_lng", "LNG"),
     ("Passenger non road", "Shipping", "Gasoline"):   ("passenger", "ship", "all", "ship_gasoline", "Gasoline"),
     ("Passenger non road", "Shipping", "Ammonia"):    ("passenger", "ship", "all", "ship_ammonia", "Ammonia"),
-    ("Passenger non road", "Shipping", "Biogasoline"): ("passenger", "ship", "all", "ship_gasoline", "Gasoline"),
-    ("Passenger non road", "Shipping", "Biodiesel"):   ("passenger", "ship", "all", "ship_diesel", "Diesel"),
-    
+    ("Passenger non road", "Shipping", "Biogasoline"): ("passenger", "ship", "all", "ship_biogasoline", "Biogasoline"),# proxy
+    ("Passenger non road", "Shipping", "Biodiesel"):   ("passenger", "ship", "all", "ship_biodiesel", "Biodiesel"),# proxy
+
     # =========================
     # NON-ROAD: FREIGHT
     # =========================
@@ -272,12 +273,13 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Freight non road", "Air", "Electricity"):       ("freight", "air",  "all", "air_electric", "Electricity"),
     ("Freight non road", "Air", "Jet fuel"):          ("freight", "air",  "all", "air_jet_fuel", "Jet fuel"),
     ("Freight non road", "Air", "Aviation gasoline"): ("freight", "air",  "all", "air_av_gas", "Aviation gasoline"),
+    ("Freight non road", "Air", "Biojet"):           ("freight", "air",  "all", "air_biojet", "Biojet"),# proxy
 
     ("Freight non road", "Rail", "Electricity"):      ("freight", "rail", "all", "rail_electricity", "Electricity"),
     ("Freight non road", "Rail", "Diesel"):           ("freight", "rail", "all", "rail_diesel", "Diesel"),
-    ("Freight non road", "Rail", "Hydrogen"):         ("freight", "rail", "all", "rail_electricity", "Electricity"),    # proxy
+    ("Freight non road", "Rail", "Hydrogen"):         ("freight", "rail", "all", "rail_hydrogen", "Hydrogen"),    # proxy
     ("Freight non road", "Rail", "Coal"):             ("freight", "rail", "all", "rail_coal", "Coal"),
-    ("Freight non road", "Rail", "Biodiesel"): ("freight", "rail", "all", "rail_diesel", "Diesel"),
+    ("Freight non road", "Rail", "Biodiesel"):       ("freight", "rail", "all", "rail_biodiesel", "Biodiesel"), # proxy
 
     ("Freight non road", "Shipping", "Electricity"):  ("freight", "ship", "all", "ship_electric", "Electricity"),
     ("Freight non road", "Shipping", "Hydrogen"):     ("freight", "ship", "all", "ship_hydrogen", "Hydrogen"),
@@ -286,8 +288,8 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Freight non road", "Shipping", "LNG"):          ("freight", "ship", "all", "ship_lng", "LNG"),
     ("Freight non road", "Shipping", "Gasoline"):     ("freight", "ship", "all", "ship_gasoline", "Gasoline"),
     ("Freight non road", "Shipping", "Ammonia"):      ("freight", "ship", "all", "ship_ammonia", "Ammonia"),
-    ("Freight non road", "Shipping", "Biogasoline"): ("freight", "ship", "all", "ship_gasoline", "Gasoline"),
-    ("Freight non road", "Shipping", "Biodiesel"): ("freight", "ship", "all", "ship_diesel", "Diesel"),
+    ("Freight non road", "Shipping", "Biogasoline"):  ("freight", "ship", "all", "ship_biogasoline", "Biogasoline"),#proxy
+    ("Freight non road", "Shipping", "Biodiesel"):    ("freight", "ship", "all", "ship_biodiesel", "Biodiesel"),#proxy
 
     # =====================================================
     # ROAD: PASSENGER ROAD → LPVs
@@ -298,55 +300,55 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
 
     ("Passenger road","LPVs","ICE small","Gasoline"):      ("passenger","road","car","ice_g","Gasoline"),
     ("Passenger road","LPVs","ICE small","Diesel"):        ("passenger","road","car","ice_d","Diesel"),
-    ("Passenger road","LPVs","ICE small","Biogasoline"):       ("passenger","road","car","ice_g","Gasoline"),
-    ("Passenger road","LPVs","ICE small","Biodiesel"):       ("passenger","road","car","ice_d","Diesel"),
+    ("Passenger road","LPVs","ICE small","Biogasoline"):       ("passenger","road","car","ice_g","Biogasoline"),#proxy
+    ("Passenger road","LPVs","ICE small","Biodiesel"):       ("passenger","road","car","ice_d","Biodiesel"),#proxy
 
     ("Passenger road","LPVs","ICE medium","Gasoline"):     ("passenger","road","suv","ice_g","Gasoline"),
     ("Passenger road","LPVs","ICE medium","Diesel"):       ("passenger","road","suv","ice_d","Diesel"),
-    ("Passenger road","LPVs","ICE medium","Biodiesel"):       ("passenger","road","suv","ice_d","Diesel"),
-    ("Passenger road","LPVs","ICE medium","Biogasoline"):      ("passenger","road","suv","ice_g","Gasoline"),
+    ("Passenger road","LPVs","ICE medium","Biodiesel"):       ("passenger","road","suv","ice_d","Biodiesel"),#proxy
+    ("Passenger road","LPVs","ICE medium","Biogasoline"):      ("passenger","road","suv","ice_g","Biogasoline"),#proxy
     ("Passenger road","LPVs","ICE medium","LPG"):          ("passenger","road","suv","lpg","LPG"),
     ("Passenger road","LPVs","ICE medium","CNG"):          ("passenger","road","suv","cng","CNG"),
-    ("Passenger road","LPVs","ICE medium","Biogas"):       ("passenger","road","suv","cng","CNG"),
+    ("Passenger road","LPVs","ICE medium","Biogas"):       ("passenger","road","suv","cng","Biogas"),#proxy
 
     ("Passenger road","LPVs","ICE large","Gasoline"):      ("passenger","road","lt","ice_g","Gasoline"),
     ("Passenger road","LPVs","ICE large","Diesel"):        ("passenger","road","lt","ice_d","Diesel"),
-    ("Passenger road","LPVs","ICE large","Biodiesel"):        ("passenger","road","lt","ice_d","Diesel"),
-    ("Passenger road","LPVs","ICE large","Biogasoline"):       ("passenger","road","lt","ice_g","Gasoline"),
+    ("Passenger road","LPVs","ICE large","Biodiesel"):        ("passenger","road","lt","ice_d","Biodiesel"),#proxy
+    ("Passenger road","LPVs","ICE large","Biogasoline"):       ("passenger","road","lt","ice_g","Biogasoline"),#proxy
     ("Passenger road","LPVs","ICE large","LPG"):           ("passenger","road","lt","lpg","LPG"),
     ("Passenger road","LPVs","ICE large","CNG"):           ("passenger","road","lt","cng","CNG"),
-    ("Passenger road","LPVs","ICE large","Biogas"):        ("passenger","road","lt","cng","CNG"),
+    ("Passenger road","LPVs","ICE large","Biogas"):        ("passenger","road","lt","cng","Biogas"),#proxy
 
     ("Passenger road","LPVs","PHEV small","Electricity"):  ("passenger","road","car","phev_g","Electricity"),
     ("Passenger road","LPVs","PHEV small","Gasoline"):     ("passenger","road","car","phev_g","Gasoline"),
     ("Passenger road","LPVs","PHEV small","Diesel"):       ("passenger","road","car","phev_d","Diesel"),
-    ("Passenger road","LPVs","PHEV small","Biodiesel"):       ("passenger","road","car","phev_d","Diesel"),
-    ("Passenger road","LPVs","PHEV small","Biogasoline"):      ("passenger","road","car","phev_g","Gasoline"),
+    ("Passenger road","LPVs","PHEV small","Biodiesel"):       ("passenger","road","car","phev_d","Biodiesel"),#proxy
+    ("Passenger road","LPVs","PHEV small","Biogasoline"):      ("passenger","road","car","phev_g","Biogasoline"),#proxy
 
     ("Passenger road","LPVs","PHEV medium","Electricity"): ("passenger","road","suv","phev_g","Electricity"),
     ("Passenger road","LPVs","PHEV medium","Gasoline"):    ("passenger","road","suv","phev_g","Gasoline"),
     ("Passenger road","LPVs","PHEV medium","Diesel"):      ("passenger","road","suv","phev_d","Diesel"),
-    ("Passenger road","LPVs","PHEV medium","Biodiesel"):      ("passenger","road","suv","phev_d","Diesel"),
-    ("Passenger road","LPVs","PHEV medium","Biogasoline"):     ("passenger","road","suv","phev_g","Gasoline"),
+    ("Passenger road","LPVs","PHEV medium","Biodiesel"):      ("passenger","road","suv","phev_d","Biodiesel"),#proxy
+    ("Passenger road","LPVs","PHEV medium","Biogasoline"):     ("passenger","road","suv","phev_g","Biogasoline"),#proxy
 
     ("Passenger road","LPVs","PHEV large","Electricity"):  ("passenger","road","lt","phev_g","Electricity"),
     ("Passenger road","LPVs","PHEV large","Gasoline"):     ("passenger","road","lt","phev_g","Gasoline"),
     ("Passenger road","LPVs","PHEV large","Diesel"):       ("passenger","road","lt","phev_d","Diesel"),
-    ("Passenger road","LPVs","PHEV large","Biodiesel"):       ("passenger","road","lt","phev_d","Diesel"),
-    ("Passenger road","LPVs","PHEV large","Biogasoline"):      ("passenger","road","lt","phev_g","Gasoline"),
+    ("Passenger road","LPVs","PHEV large","Biodiesel"):       ("passenger", "road", "lt", "phev_d", "Biodiesel"),#proxy
+    ("Passenger road","LPVs","PHEV large","Biogasoline"):      ("passenger", "road", "lt", "phev_g", "Biogasoline"),#proxy
 
-    ("Passenger road","LPVs","HEV small","Gasoline"):      ("passenger","road","car","ice_g","Gasoline"),
-    ("Passenger road","LPVs","HEV small","Diesel"):        ("passenger","road","car","ice_d","Diesel"),
-    ("Passenger road","LPVs","HEV small","Biodiesel"):        ("passenger","road","car","ice_d","Diesel"),
-    ("Passenger road","LPVs","HEV small","Biogasoline"):       ("passenger","road","car","ice_g","Gasoline"),
-    ("Passenger road","LPVs","HEV medium","Gasoline"):     ("passenger","road","suv","ice_g","Gasoline"),
-    ("Passenger road","LPVs","HEV medium","Diesel"):       ("passenger","road","suv","ice_d","Diesel"),
-    ("Passenger road","LPVs","HEV medium","Biodiesel"):       ("passenger","road","suv","ice_d","Diesel"),
-    ("Passenger road","LPVs","HEV medium","Biogasoline"):      ("passenger","road","suv","ice_g","Gasoline"),
-    ("Passenger road","LPVs","HEV large","Gasoline"):      ("passenger","road","lt","ice_g","Gasoline"),
-    ("Passenger road","LPVs","HEV large","Diesel"):        ("passenger","road","lt","ice_d","Diesel"),
-    ("Passenger road","LPVs","HEV large","Biodiesel"):        ("passenger","road","lt","ice_d","Diesel"),
-    ("Passenger road","LPVs","HEV large","Biogasoline"):       ("passenger","road","lt","ice_g","Gasoline"),
+    ("Passenger road","LPVs","HEV small","Gasoline"):      ("passenger", "road", "car", "hev_g", "Gasoline"),#proxy
+    ("Passenger road","LPVs","HEV small","Diesel"):        ("passenger","road","car","hev_d","Diesel"),#proxy
+    ("Passenger road","LPVs","HEV small","Biodiesel"):        ("passenger","road","car","hev_d","Biodiesel"),#proxy
+    ("Passenger road","LPVs","HEV small","Biogasoline"):       ("passenger","road","car","hev_g","Biogasoline"),#proxy
+    ("Passenger road","LPVs","HEV medium","Gasoline"):     ("passenger","road","suv","hev_g","Gasoline"),#proxy
+    ("Passenger road","LPVs","HEV medium","Diesel"):       ("passenger","road","suv","hev_d","Diesel"),#proxy
+    ("Passenger road","LPVs","HEV medium","Biodiesel"):       ("passenger","road","suv","hev_d","Biodiesel"),#proxy
+    ("Passenger road","LPVs","HEV medium","Biogasoline"):      ("passenger","road","suv","hev_g","Biogasoline"),#proxy
+    ("Passenger road","LPVs","HEV large","Gasoline"):      ("passenger","road","lt","hev_g","Gasoline"),#proxy
+    ("Passenger road","LPVs","HEV large","Diesel"):        ("passenger","road","lt","hev_d","Diesel"),#proxy
+    ("Passenger road","LPVs","HEV large","Biodiesel"):        ("passenger","road","lt","hev_d","Biodiesel"),#proxy
+    ("Passenger road","LPVs","HEV large","Biogasoline"):       ("passenger","road","lt","hev_g","Biogasoline"),#proxy
 
     # =========================
     # ROAD: PASSENGER ROAD → Buses
@@ -356,55 +358,55 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Passenger road","Buses","ICE","Gasoline"):           ("passenger","road","bus","ice_g","Gasoline"),
     ("Passenger road","Buses","ICE","LPG"):                ("passenger","road","bus","lpg","LPG"),
     ("Passenger road","Buses","ICE","CNG"):                ("passenger","road","bus","cng","CNG"),
-    ("Passenger road","Buses","ICE","Biogas"):             ("passenger","road","bus","cng","CNG"),
+    ("Passenger road","Buses","ICE","Biogas"):             ("passenger","road","bus","cng","Biogas"),#proxy
     ("Passenger road","Buses","FCEV","Hydrogen"):          ("passenger","road","bus","fcev","Hydrogen"),
-    ("Passenger road", "Buses", "ICE", "Biodiesel"): ("passenger", "road", "bus", "ice_d", "Diesel"),
-    ("Passenger road", "Buses", "ICE", "Biogasoline"): ("passenger", "road", "bus", "ice_g", "Gasoline"),
+    ("Passenger road", "Buses", "ICE", "Biodiesel"): ("passenger", "road", "bus", "ice_d", "Biodiesel"),#proxy
+    ("Passenger road", "Buses", "ICE", "Biogasoline"): ("passenger", "road", "bus", "ice_g", "Biogasoline"),#proxy
 
     # =========================
     # ROAD: PASSENGER ROAD → Motorcycles
     # =========================
     ("Passenger road","Motorcycles","ICE","Gasoline"):     ("passenger","road","2w","ice_g","Gasoline"),
     ("Passenger road","Motorcycles","ICE","Diesel"):       ("passenger","road","2w","ice_d","Diesel"),
-    ("Passenger road","Motorcycles","ICE","Biodiesel"):       ("passenger","road","2w","ice_d","Diesel"),
-    ("Passenger road","Motorcycles","ICE","Biogasoline"):      ("passenger","road","2w","ice_g","Gasoline"),
+    ("Passenger road","Motorcycles","ICE","Biodiesel"):      ("passenger","road","2w","ice_d","Biodiesel"),#proxy
+    ("Passenger road","Motorcycles","ICE","Biogasoline"):      ("passenger","road","2w","ice_g","Biogasoline"),#proxy
     ("Passenger road","Motorcycles","BEV","Electricity"):  ("passenger","road","2w","bev","Electricity"),
 
     # =========================
-    # ROAD: FREIGHT ROAD → Trucks
+    # ROAD: FREIGHT ROAD → Trucks #todo we dont have phev trucks in here. need to create them
     # =========================
     ("Freight road","Trucks","ICE heavy","Gasoline"):      ("freight","road","ht","ice_g","Gasoline"),
     ("Freight road","Trucks","ICE heavy","Diesel"):        ("freight","road","ht","ice_d","Diesel"),
-    ("Freight road","Trucks","ICE heavy","Biodiesel"):        ("freight","road","ht","ice_d","Diesel"),
-    ("Freight road","Trucks","ICE heavy","Biogasoline"):       ("freight","road","ht","ice_g","Gasoline"),
+    ("Freight road","Trucks","ICE heavy","Biodiesel"):        ("freight","road","ht","ice_d","Biodiesel"),#proxy
+    ("Freight road","Trucks","ICE heavy","Biogasoline"):       ("freight","road","ht","ice_g","Biogasoline"),#proxy
     ("Freight road","Trucks","ICE heavy","LPG"):           ("freight","road","ht","lpg","LPG"),
     ("Freight road","Trucks","ICE heavy","CNG"):           ("freight","road","ht","cng","CNG"),
     ("Freight road","Trucks","ICE heavy","LNG"):           ("freight","road","ht","lng","LNG"),
-    ("Freight road","Trucks","ICE heavy","Biogas"):        ("freight","road","ht","cng","CNG"),
+    ("Freight road","Trucks","ICE heavy","Biogas"):        ("freight","road","ht","cng","Biogas"),#proxy
 
     ("Freight road","Trucks","ICE medium","Gasoline"):     ("freight","road","mt","ice_g","Gasoline"),
     ("Freight road","Trucks","ICE medium","Diesel"):       ("freight","road","mt","ice_d","Diesel"),
-    ("Freight road","Trucks","ICE medium","Biodiesel"):       ("freight","road","mt","ice_d","Diesel"),
-    ("Freight road","Trucks","ICE medium","Biogasoline"):      ("freight","road","mt","ice_g","Gasoline"),
+    ("Freight road","Trucks","ICE medium","Biodiesel"):       ("freight","road","mt","ice_d","Biodiesel"),#proxy
+    ("Freight road","Trucks","ICE medium","Biogasoline"):      ("freight","road","mt","ice_g","Biogasoline"),#proxy
     ("Freight road","Trucks","ICE medium","LNG"):          ("freight","road","mt","lng","LNG"),
     ("Freight road","Trucks","ICE medium","CNG"):          ("freight","road","mt","cng","CNG"),
     ("Freight road","Trucks","ICE medium","LPG"):          ("freight","road","mt","lpg","LPG"),
-    ("Freight road","Trucks","ICE medium","Biogas"):       ("freight","road","mt","cng","CNG"),
+    ("Freight road","Trucks","ICE medium","Biogas"):       ("freight","road","mt","cng","Biogas"),#proxy
 
     ("Freight road","Trucks","BEV heavy","Electricity"):   ("freight","road","ht","bev","Electricity"),
     ("Freight road","Trucks","BEV medium","Electricity"):  ("freight","road","mt","bev","Electricity"),
 
-    ("Freight road","Trucks","EREV medium","Gasoline"):    ("freight","road","mt","phev_g","Gasoline"),
-    ("Freight road","Trucks","EREV medium","Electricity"): ("freight","road","mt","phev_g","Electricity"),
-    ("Freight road","Trucks","EREV medium","Diesel"):      ("freight","road","mt","phev_d","Diesel"),
-    ("Freight road","Trucks","EREV medium","Biodiesel"):      ("freight","road","mt","phev_d","Diesel"),
-    ("Freight road","Trucks","EREV medium","Biogasoline"):     ("freight","road","mt","phev_g","Gasoline"),
+    ("Freight road","Trucks","EREV medium","Gasoline"):    ("freight","road","mt","erev_g","Gasoline"),#proxy
+    ("Freight road","Trucks","EREV medium","Electricity"): ("freight","road","mt","erev_g","Electricity"),#proxy
+    ("Freight road","Trucks","EREV medium","Diesel"):      ("freight","road","mt","erev_d","Diesel"),#proxy
+    ("Freight road","Trucks","EREV medium","Biodiesel"):      ("freight","road","mt","erev_d","Biodiesel"),#proxy
+    ("Freight road","Trucks","EREV medium","Biogasoline"):     ("freight","road","mt","erev_g","Biogasoline"),#proxy
 
-    ("Freight road","Trucks","EREV heavy","Gasoline"):     ("freight","road","ht","phev_g","Gasoline"),
-    ("Freight road","Trucks","EREV heavy","Electricity"):  ("freight","road","ht","phev_g","Electricity"),
-    ("Freight road","Trucks","EREV heavy","Diesel"):       ("freight","road","ht","phev_d","Diesel"),
-    ("Freight road","Trucks","EREV heavy","Biodiesel"):       ("freight","road","ht","phev_d","Diesel"),
-    ("Freight road","Trucks","EREV heavy","Biogasoline"):      ("freight","road","ht","phev_g","Gasoline"),
+    ("Freight road","Trucks","EREV heavy","Gasoline"):     ("freight","road","ht","erev_g","Gasoline"),#proxy
+    ("Freight road","Trucks","EREV heavy","Electricity"):  ("freight","road","ht","erev_g","Electricity"),#proxy
+    ("Freight road","Trucks","EREV heavy","Diesel"):       ("freight","road","ht","erev_d","Diesel"),#proxy
+    ("Freight road","Trucks","EREV heavy","Biodiesel"):       ("freight","road","ht","erev_d","Biodiesel"),#proxy
+    ("Freight road","Trucks","EREV heavy","Biogasoline"):      ("freight","road","ht","erev_g","Biogasoline"),#proxy
 
     ("Freight road","Trucks","FCEV heavy","Hydrogen"):     ("freight","road","ht","fcev","Hydrogen"),
     ("Freight road","Trucks","FCEV medium","Hydrogen"):    ("freight","road","mt","fcev","Hydrogen"),
@@ -414,49 +416,48 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     # =========================
     ("Freight road","LCVs","ICE","Gasoline"):              ("freight","road","lcv","ice_g","Gasoline"),
     ("Freight road","LCVs","ICE","Diesel"):                ("freight","road","lcv","ice_d","Diesel"),
-    ("Freight road","LCVs","ICE","Biodiesel"):                ("freight","road","lcv","ice_d","Diesel"),
-    ("Freight road","LCVs","ICE","Biogasoline"):               ("freight","road","lcv","ice_g","Gasoline"),
+    ("Freight road","LCVs","ICE","Biodiesel"):                ("freight","road","lcv","ice_d","Biodiesel"),#proxy
+    ("Freight road","LCVs","ICE","Biogasoline"):               ("freight","road","lcv","ice_g","Biogasoline"),#proxy
     ("Freight road","LCVs","ICE","CNG"):                   ("freight","road","lcv","cng","CNG"),
     ("Freight road","LCVs","ICE","LPG"):                   ("freight","road","lcv","lpg","LPG"),
-    ("Freight road","LCVs","ICE","Biogas"):                ("freight","road","lcv","cng","CNG"),
+    ("Freight road","LCVs","ICE","Biogas"):                ("freight","road","lcv","cng","Biogas"),#proxy
     ("Freight road","LCVs","BEV","Electricity"):           ("freight","road","lcv","bev","Electricity"),
     ("Freight road","LCVs","PHEV","Electricity"):          ("freight","road","lcv","phev_g","Electricity"),
     ("Freight road","LCVs","PHEV","Gasoline"):             ("freight","road","lcv","phev_g","Gasoline"),
     ("Freight road","LCVs","PHEV","Diesel"):               ("freight","road","lcv","phev_d","Diesel"),
-    ("Freight road","LCVs","PHEV","Biodiesel"):               ("freight","road","lcv","phev_d","Diesel"),
-    ("Freight road","LCVs","PHEV","Biogasoline"):              ("freight","road","lcv","phev_g","Gasoline"),
-    
+    ("Freight road","LCVs","PHEV","Biodiesel"):               ("freight","road","lcv","phev_d","Biodiesel"),#proxy
+    ("Freight road","LCVs","PHEV","Biogasoline"):              ("freight","road","lcv","phev_g","Biogasoline"),#proxy
+
     # =========================
-    # TECHNOLOGY-LEVEL MAPPINGS #note that these are a bit meh, we might benefit from some sort of aggregteion of all ICE drives into one, PHEV drives into one,etc. within the Source data.
-    # =========================
-    ('Passenger road', 'LPVs', 'ICE medium'):              ("passenger", "road", "car", 'ice_g'),
-    ('Passenger road', 'LPVs', 'HEV small'):               ("passenger", "road", "car", 'ice_g'),
-    ('Passenger road', 'LPVs', 'PHEV large'):              ("passenger", "road", "lt", 'phev_g'),
-    ('Passenger road', 'LPVs', 'HEV large'):               ("passenger", "road", "lt", 'ice_g'),
-    ('Passenger road', 'LPVs', 'PHEV medium'):             ("passenger", "road", "suv", 'phev_g'),
-    ('Freight road', 'Trucks', 'ICE heavy'):               ("freight", "road", "ht", 'ice_d'),
-    ('Freight road', 'LCVs', 'ICE'):                       ("freight", "road", "ice_d"),
+    # TECHNOLOGY-LEVEL MAPPINGS
+    ('Passenger road', 'LPVs', 'ICE medium'):              ("passenger", "road", "suv", 'ice'),#combination
+    ('Passenger road', 'LPVs', 'HEV small'):               ("passenger", "road", "car", 'hev'),#proxy
+    ('Passenger road', 'LPVs', 'PHEV large'):              ("passenger", "road", "lt", 'phev'),#combination
+    ('Passenger road', 'LPVs', 'HEV large'):               ("passenger", "road", "lt", 'hev'),#proxy
+    ('Passenger road', 'LPVs', 'PHEV medium'):             ("passenger", "road", "suv", 'phev'),#combination
+    ('Freight road', 'Trucks', 'ICE heavy'):               ("freight", "road", "ht", 'ice'),#combination
+    ('Freight road', 'LCVs', 'ICE'):                       ("freight", "road", "lcv", "ice"),#combination
     ('Passenger road', 'LPVs', 'BEV small'):               ("passenger", "road", "car", 'bev'),
     ('Freight road', 'Trucks', 'FCEV medium'):             ("freight", "road", "mt", 'fcev'),
     ('Freight road', 'Trucks', 'BEV heavy'):               ("freight", "road", "ht", 'bev'),
-    ('Passenger road', 'LPVs', 'PHEV small'):              ("passenger", "road", "car", 'phev_g'),
-    ('Passenger road', 'Buses', 'ICE'):                    ("passenger", "road", "bus", 'ice_g'),
-    ('Freight road', 'LCVs', 'PHEV'):                      ("freight", "road", "lcv", 'phev_g'),
-    ('Passenger road', 'LPVs', 'HEV medium'):              ("passenger", "road", "suv", 'hev_g'),
-    ('Freight road', 'Trucks', 'ICE medium'):              ("freight", "road", "mt", 'ice_d'),
+    ('Passenger road', 'LPVs', 'PHEV small'):              ("passenger", "road", "car", 'phev'),#combination
+    ('Passenger road', 'Buses', 'ICE'):                    ("passenger", "road", "bus", 'ice'),#combination
+    ('Freight road', 'LCVs', 'PHEV'):                      ("freight", "road", "lcv", 'phev'),#combination
+    ('Passenger road', 'LPVs', 'HEV medium'):              ("passenger", "road", "suv", 'hev'),#proxy
+    ('Freight road', 'Trucks', 'ICE medium'):              ("freight", "road", "mt", 'ice'),#combination
     ('Passenger road', 'LPVs', 'BEV large'):               ("passenger", "road", "lt", 'bev'),
-    ('Passenger road', 'LPVs', 'ICE small'):               ("passenger", "road", "car", 'ice_g'),
-    ('Passenger road', 'Motorcycles', 'ICE'):              ("passenger", "road", "2w", 'ice_g'),
+    ('Passenger road', 'LPVs', 'ICE small'):               ("passenger", "road", "car", 'ice'),#combination
+    ('Passenger road', 'Motorcycles', 'ICE'):              ("passenger", "road", "2w", 'ice'),#combination
     ('Passenger road', 'LPVs', 'BEV medium'):              ("passenger", "road", "suv", 'bev'),
     ('Freight road', 'LCVs', 'BEV'):                       ("freight", "road", "lcv", 'bev'),
     ('Passenger road', 'Buses', 'FCEV'):                   ("passenger", "road", "bus", 'fcev'),
     ('Passenger road', 'Buses', 'BEV'):                    ("passenger", "road", "bus", 'bev'),
-    ('Freight road', 'Trucks', 'EREV medium'):             ("freight", "road", "mt", 'erev'),
+    ('Freight road', 'Trucks', 'EREV medium'):             ("freight", "road", "mt", 'erev'),#proxy 
     ('Freight road', 'Trucks', 'FCEV heavy'):              ("freight", "road", "ht", 'fcev'),
     ('Freight road', 'Trucks', 'BEV medium'):              ("freight", "road", "mt", 'bev'),
     ('Passenger road', 'Motorcycles', 'BEV'):              ("passenger", "road", "2w", 'bev'),
-    ('Freight road', 'Trucks', 'EREV heavy'):              ("freight", "road", "ht", 'erev'),
-    ('Passenger road', 'LPVs', 'ICE large'):               ("passenger", "road", "lt", 'ice_g'),
+    ('Freight road', 'Trucks', 'EREV heavy'):              ("freight", "road", "ht", 'erev'),#proxy
+    ('Passenger road', 'LPVs', 'ICE large'):               ("passenger", "road", "lt", 'ice'),#combination
 
     # =========================
     # Other AGGREGATE MAPPINGS
@@ -467,10 +468,10 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Passenger non road",):                              ("passenger", "non road"),
     ("Freight non road",):                                ("freight", "non road"),
     
-    ("Passenger road","LPVs"):                            ("passenger", "road", "car"),
+    ("Passenger road","LPVs"):                            ("passenger", "road", "lpv"),#combination
     ("Passenger road","Buses"):                           ("passenger", "road", "bus"),
     ("Passenger road","Motorcycles"):                     ("passenger", "road", "2w"),
-    ("Freight road","Trucks"):                            ("freight", "road","ht"),
+    ("Freight road","Trucks"):                            ("freight", "road","truck"),#combination
     ("Freight road","LCVs"):                              ("freight", "road", "lcv"),
     
     ("Passenger non road", "Air"):                       ("passenger", "air"),
@@ -501,6 +502,385 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Nonspecified transport",): ("Nonspecified transport",),
     ('Pipeline transport',): ("Pipeline transport",)
 }
+#todo need to double check this and the ocbination set.
+PROXIED_SOURCE_ROWS_WITH_NO_ACTIVITY = {#THESE SHOULD BE ALL PROXIES WITH #PROXY IN THE COMMENTS ABOVE
+
+    # air
+    ("passenger", "air",  "all", "air_biojet", "Biojet"): ("passenger", "air",  "all", "air_jet_fuel", "Jet fuel"),
+    ("freight", "air",  "all", "air_biojet", "Biojet"): ("freight", "air",  "all", "air_jet_fuel", "Jet fuel"),
+
+    # Freight rail
+    ("freight", "rail", "all", "rail_biodiesel", "Biodiesel"): ("freight", "rail", "all", "rail_diesel", "Diesel"),
+    ("freight", "rail", "all", "rail_hydrogen", "Hydrogen"): ("freight", "rail", "all", "rail_electricity", "Electricity"),
+    
+    # Freight road heavy trucks
+    ("freight", "road", "ht", "erev_d", "Biodiesel"): ("freight", "road", "ht", "phev_d", "Diesel"),
+    ("freight", "road", "ht", "erev_d", "Diesel"): ("freight", "road", "ht", "phev_d", "Diesel"),
+    ("freight", "road", "ht", "erev_g", "Biogasoline"): ("freight", "road", "ht", "phev_g", "Gasoline"),
+    ("freight", "road", "ht", "erev_g", "Electricity"): ("freight", "road", "ht", "phev_g", "Electricity"),
+    ("freight", "road", "ht", "erev_g", "Gasoline"): ("freight", "road", "ht", "phev_g", "Gasoline"),
+    ("freight", "road", "ht", "ice_d", "Biodiesel"): ("freight", "road", "ht", "ice_d", "Diesel"),
+    ("freight", "road", "ht", "ice_g", "Biogasoline"): ("freight", "road", "ht", "ice_g", "Gasoline"),
+    ("freight", "road", "ht", "phev_d", "Biodiesel"): ("freight", "road", "ht", "phev_d", "Diesel"),
+    ("freight", "road", "ht", "phev_g", "Biogasoline"): ("freight", "road", "ht", "phev_g", "Gasoline"),
+    ("freight", "road", "ht", "cng", "Biogas"): ("freight", "road", "ht", "cng", "CNG"),
+    ("freight", "road", "ht", 'erev'): ("freight", "road", "ht", 'phev'),
+    
+    # Freight road light commercial vehicles
+    ("freight", "road", "lcv", "cng", "Biogas"): ("freight", "road", "lcv", "cng", "CNG"),
+    ("freight", "road", "lcv", "ice_d", "Biodiesel"): ("freight", "road", "lcv", "ice_d", "Diesel"),
+    ("freight", "road", "lcv", "ice_g", "Biogasoline"): ("freight", "road", "lcv", "ice_g", "Gasoline"),
+    ("freight", "road", "lcv", "phev_d", "Biodiesel"): ("freight", "road", "lcv", "phev_d", "Diesel"),
+    ("freight", "road", "lcv", "phev_g", "Biogasoline"): ("freight", "road", "lcv", "phev_g", "Gasoline"),
+    
+    # Freight road medium trucks
+    ("freight", "road", "mt", "cng", "Biogas"): ("freight", "road", "mt", "cng", "CNG"),
+    ("freight", "road", "mt", "erev_d", "Biodiesel"): ("freight", "road", "mt", "phev_d", "Diesel"),
+    ("freight", "road", "mt", "erev_d", "Diesel"): ("freight", "road", "mt", "phev_d", "Diesel"),
+    ("freight", "road", "mt", "erev_g", "Biogasoline"): ("freight", "road", "mt", "phev_g", "Gasoline"),
+    ("freight", "road", "mt", "erev_g", "Electricity"): ("freight", "road", "mt", "phev_g", "Electricity"),
+    ("freight", "road", "mt", "erev_g", "Gasoline"): ("freight", "road", "mt", "phev_g", "Gasoline"),
+    ("freight", "road", "mt", "ice_d", "Biodiesel"): ("freight", "road", "mt", "ice_d", "Diesel"),
+    ("freight", "road", "mt", "ice_g", "Biogasoline"): ("freight", "road", "mt", "ice_g", "Gasoline"),
+    ("freight", "road", "mt", "phev_d", "Biodiesel"): ("freight", "road", "mt", "phev_d", "Diesel"),
+    ("freight", "road", "mt", "phev_g", "Biogasoline"): ("freight", "road", "mt", "phev_g", "Gasoline"),
+    ("freight", "road", "mt", 'erev'): ("freight", "road", "mt", 'phev'),
+    
+    # Freight shipping
+    ("freight", "ship", "all", "ship_biodiesel", "Biodiesel"): ("freight", "ship", "all", "ship_diesel", "Diesel"),
+    ("freight", "ship", "all", "ship_biogasoline", "Biogasoline"): ("freight", "ship", "all", "ship_gasoline", "Gasoline"),
+    
+    # Passenger rail
+    ("passenger", "rail", "all", "rail_biodiesel", "Biodiesel"): ("passenger", "rail", "all", "rail_diesel", "Diesel"),
+    ("passenger", "rail", "all", "rail_hydrogen", "Hydrogen"): ("passenger", "rail", "all", "rail_electricity", "Electricity"),
+    
+    # Passenger road 2-wheelers
+    ("passenger", "road", "2w", "ice_d", "Biodiesel"): ("passenger", "road", "2w", "ice_d", "Diesel"),
+    ("passenger", "road", "2w", "ice_g", "Biogasoline"): ("passenger", "road", "2w", "ice_g", "Gasoline"),
+    
+    # Passenger road buses
+    ("passenger", "road", "bus", "cng", "Biogas"): ("passenger", "road", "bus", "cng", "CNG"),
+    ("passenger", "road", "bus", "ice_d", "Biodiesel"): ("passenger", "road", "bus", "ice_d", "Diesel"),
+    ("passenger", "road", "bus", "ice_g", "Biogasoline"): ("passenger", "road", "bus", "ice_g", "Gasoline"),
+    
+    # Passenger road cars
+    ("passenger", "road", "car", "hev_d", "Biodiesel"): ("passenger", "road", "car", "ice_d", "Diesel"),
+    ("passenger", "road", "car", "hev_d", "Diesel"): ("passenger", "road", "car", "ice_d", "Diesel"),
+    ("passenger", "road", "car", "hev_g", "Biogasoline"): ("passenger", "road", "car", "ice_g", "Gasoline"),
+    ("passenger", "road", "car", "hev_g", "Gasoline"): ("passenger", "road", "car", "ice_g", "Gasoline"),
+    ("passenger", "road", "car", "ice_d", "Biodiesel"): ("passenger", "road", "car", "ice_d", "Diesel"),
+    ("passenger", "road", "car", "ice_g", "Biogasoline"): ("passenger", "road", "car", "ice_g", "Gasoline"),
+    ("passenger", "road", "car", "phev_d", "Biodiesel"): ("passenger", "road", "car", "phev_d", "Diesel"),
+    ("passenger", "road", "car", "phev_g", "Biogasoline"): ("passenger", "road", "car", "phev_g", "Gasoline"),
+    ("passenger", "road", "car", 'hev'): ("passenger", "road", "car", 'ice'),
+    
+    # Passenger road light trucks
+    ("passenger", "road", "lt", "cng", "Biogas"): ("passenger", "road", "lt", "cng", "CNG"),
+    ("passenger", "road", "lt", "hev_d", "Biodiesel"): ("passenger", "road", "lt", "ice_d", "Diesel"),
+    ("passenger", "road", "lt", "hev_d", "Diesel"): ("passenger", "road", "lt", "ice_d", "Diesel"),
+    ("passenger", "road", "lt", "hev_g", "Biogasoline"): ("passenger", "road", "lt", "ice_g", "Gasoline"),
+    ("passenger", "road", "lt", "hev_g", "Gasoline"): ("passenger", "road", "lt", "ice_g", "Gasoline"),
+    ("passenger", "road", "lt", "ice_d", "Biodiesel"): ("passenger", "road", "lt", "ice_d", "Diesel"),
+    ("passenger", "road", "lt", "ice_g", "Biogasoline"): ("passenger", "road", "lt", "ice_g", "Gasoline"),
+    ("passenger", "road", "lt", "phev_d", "Biodiesel"): ("passenger", "road", "lt", "phev_d", "Diesel"),
+    ("passenger", "road", "lt", "phev_g", "Biogasoline"): ("passenger", "road", "lt", "phev_g", "Gasoline"),
+    ("passenger", "road", "lt", 'hev'): ("passenger", "road", "lt", 'ice'),
+    
+    # Passenger road SUVs
+    ("passenger", "road", "suv", "cng", "Biogas"): ("passenger", "road", "suv", "cng", "CNG"),
+    ("passenger", "road", "suv", "hev_d", "Biodiesel"): ("passenger", "road", "suv", "ice_d", "Diesel"),
+    ("passenger", "road", "suv", "hev_d", "Diesel"): ("passenger", "road", "suv", "ice_d", "Diesel"),
+    ("passenger", "road", "suv", "hev_g", "Biogasoline"): ("passenger", "road", "suv", "ice_g", "Gasoline"),
+    ("passenger", "road", "suv", "hev_g", "Gasoline"): ("passenger", "road", "suv", "ice_g", "Gasoline"),
+    ("passenger", "road", "suv", "ice_d", "Biodiesel"): ("passenger", "road", "suv", "ice_d", "Diesel"),
+    ("passenger", "road", "suv", "ice_g", "Biogasoline"): ("passenger", "road", "suv", "ice_g", "Gasoline"),
+    ("passenger", "road", "suv", "phev_d", "Biodiesel"): ("passenger", "road", "suv", "phev_d", "Diesel"),
+    ("passenger", "road", "suv", "phev_g", "Biogasoline"): ("passenger", "road", "suv", "phev_g", "Gasoline"),
+    ("passenger", "road", "suv", 'hev'): ("passenger", "road", "suv", 'ice'),
+    
+    # Passenger shipping
+    ("passenger", "ship", "all", "ship_biodiesel", "Biodiesel"): ("passenger", "ship", "all", "ship_diesel", "Diesel"),
+    ("passenger", "ship", "all", "ship_biogasoline", "Biogasoline"): ("passenger", "ship", "all", "ship_gasoline", "Gasoline"),
+}
+COMBINATION_SOURCE_ROWS = {#THESE SHOULD BE ALL COMBINATIONS WITH #combination IN THE COMMENTS ABOVE
+    ("freight", "road", "ht"): [
+        ("freight", "road", "ht", "ice_g", "Gasoline"),
+        ("freight", "road", "ht", "ice_d", "Diesel"),
+        ("freight", "road", "ht", "bev", "Electricity"),
+        ("freight", "road", "ht", "phev_g", "Gasoline"),
+        ("freight", "road", "ht", "phev_d", "Diesel"),
+        ("freight", "road", "ht", "fcev", "Hydrogen"),
+    ],
+    ("freight", "road", "ht", 'ice'): [
+        ("freight", "road", "ht", "ice_g", "Gasoline"),
+        ("freight", "road", "ht", "ice_d", "Diesel"),
+    ],
+    ("freight", "road", "ht", 'phev'): [
+        ("freight", "road", "ht", "phev_g", "Gasoline"),
+        ("freight", "road", "ht", "phev_d", "Diesel"),
+    ],
+    ("freight", "road", "lcv", "ice"): [
+        ("freight", "road", "lcv", "ice_g", "Gasoline"),
+        ("freight", "road", "lcv", "ice_d", "Diesel"),
+    ],
+    ("freight", "road", "lcv", 'phev'): [
+        ("freight", "road", "lcv", "phev_g", "Gasoline"),
+        ("freight", "road", "lcv", "phev_d", "Diesel"),
+    ],
+    ("freight", "road", "mt", 'ice'): [
+        ("freight", "road", "mt", "ice_g", "Gasoline"),
+        ("freight", "road", "mt", "ice_d", "Diesel"),
+    ],
+    ("freight", "road", "mt", 'phev'): [
+        ("freight", "road", "mt", "phev_g", "Gasoline"),
+        ("freight", "road", "mt", "phev_d", "Diesel"),
+    ],
+    ("passenger", "road", "2w", 'ice'): [
+        ("passenger", "road", "2w", "ice_g", "Gasoline"),
+        ("passenger", "road", "2w", "ice_d", "Diesel"),
+    ],
+    ("passenger", "road", "bus", 'ice'): [
+        ("passenger", "road", "bus", "ice_g", "Gasoline"),
+        ("passenger", "road", "bus", "ice_d", "Diesel"),
+    ],
+    ("passenger", "road", "car"): [
+        ("passenger", "road", "car", "ice_g", "Gasoline"),
+        ("passenger", "road", "car", "ice_d", "Diesel"),
+        ("passenger", "road", "car", "bev", "Electricity"),
+        ("passenger", "road", "car", "phev_g", "Gasoline"),
+        ("passenger", "road", "car", "phev_d", "Diesel"),
+    ],
+    ("passenger", "road", "car", 'ice'): [
+        ("passenger", "road", "car", "ice_g", "Gasoline"),
+        ("passenger", "road", "car", "ice_d", "Diesel"),
+    ],
+    ("passenger", "road", "car", 'phev'): [
+        ("passenger", "road", "car", "phev_g", "Gasoline"),
+        ("passenger", "road", "car", "phev_d", "Diesel"),
+    ],
+    ("passenger", "road", "lpv"): [
+        ("passenger", "road", "car", "ice_g", "Gasoline"),
+        ("passenger", "road", "car", "ice_d", "Diesel"),
+        ("passenger", "road", "car", "bev", "Electricity"),
+        ("passenger", "road", "car", "phev_g", "Gasoline"),
+        ("passenger", "road", "car", "phev_d", "Diesel"),
+        ("passenger", "road", "car", "cng", "CNG"),
+        ("passenger", "road", "car", "lpg", "LPG"),
+        ("passenger", "road", "car", "fcev", "Hydrogen"),
+        
+        ("passenger", "road", "suv", "ice_g", "Gasoline"),
+        ("passenger", "road", "suv", "ice_d", "Diesel"),
+        ("passenger", "road", "suv", "bev", "Electricity"),
+        ("passenger", "road", "suv", "phev_g", "Gasoline"),
+        ("passenger", "road", "suv", "phev_d", "Diesel"),
+        ("passenger", "road", "suv", "cng", "CNG"),
+        ("passenger", "road", "suv", "lpg", "LPG"),
+        ("passenger", "road", "suv", "fcev", "Hydrogen"),
+        
+        ("passenger", "road", "lt", "ice_g", "Gasoline"),
+        ("passenger", "road", "lt", "ice_d", "Diesel"),
+        ("passenger", "road", "lt", "bev", "Electricity"),
+        ("passenger", "road", "lt", "phev_g", "Gasoline"),
+        ("passenger", "road", "lt", "phev_d", "Diesel"),
+        ("passenger", "road", "lt", "cng", "CNG"),
+        ("passenger", "road", "lt", "lpg", "LPG"),
+        ("passenger", "road", "lt", "fcev", "Hydrogen"),
+    ],
+    ("passenger", "road", "lt", 'ice'): [
+        ("passenger", "road", "lt", "ice_g", "Gasoline"),
+        ("passenger", "road", "lt", "ice_d", "Diesel"),
+    ],
+    ("passenger", "road", "lt", 'phev'): [
+        ("passenger", "road", "lt", "phev_g", "Gasoline"),
+        ("passenger", "road", "lt", "phev_d", "Diesel"),
+    ],
+    ("passenger", "road", "suv", 'ice'): [
+        ("passenger", "road", "suv", "ice_g", "Gasoline"),
+        ("passenger", "road", "suv", "ice_d", "Diesel"),
+        ("freight", "road", "ht", "fcev", "Hydrogen"),
+    ],
+}
+def check_LEAP_BRANCH_TO_SOURCE_MAP_for_missing_proxies_and_combinations(LEAP_BRANCH_TO_SOURCE_MAP, PROXIED_SOURCE_ROWS_WITH_NO_ACTIVITY, COMBINATION_SOURCE_ROWS):
+    
+    # Get all source values from LEAP_BRANCH_TO_SOURCE_MAP
+    all_source_values = set(LEAP_BRANCH_TO_SOURCE_MAP.values())
+    
+    # Check if all source values exist in ALL_PATHS_SOURCE, where they dont, check if they are in PROXIED_SOURCE_ROWS_WITH_NO_ACTIVITY, if they dont, raise error
+    for source_value in all_source_values:
+        if source_value not in ALL_PATHS_SOURCE:
+            #extract all the source tuples from the PROXIED_SOURCE_ROWS_WITH_NO_ACTIVITY and COMBINATION_SOURCE_ROWS
+            extracted_sources = [
+                src for src in PROXIED_SOURCE_ROWS_WITH_NO_ACTIVITY.keys()
+            ] + [src for src in COMBINATION_SOURCE_ROWS.keys()
+            ]
+            matches = [src for src in extracted_sources if src == source_value]
+            if len(matches) == 0:
+                
+                raise ValueError(f"Source value {source_value} from LEAP_BRANCH_TO_SOURCE_MAP is missing in ALL_PATHS_SOURCE and not accounted for in PROXIED_SOURCE_ROWS_WITH_NO_ACTIVITY or COMBINATION_SOURCE_ROWS.")
+
+            elif len(matches) > 1:
+                raise ValueError(f"Source value {source_value} from LEAP_BRANCH_TO_SOURCE_MAP has multiple matches in PROXIED_SOURCE_ROWS_WITH_NO_ACTIVITY or COMBINATION_SOURCE_ROWS, please check for duplicates:\n Matches: {matches}")
+            else:
+                pass  # It's accounted for in the proxies or combinations
+    #and also check for none in the other direction
+    # Check that all keys in PROXIED_SOURCE_ROWS_WITH_NO_ACTIVITY and COMBINATION_SOURCE_ROWS exist in LEAP_BRANCH_TO_SOURCE_MAP values
+    for proxy_dict, dict_name in [(PROXIED_SOURCE_ROWS_WITH_NO_ACTIVITY, "PROXIED_SOURCE_ROWS_WITH_NO_ACTIVITY"), (COMBINATION_SOURCE_ROWS, "COMBINATION_SOURCE_ROWS")]:
+        for key in proxy_dict.keys():
+            if key not in all_source_values:
+                raise ValueError(f"Key {key} from {dict_name} is not present in LEAP_BRANCH_TO_SOURCE_MAP values.")
+            
+  
+def create_new_source_rows_based_on_proxies_with_no_activity(source_df):
+    #todo since we dont handle biofuels and other mixed fuels in the soruce df we should handle them differently too.. pehraps by inserting the energy use from the esto dataset?
+    #we need to occasionally create new sets of source rows based on proxy mappings, e.g. rail hydrogen maps to rail electricity in LEAP. we want to keep the same effiicnecy but not the same activity/stocks and so on. So we will create these new rows using the existing rows as a base and just changing the fuel/drive type as needed.
+    #this will be used within prepare_input_data()
+    new_df_rows = pd.DataFrame()  # Initialize an empty DataFrame to hold new rows
+    for new_src_tuple, src_tuple in PROXIED_SOURCE_ROWS_WITH_NO_ACTIVITY.items():
+        source_cols = ['Transport Type', 'Medium', 'Vehicle Type', 'Drive', 'Fuel'][:len(src_tuple)]
+        for col in source_cols:
+            matching_rows = source_df[source_df[col] == src_tuple[source_cols.index(col)]]
+        #for each matching row, create a new row with the new source tuple values
+        for idx, row in matching_rows.iterrows():
+            new_row = row.copy()
+            for col in source_cols:
+                new_row[col] = new_src_tuple[source_cols.index(col)]
+                
+            # Parameters/factors that should be kept (not activity-dependent)
+            measure_cols_to_keep = [
+                "Efficiency",  # Vehicle efficiency is a technical parameter
+                "Occupancy_or_load",  # Load factor is a parameter
+                "Activity_efficiency_improvement",  # Efficiency improvement rate is a parameter
+                "New_vehicle_efficiency",  # New vehicle efficiency is a parameter
+                "Turnover_rate",  # Fleet turnover rate is a parameter
+                "Age_distribution",  # Age distribution pattern can be kept
+                "Non_road_intensity_improvement",  # Efficiency improvement parameter
+                "Activity_growth",  # Growth rate parameter
+                "Intensity",  # Energy intensity (activity-dependent)
+                "Gdp",  # GDP levels
+                "Gdp_per_capita",  # GDP per capita levels
+                "Activity_per_Stock",  # Activity per vehicle
+                "Mileage",  # Annual mileage per vehicle
+            ]
+            
+            # Activity-dependent variables that should be set to 0
+            measure_cols_to_set_to_0 = [
+                "Average_age",  # Fleet average age needs to be 0 since we have no activity therefore no stocks
+                "Energy",  # Direct energy consumption
+                "Stocks_old",  # Historical stock levels
+                "Activity",  # Transport activity levels
+                "Travel_km",  # Total travel kilometers
+                "Stocks",  # Current stock levels
+                "Surplus_stocks",  # Excess stock levels
+                "Stocks_per_thousand_capita",  # Stock density (activity-related)
+                "Vehicle_sales_share",  # Sales shares (activity-dependent)
+                "Stock_turnover",  # Actual turnover (vs rate)
+                "New_stocks_needed"  # New stock requirements
+            ]
+            #now set the cols to 0 where needed
+            for col in measure_cols_to_set_to_0:
+                if col in new_row:
+                    new_row[col] = 0
+            new_df_rows = pd.concat([new_df_rows, pd.DataFrame([new_row])], ignore_index=True)
+    return new_df_rows
+
+def create_new_source_rows_based_on_combinations(source_df):
+    #this one will instead set up new source rows based on combinations of existing source rows, e.g. ICE medium in passenger road is a combination of gasoline and diesel ICE medium vehicles. We will create new rows for these combinations by aggregating the relevant rows. This will require additon of most variables except some which will need to have weigthed averages applied. Where the sum of weigths is 0 we will set the weighted average to jsut be the simple average to avoid NaNs.
+    WEIGHTED_AVERAGE_COLS_WITH_WEIGHTS = {
+        "Efficiency": "Activity",
+        "Occupancy_or_load": "Activity",
+        "New_vehicle_efficiency": "New_stocks_needed",
+        "Turnover_rate": "Stocks",
+        "Activity_per_Stock": "Stocks",
+        "Mileage": "Stocks",
+        "Average_age": "Stocks",
+        "Intensity": "Activity",
+        "Activity_efficiency_improvement": "Activity",  # Efficiency improvement rate is a parameter,
+        "Non_road_intensity_improvement": "Activity",  # Efficiency improvement parameter
+        "Activity_growth": "Activity",  # Growth rate parameter
+    }
+    COLS_TO_SUM = [
+        "Travel_km",  # Total travel kilometers
+        "Energy",  # Direct energy consumption
+        "Stocks_old",  # Historical stock levels
+        "Activity",  # Transport activity levels
+        "Stocks",  # Current stock levels
+        "Surplus_stocks",  # Excess stock levels
+        "Stocks_per_thousand_capita",  # Vehicle owenrship
+        "Vehicle_sales_share",  # Sales shares 
+        "Stock_turnover",  # Actual turnover (vs rate)
+        "New_stocks_needed"  # New stock requirements
+    ]
+    COLS_TO_LEAVE_AS_IS = [#just take the first value since they are the same across combinations
+        "Gdp_per_capita",  # GDP per capita levels are same across combinations
+        'GDP',
+        "Population",  # Population levels
+    ]
+    
+    COLS_TO_SET_TO_NA = [#these are jsut too difificult to aggregate meaningfully for nwo
+        "Age_distribution",  # Age distribution pattern is complex to aggregate
+    ]
+    
+    new_df_rows = pd.DataFrame()  # Initialize an empty DataFrame to hold new rows
+    rows_to_remove = pd.DataFrame()  # Keep track of rows that will be removed after combination
+    for new_src_tuple, source_tuples_list in COMBINATION_SOURCE_ROWS.items():
+        # Find all rows that match any of the source tuples in the combination
+        matching_rows_list = []
+        
+        for src_tuple in source_tuples_list:
+            source_cols = ['Transport Type', 'Medium', 'Vehicle Type', 'Drive', 'Fuel'][:len(src_tuple)]
+            # Start with the full dataframe
+            matching_rows = source_df.copy()
+            
+            # Filter by each column value in the source tuple
+            for i, col in enumerate(source_cols):
+                matching_rows = matching_rows[matching_rows[col] == src_tuple[i]]
+            
+            if not matching_rows.empty:
+                matching_rows_list.append(matching_rows)
+        
+        if not matching_rows_list:
+            continue  # Skip if no matching rows found
+            
+        # Concatenate all matching rows for this combination
+        all_matching_rows = pd.concat(matching_rows_list, ignore_index=True)
+        
+        # Create a new combined row
+        new_row = all_matching_rows.iloc[0].copy()  # Start with first row as template
+        
+        # Set the new tuple values
+        source_cols = ['Transport Type', 'Medium', 'Vehicle Type', 'Drive', 'Fuel'][:len(new_src_tuple)]
+        for i, col in enumerate(source_cols):
+            new_row[col] = new_src_tuple[i]
+        
+        # Apply aggregation rules
+        for col in all_matching_rows.columns:
+            if col in COLS_TO_SUM:
+                new_row[col] = all_matching_rows[col].sum()
+            elif col in WEIGHTED_AVERAGE_COLS_WITH_WEIGHTS:
+                weight_col = WEIGHTED_AVERAGE_COLS_WITH_WEIGHTS[col]
+                if weight_col in all_matching_rows.columns:
+                    weights = all_matching_rows[weight_col]
+                    values = all_matching_rows[col]
+                    # Calculate weighted average, use simple average if sum of weights is 0
+                    if weights.sum() > 0:
+                        new_row[col] = (values * weights).sum() / weights.sum()
+                    else:
+                        new_row[col] = values.mean()
+                else:
+                    new_row[col] = all_matching_rows[col].mean()
+            elif col in COLS_TO_LEAVE_AS_IS:
+                new_row[col] = all_matching_rows[col].iloc[0]  # Take first value
+            elif col in COLS_TO_SET_TO_NA:
+                new_row[col] = pd.NA
+            else:
+                continue  # Dont need to change other columns
+        
+        new_df_rows = pd.concat([new_df_rows, pd.DataFrame([new_row])], ignore_index=True)
+        rows_to_remove = pd.concat([rows_to_remove, all_matching_rows], ignore_index=True)#we have to remove tehse rows snuce they are now combined into one row BUT MASKE SURE OT REMOVE THEM ONLY AFTER THE PROXY ROWS HAVE BEEN ADDED TO AVOID ISSUES WHERE A PROXY ROW THATS BEING RELIED UPON IS ALSO PART OF A COMBINATION AND THEREFORE GETS REMOVED BEFORE IT CAN BE USED TO CREATE THE PROXY ROW
+    
+    return new_df_rows , rows_to_remove
+    
+check_LEAP_BRANCH_TO_SOURCE_MAP_for_missing_proxies_and_combinations(LEAP_BRANCH_TO_SOURCE_MAP, PROXIED_SOURCE_ROWS_WITH_NO_ACTIVITY, COMBINATION_SOURCE_ROWS)
 
 ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
     #Please note that we may be missing some LEAP branches here if there is no corresponding fuel use in the ESTO dataset. They are basically where data will appear in the projections but dont exist in the historical data. Use validate_branch_mapping and identify_missing_esto_mappings to find and  missing branches. An example would be biogasoline in ships. 

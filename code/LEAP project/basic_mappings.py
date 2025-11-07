@@ -1,7 +1,10 @@
-
+#%%
 import pandas as pd
-
-CSV_TREE = {
+  
+EXPECTED_COLS_IN_SOURCE = [
+    "Economy", "Date", "Medium", "Vehicle Type", "Transport Type", "Drive", "Scenario", "Efficiency", "Energy", "Mileage", "Stocks_old", "Activity", "Occupancy_or_load", "Intensity", "Activity_per_Stock", "Travel_km", "Stocks", "Activity_efficiency_improvement", "Average_age", "Gdp", "Gdp_per_capita", "New_vehicle_efficiency", "Population", "Surplus_stocks", "Stocks_per_thousand_capita", "Turnover_rate", "Age_distribution", "Unit", "Data_available", "Measure", "Vehicle_sales_share", "Stock_turnover", "New_stocks_needed", "Non_road_intensity_improvement", "Activity_growth"
+]
+SOURCE_CSV_TREE = {
     "freight": {
         "air": {
             "all": {
@@ -189,7 +192,7 @@ def add_fuel_column(df):
         
         try:
             # Navigate the nested dictionary to find the fuels for this combination
-            fuels = CSV_TREE[transport_type][medium][vehicle_type][drive]
+            fuels = SOURCE_CSV_TREE[transport_type][medium][vehicle_type][drive]
             
             for fuel in fuels:
                 new_row = row.copy()
@@ -197,9 +200,20 @@ def add_fuel_column(df):
                 result_rows.append(new_row)
         except KeyError:
             # Handle the case where the combination doesn't exist in the tree
-            raise ValueError(f"Combination not found in CSV_TREE: {transport_type}, {medium}, {vehicle_type}, {drive}")
+            raise ValueError(f"Combination not found in SOURCE_CSV_TREE: {transport_type}, {medium}, {vehicle_type}, {drive}")
     
     return pd.DataFrame(result_rows)
+
+def convert_dict_tree_to_set_of_tuples(tree, path=()):
+    """Convert nested dictionary tree to a set of tuples representing all paths."""
+    tuples_set = set()
+    for key, value in tree.items():
+        current_path = path + (key,)
+        if isinstance(value, dict):
+            tuples_set.update(convert_dict_tree_to_set_of_tuples(value, current_path))
+        else:
+            tuples_set.add(current_path)
+    return tuples_set
 
 LEAP_STRUCTURE = {
     "Passenger road": {
@@ -339,3 +353,9 @@ ESTO_TRANSPORT_SECTOR_TUPLES = {
     ("15_06_nonspecified_transport", "08_gas", "08_01_natural_gas"),
     ("15_06_nonspecified_transport", "17_electricity", "x"),
 }
+
+
+ALL_PATHS_LEAP = convert_dict_tree_to_set_of_tuples(LEAP_STRUCTURE, path=())
+ALL_PATHS_SOURCE = convert_dict_tree_to_set_of_tuples(SOURCE_CSV_TREE, path=())
+
+#%%

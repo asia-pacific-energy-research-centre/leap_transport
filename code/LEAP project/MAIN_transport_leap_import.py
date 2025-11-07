@@ -78,8 +78,14 @@ def prepare_input_data(excel_path, economy, scenario, base_year, final_year, TRA
     if missing_cols:
         breakpoint()
         raise ValueError(f"Missing expected columns in source data: {missing_cols}")
+    unnecessary_cols = ['Unit', 'Data_available', 'Measure']
+    df = df.drop(columns=unnecessary_cols, errors='ignore')
+    
     df = add_fuel_column(df)
     df.loc[df["Medium"] != "road", ["Stocks", 'Vehicle_sales_share']] = 0
+    
+    df = allocate_fuel_alternatives_energy_and_activity(df, economy)
+    
     new_rows1, rows_to_remove = create_new_source_rows_based_on_combinations(df)
     new_rows2 = create_new_source_rows_based_on_proxies_with_no_activity(df)
     if not new_rows1.empty or not new_rows2.empty:
@@ -91,8 +97,7 @@ def prepare_input_data(excel_path, economy, scenario, base_year, final_year, TRA
     else:
         breakpoint()
         raise ValueError("No new source rows were created from proxies; check the mapping and source data just in case.")
-    
-    df = allocate_fuel_alternatives_energy_and_activity(df, economy)        
+            
     df = calculate_sales(df)
     analyze_data_quality(df)
     df = normalize_sales_shares(df)
@@ -379,7 +384,7 @@ if __name__ == "__main__" and RUN:
         import_filename="../../results/BD_transport_leap_import.xlsx",
         TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx',
         TRANSPORT_ROOT = r"Demand\Transport",
-        LOAD_CHECKPOINT=True
+        LOAD_CHECKPOINT=False
     )
 #%%
 

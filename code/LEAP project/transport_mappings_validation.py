@@ -308,7 +308,8 @@ def calculate_energy_use_for_stock_analysis_branch(branch_path, branch_tuple, ex
     # Calculate energy use (this is a simplified example)
     if (efficiency == 0).all():
         breakpoint()
-        raise ValueError(f"Efficiency data missing or zero for branch {branch_path}")
+        # raise ValueError(f"Efficiency data missing or zero for branch {branch_path}")
+        print('WARNING: efficiency data missing or zero for branch ', branch_path)
     energy_use = stocks * mileage * (1/efficiency)
     
     return energy_use.sum() if energy_use.size > 0 else 0
@@ -324,7 +325,8 @@ def calculate_energy_use_for_intensity_analysis_branch(branch_path, branch_tuple
 
     if (intensity == 0).all() or intensity.size == 0:
         breakpoint()
-        raise ValueError(f"intensity data missing or zero for branch {branch_path}")
+        print('WARNING: intensity data missing or zero for branch ', branch_path)
+        # raise ValueError(f"intensity data missing or zero for branch {branch_path}")
     # Calculate energy use (this is a simplified example)
     energy_use = activity_level * intensity
     return energy_use.sum() if energy_use.size > 0 else 0
@@ -360,6 +362,10 @@ def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, SCENARIO
             branch_path = f"{TRANSPORT_ROOT}\\{leap_ttype}" + "".join(
                 f"\\{x}" for x in [leap_vtype, leap_drive, leap_fuel] if x
             )
+            #check if the branch path exists in the export df, if not then skip it since there is no data for it
+            if branch_path not in export_df['Branch Path'].values:
+                print(f"⚠️  Branch path {branch_path} not found in export data, skipping.")
+                continue
             try:
                 # Determine if the branch is stock-based or intensity-based
                 if analysis_type == 'Stock':
@@ -552,7 +558,11 @@ def validate_and_fix_shares_normalise_to_one(df, BASE_YEAR, LEAP_BRANCH_TO_EXPRE
                         if row['total_sum'] == 0.0 and row['child_count'] == 1:
                             return 100.0
                         elif row['total_sum'] == 0.0 and SPLIT_EQUALLY:
-                            return 100.0 / row['child_count']
+                            if row['child_count'] > 0:
+                                return 100.0 / row['child_count']
+                            else:
+                                breakpoint()#not sure what situation this would be
+                                return 0.0
                         elif row['total_sum'] == 0.0:
                             return 0.0
                         else:

@@ -397,9 +397,8 @@ LEAP_STRUCTURE = {
         "Other petroleum products",
         "Natural gas",
         "Electricity",
-        "Efuel",
     ],
-    "Pipeline transport": ["Fuel oil", "Diesel", "Natural gas", "Electricity", "Efuel"],
+    "Pipeline transport": ["Fuel oil", "Diesel", "Natural gas", "Electricity"],
 }
 
 ######################

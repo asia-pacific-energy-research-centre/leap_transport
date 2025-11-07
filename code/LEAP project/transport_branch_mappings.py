@@ -900,9 +900,12 @@ def check_LEAP_BRANCH_TO_SOURCE_MAP_for_missing_proxies_and_combinations(LEAP_BR
             ] + [src for src in COMBINATION_SOURCE_ROWS.keys()
             ]
             matches = [src for src in extracted_sources if src == source_value]
+            #if fuel is one of the fuel mixing ones that we set in allocate_fuel_alternatives_energy_and_activity (e.g. Efuel, Biojet, Biogasoline, Biodiesel) then we can ignore it here since those are handled separately
+            if source_value[-1] in ["Efuel", "Biojet", "Biogasoline", "Biodiesel", "Biogas"]:
+                continue
             if len(matches) == 0:
                 breakpoint()
-                print(source_value)
+                print('WARNING: Source value from LEAP_BRANCH_TO_SOURCE_MAP is missing in ALL_PATHS_SOURCE and not accounted for in PROXIED_SOURCE_ROWS_WITH_NO_ACTIVITY or COMBINATION_SOURCE_ROWS:\n', source_value)
                 # raise ValueError(f"Source value {source_value} from LEAP_BRANCH_TO_SOURCE_MAP is missing in ALL_PATHS_SOURCE and not accounted for in PROXIED_SOURCE_ROWS_WITH_NO_ACTIVITY or COMBINATION_SOURCE_ROWS.")
 
             elif len(matches) > 1:

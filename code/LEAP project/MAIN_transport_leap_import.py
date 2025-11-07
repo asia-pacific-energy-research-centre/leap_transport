@@ -190,6 +190,8 @@ def write_measures_to_leap(
                         leap_data_log.loc[leap_data_log.index[before_len:after_len], 'Units'] = meta_values['LEAP_units']
                         leap_data_log.loc[leap_data_log.index[before_len:after_len], 'Scale'] = meta_values['LEAP_Scale']
                         leap_data_log.loc[leap_data_log.index[before_len:after_len], 'Per...'] = meta_values['LEAP_Per']
+                    else:
+                        print(f"[WARN] No new rows added to leap_data_log for {measure} on {branch_path}")
             except Exception as e:
                 breakpoint()
                 print(f"[WARN] Failed to attach LEAP metadata for {measure} on {branch_path}: {e}")
@@ -268,7 +270,7 @@ def load_transport_into_leap(
     total_written = total_skipped = missing_branches = missing_variables = 0
     first_branch_diagnosed = False
     first_of_each_length_diagnosed = set()
-
+    # breakpoint()
     for leap_tuple, src_tuple in LEAP_BRANCH_TO_SOURCE_MAP.items():
         df_copy = df.copy()
         if df_copy.empty:
@@ -330,18 +332,20 @@ def load_transport_into_leap(
             elif diagnose_method == 'all':
                 diagnose_leap_branch(L, branch_path, leap_tuple, expected_measures)
         
+        # if 'Aviation gasoline' in branch_path:
+        #     breakpoint()
         written, missing_vars, leap_data_log = write_measures_to_leap(
             L, df_copy, leap_tuple, src_tuple, branch_path, filtered_measure_config,
             shortname, source_cols_for_grouping, save_log, leap_data_log, SET_VARS_IN_LEAP_USING_COM
         )
-        # if 'Biodiesel' in branch_path:
+        # if 'Aviation gasoline' in branch_path:
         #     breakpoint()
         total_written += written
         missing_variables += missing_vars
         if written == 0:
             total_skipped += 1
      
-    
+    breakpoint() 
     if save_log and leap_data_log is not None and not leap_data_log.empty:
         save_leap_data_log(leap_data_log, log_filename, log_tuple=(total_written, total_skipped, missing_branches, missing_variables))
         

@@ -307,7 +307,7 @@ def calculate_energy_use_for_stock_analysis_branch(branch_path, branch_tuple, ex
 
     # Calculate energy use (this is a simplified example)
     if (efficiency == 0).all():
-        breakpoint()
+        # breakpoint()
         # raise ValueError(f"Efficiency data missing or zero for branch {branch_path}")
         print('WARNING: efficiency data missing or zero for branch ', branch_path)
     energy_use = stocks * mileage * (1/efficiency)

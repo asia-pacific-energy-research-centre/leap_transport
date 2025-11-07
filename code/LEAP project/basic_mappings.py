@@ -9,12 +9,12 @@ SOURCE_CSV_TREE = {
         "air": {
             "all": {
                 "air_av_gas": ["Aviation gasoline"],
-                "air_diesel": ["Diesel"],
+                "air_diesel": ["Diesel", "Efuel"],
                 "air_electric": ["Electricity"],
                 "air_fuel_oil": ["Fuel oil"],
-                "air_gasoline": ["Gasoline"],
+                "air_gasoline": ["Gasoline", "Efuel"],
                 "air_hydrogen": ["Hydrogen"],
-                "air_jet_fuel": ["Jet fuel"],
+                "air_jet_fuel": ["Jet fuel", "Efuel"],
                 "air_kerosene": ["Kerosene"],
                 "air_lpg": ["LPG"]
             }
@@ -22,10 +22,10 @@ SOURCE_CSV_TREE = {
         "rail": {
             "all": {
                 "rail_coal": ["Coal"],
-                "rail_diesel": ["Diesel"],
+                "rail_diesel": ["Diesel", "Efuel"],
                 "rail_electricity": ["Electricity"],
                 "rail_fuel_oil": ["Fuel oil"],
-                "rail_gasoline": ["Gasoline"],
+                "rail_gasoline": ["Gasoline", "Efuel"],
                 "rail_kerosene": ["Kerosene"],
                 "rail_lpg": ["LPG"],
                 "rail_natural_gas": ["Natural gas"]
@@ -36,42 +36,42 @@ SOURCE_CSV_TREE = {
                 "bev": ["Electricity"],
                 "cng": ["CNG"],
                 "fcev": ["Hydrogen"],
-                "ice_d": ["Diesel"],
-                "ice_g": ["Gasoline"],
+                "ice_d": ["Diesel", "Efuel"],
+                "ice_g": ["Gasoline", "Efuel"],
                 "lng": ["LNG"],
                 "lpg": ["LPG"],
-                "phev_d": ["Electricity", "Diesel"],
-                "phev_g": ["Electricity", "Gasoline"]
+                "phev_d": ["Electricity", "Diesel", "Efuel"],
+                "phev_g": ["Electricity", "Gasoline", "Efuel"]
             },
             "lcv": {
                 "bev": ["Electricity"],
                 "cng": ["CNG"],
                 "fcev": ["Hydrogen"],
-                "ice_d": ["Diesel"],
-                "ice_g": ["Gasoline"],
+                "ice_d": ["Diesel", "Efuel"],
+                "ice_g": ["Gasoline", "Efuel"],
                 "lpg": ["LPG"],
-                "phev_d": ["Electricity", "Diesel"],
-                "phev_g": ["Electricity", "Gasoline"]
+                "phev_d": ["Electricity", "Diesel", "Efuel"],
+                "phev_g": ["Electricity", "Gasoline", "Efuel"]
             },
             "mt": {
                 "bev": ["Electricity"],
                 "cng": ["CNG"],
                 "fcev": ["Hydrogen"],
-                "ice_d": ["Diesel"],
-                "ice_g": ["Gasoline"],
+                "ice_d": ["Diesel", "Efuel"],
+                "ice_g": ["Gasoline", "Efuel"],
                 "lng": ["LNG"],
                 "lpg": ["LPG"],
-                "phev_d": ["Electricity", "Diesel"],
-                "phev_g": ["Electricity", "Gasoline"]
+                "phev_d": ["Electricity", "Diesel", "Efuel"],
+                "phev_g": ["Electricity", "Gasoline", "Efuel"]
             }
         },
         "ship": {
             "all": {
                 "ship_ammonia": ["Ammonia"],
-                "ship_diesel": ["Diesel"],
+                "ship_diesel": ["Diesel", "Efuel"],
                 "ship_electric": ["Electricity"],
                 "ship_fuel_oil": ["Fuel oil"],
-                "ship_gasoline": ["Gasoline"],
+                "ship_gasoline": ["Gasoline", "Efuel"],
                 "ship_hydrogen": ["Hydrogen"],
                 "ship_kerosene": ["Kerosene"],
                 "ship_lng": ["LNG"],
@@ -84,12 +84,12 @@ SOURCE_CSV_TREE = {
         "air": {
             "all": {
                 "air_av_gas": ["Aviation gasoline"],
-                "air_diesel": ["Diesel"],
+                "air_diesel": ["Diesel", "Efuel"],
                 "air_electric": ["Electricity"],
                 "air_fuel_oil": ["Fuel oil"],
-                "air_gasoline": ["Gasoline"],
+                "air_gasoline": ["Gasoline", "Efuel"],
                 "air_hydrogen": ["Hydrogen"],
-                "air_jet_fuel": ["Jet fuel"],
+                "air_jet_fuel": ["Jet fuel", "Efuel"],
                 "air_kerosene": ["Kerosene"],
                 "air_lpg": ["LPG"]
             }
@@ -97,10 +97,10 @@ SOURCE_CSV_TREE = {
         "rail": {
             "all": {
                 "rail_coal": ["Coal"],
-                "rail_diesel": ["Diesel"],
+                "rail_diesel": ["Diesel", "Efuel"],
                 "rail_electricity": ["Electricity"],
                 "rail_fuel_oil": ["Fuel oil"],
-                "rail_gasoline": ["Gasoline"],
+                "rail_gasoline": ["Gasoline", "Efuel"],
                 "rail_kerosene": ["Kerosene"],
                 "rail_lpg": ["LPG"],
                 "rail_natural_gas": ["Natural gas"]
@@ -109,57 +109,57 @@ SOURCE_CSV_TREE = {
         "road": {
             "2w": {
                 "bev": ["Electricity"],
-                "ice_d": ["Diesel"],
-                "ice_g": ["Gasoline"]
+                "ice_d": ["Diesel", "Efuel"],
+                "ice_g": ["Gasoline", "Efuel"]
             },
             "bus": {
                 "bev": ["Electricity"],
                 "cng": ["CNG"],
                 "fcev": ["Hydrogen"],
-                "ice_d": ["Diesel"],
-                "ice_g": ["Gasoline"],
+                "ice_d": ["Diesel", "Efuel"],
+                "ice_g": ["Gasoline", "Efuel"],
                 "lpg": ["LPG"],
-                "phev_d": ["Electricity", "Diesel"],
-                "phev_g": ["Electricity", "Gasoline"]
+                "phev_d": ["Electricity", "Diesel", "Efuel"],
+                "phev_g": ["Electricity", "Gasoline", "Efuel"]
             },
             "car": {
                 "bev": ["Electricity"],
                 "cng": ["CNG"],
                 "fcev": ["Hydrogen"],
-                "ice_d": ["Diesel"],
-                "ice_g": ["Gasoline"],
+                "ice_d": ["Diesel", "Efuel"],
+                "ice_g": ["Gasoline", "Efuel"],
                 "lpg": ["LPG"],
-                "phev_d": ["Electricity", "Diesel"],
-                "phev_g": ["Electricity", "Gasoline"]
+                "phev_d": ["Electricity", "Diesel", "Efuel"],
+                "phev_g": ["Electricity", "Gasoline", "Efuel"]
             },
             "lt": {
                 "bev": ["Electricity"],
                 "cng": ["CNG"],
                 "fcev": ["Hydrogen"],
-                "ice_d": ["Diesel"],
-                "ice_g": ["Gasoline"],
+                "ice_d": ["Diesel", "Efuel"],
+                "ice_g": ["Gasoline", "Efuel"],
                 "lpg": ["LPG"],
-                "phev_d": ["Electricity", "Diesel"],
-                "phev_g": ["Electricity", "Gasoline"]
+                "phev_d": ["Electricity", "Diesel", "Efuel"],
+                "phev_g": ["Electricity", "Gasoline", "Efuel"]
             },
             "suv": {
                 "bev": ["Electricity"],
                 "cng": ["CNG"],
                 "fcev": ["Hydrogen"],
-                "ice_d": ["Diesel"],
-                "ice_g": ["Gasoline"],
+                "ice_d": ["Diesel", "Efuel"],
+                "ice_g": ["Gasoline", "Efuel"],
                 "lpg": ["LPG"],
-                "phev_d": ["Electricity", "Diesel"],
-                "phev_g": ["Electricity", "Gasoline"]
+                "phev_d": ["Electricity", "Diesel", "Efuel"],
+                "phev_g": ["Electricity", "Gasoline", "Efuel"]
             }
         },
         "ship": {
             "all": {
                 "ship_ammonia": ["Ammonia"],
-                "ship_diesel": ["Diesel"],
+                "ship_diesel": ["Diesel", "Efuel"],
                 "ship_electric": ["Electricity"],
                 "ship_fuel_oil": ["Fuel oil"],
-                "ship_gasoline": ["Gasoline"],
+                "ship_gasoline": ["Gasoline", "Efuel"],
                 "ship_hydrogen": ["Hydrogen"],
                 "ship_kerosene": ["Kerosene"],
                 "ship_lng": ["LNG"],
@@ -225,7 +225,7 @@ LEAP_STRUCTURE = {
     "Passenger road": {
         "Motorcycles": {
             "BEV": ["Electricity"],
-            "ICE": ["Gasoline", "Diesel", "Biogasoline", "Biodiesel"],
+            "ICE": ["Gasoline", "Diesel", "Biogasoline", "Biodiesel", "Efuel"],
         },
         "Buses": {
             "BEV": ["Electricity"],
@@ -237,6 +237,7 @@ LEAP_STRUCTURE = {
                 "Biogasoline",
                 "Biodiesel",
                 "Biogas",
+                "Efuel",
             ],
             "FCEV": ["Hydrogen"],
             "PHEV": [
@@ -245,6 +246,7 @@ LEAP_STRUCTURE = {
                 "Diesel",
                 "Biogasoline",
                 "Biodiesel",
+                "Efuel",
             ],
             "EREV": [
                 "Electricity",
@@ -252,6 +254,7 @@ LEAP_STRUCTURE = {
                 "Diesel",
                 "Biogasoline",
                 "Biodiesel",
+                "Efuel",
             ],
         },
         "LPVs": {
@@ -260,7 +263,7 @@ LEAP_STRUCTURE = {
             "BEV medium": ["Electricity"],
             "BEV large": ["Electricity"],
             # Internal combustion (size split)
-            "ICE small": ["Gasoline", "Diesel", "Biogasoline", "Biodiesel"],
+            "ICE small": ["Gasoline", "Diesel", "Biogasoline", "Biodiesel", "Efuel"],
             "ICE medium": [
                 "Gasoline",
                 "Diesel",
@@ -269,6 +272,7 @@ LEAP_STRUCTURE = {
                 "CNG",
                 "Biodiesel",
                 "Biogas",
+                "Efuel",
             ],
             "ICE large": [
                 "Gasoline",
@@ -278,15 +282,16 @@ LEAP_STRUCTURE = {
                 "CNG",
                 "Biodiesel",
                 "Biogas",
+                "Efuel",
             ],
             # Plug-in hybrids
-            "PHEV small": ["Electricity", "Gasoline", "Diesel", "Biogasoline", "Biodiesel"],
-            "PHEV medium": ["Electricity", "Gasoline", "Diesel", "Biogasoline", "Biodiesel"],
-            "PHEV large": ["Electricity", "Gasoline", "Diesel", "Biogasoline", "Biodiesel"],
+            "PHEV small": ["Electricity", "Gasoline", "Diesel", "Biogasoline", "Biodiesel", "Efuel"],
+            "PHEV medium": ["Electricity", "Gasoline", "Diesel", "Biogasoline", "Biodiesel", "Efuel"],
+            "PHEV large": ["Electricity", "Gasoline", "Diesel", "Biogasoline", "Biodiesel", "Efuel"],
             # Hybrids (proxied to ICE)
-            "HEV small": ["Gasoline", "Diesel", "Biogasoline", "Biodiesel"],
-            "HEV medium": ["Gasoline", "Diesel", "Biogasoline", "Biodiesel"],
-            "HEV large": ["Gasoline", "Diesel", "Biogasoline", "Biodiesel"],
+            "HEV small": ["Gasoline", "Diesel", "Biogasoline", "Biodiesel", "Efuel"],
+            "HEV medium": ["Gasoline", "Diesel", "Biogasoline", "Biodiesel", "Efuel"],
+            "HEV large": ["Gasoline", "Diesel", "Biogasoline", "Biodiesel", "Efuel"],
         },
     },
     #######################
@@ -302,6 +307,7 @@ LEAP_STRUCTURE = {
                 "LNG",
                 "Biodiesel",
                 "Biogas",
+                "Efuel",
             ],
             "ICE medium": [
                 "Gasoline",
@@ -312,18 +318,19 @@ LEAP_STRUCTURE = {
                 "LNG",
                 "Biodiesel",
                 "Biogas",
+                "Efuel",
             ],
             # Battery electric
             "BEV heavy": ["Electricity"],
             "BEV medium": ["Electricity"],
             # Extended-range EV (treated as PHEV)
-            "EREV medium": ["Electricity", "Gasoline", "Diesel", "Biogasoline", "Biodiesel"],
-            "EREV heavy": ["Electricity", "Gasoline", "Diesel", "Biogasoline", "Biodiesel"],
+            "EREV medium": ["Electricity", "Gasoline", "Diesel", "Biogasoline", "Biodiesel", "Efuel"],
+            "EREV heavy": ["Electricity", "Gasoline", "Diesel", "Biogasoline", "Biodiesel", "Efuel"],
             # Hydrogen
             "FCEV heavy": ["Hydrogen"],
             "FCEV medium": ["Hydrogen"],
-            "PHEV heavy": ["Electricity", "Gasoline", "Diesel", "Biogasoline", "Biodiesel"],
-            "PHEV medium": ["Electricity", "Gasoline", "Diesel", "Biogasoline", "Biodiesel"],
+            "PHEV heavy": ["Electricity", "Gasoline", "Diesel", "Biogasoline", "Biodiesel", "Efuel"],
+            "PHEV medium": ["Electricity", "Gasoline", "Diesel", "Biogasoline", "Biodiesel", "Efuel"],
         },
         "LCVs": {
             "ICE": [
@@ -334,6 +341,7 @@ LEAP_STRUCTURE = {
                 "CNG",
                 "Biodiesel",
                 "Biogas",
+                "Efuel",
             ],
             "BEV": ["Electricity"],
             "PHEV": [
@@ -342,13 +350,14 @@ LEAP_STRUCTURE = {
                 "Diesel",
                 "Biogasoline",
                 "Biodiesel",
+                "Efuel",
             ],
         },
     },
     #######################
     "Passenger non road": {
-        "Rail": ["Electricity", "Diesel", "Hydrogen", "Coal", "Biodiesel"],
-        "Air": ["Hydrogen", "Electricity", "Jet fuel", "Aviation gasoline", "Biojet"],
+        "Rail": ["Electricity", "Diesel", "Hydrogen", "Coal", "Biodiesel", "Efuel"],
+        "Air": ["Hydrogen", "Electricity", "Jet fuel", "Aviation gasoline", "Biojet", "Efuel"],
         "Shipping": [
             "Electricity",
             "Hydrogen",
@@ -359,11 +368,12 @@ LEAP_STRUCTURE = {
             "Ammonia",
             "Biodiesel",
             "Biogasoline",
+            "Efuel",
         ],
     },
     "Freight non road": {
-        "Rail": ["Electricity", "Diesel", "Hydrogen", "Coal", "Biodiesel"],
-        "Air": ["Hydrogen", "Electricity", "Jet fuel", "Aviation gasoline", "Biojet"],
+        "Rail": ["Electricity", "Diesel", "Hydrogen", "Coal", "Biodiesel", "Efuel"],
+        "Air": ["Hydrogen", "Electricity", "Jet fuel", "Aviation gasoline", "Biojet", "Efuel"],
         "Shipping": [
             "Electricity",
             "Hydrogen",
@@ -374,6 +384,7 @@ LEAP_STRUCTURE = {
             "Ammonia",
             "Biodiesel",
             "Biogasoline",
+            "Efuel",
         ],
     },
     "Nonspecified transport": [
@@ -386,8 +397,9 @@ LEAP_STRUCTURE = {
         "Other petroleum products",
         "Natural gas",
         "Electricity",
+        "Efuel",
     ],
-    "Pipeline transport": ["Fuel oil", "Diesel", "Natural gas", "Electricity"],
+    "Pipeline transport": ["Fuel oil", "Diesel", "Natural gas", "Electricity", "Efuel"],
 }
 
 ######################

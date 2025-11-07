@@ -3,15 +3,10 @@
 # ============================================================
 from collections import defaultdict, Counter
 import pandas as pd
-from LEAP_tranposrt_measures_config import (
-    get_leap_branch_to_analysis_type_mapping, SHARE_MEASURES
-)
-from LEAP_transfers_transport_MAPPINGS import (
-    ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
-)
-
-from LEAP_transfers_transport_core import (extract_esto_energy_use_for_leap_branches
-)
+from transport_measure_metadata import SHARE_MEASURES
+from transport_measure_catalog import get_leap_branch_to_analysis_type_mapping
+from transport_branch_mappings import ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP
+from esto_transport_data import extract_esto_energy_use_for_leap_branches
 def get_most_detailed_branches(mapping: dict):
     """
     From a mapping of tuple keys (branch hierarchy) → values,
@@ -277,14 +272,14 @@ def validate_all_mappings_with_measures(
 #%%
 # Example usage
 # if __name__ == "__main__":
-#     from LEAP_transfers_transport_MAPPINGS import (
+#     from transport_branch_mappings import (
 #         ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
 #         LEAP_BRANCH_TO_SOURCE_MAP,
 #         SHORTNAME_TO_LEAP_BRANCHES,
 #         LEAP_MEASURE_CONFIG,
 #         UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT
 #     )
-#     from LEAP_BRANCH_TO_EXPRESSION_MAPPING import LEAP_BRANCH_TO_EXPRESSION_MAPPING
+#     from branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING
     
 #     from basic_mappings import ESTO_TRANSPORT_SECTOR_TUPLES
 
@@ -627,7 +622,7 @@ def validate_and_fix_shares_normalise_to_one(df, BASE_YEAR, LEAP_BRANCH_TO_EXPRE
 #VALIDATION
 # ------------------------------------------------------------
 # ============================================================
-# LEAP_transfers_transport_validation.py
+# transport_mappings_validation.py
 # ============================================================
 # Validates and optionally corrects stock/sales shares consistency
 # across all hierarchical levels of the transport dataset.

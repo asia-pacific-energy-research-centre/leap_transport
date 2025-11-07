@@ -203,14 +203,20 @@ def add_fuel_column(df):
             raise ValueError(f"Combination not found in SOURCE_CSV_TREE: {transport_type}, {medium}, {vehicle_type}, {drive}")
     
     return pd.DataFrame(result_rows)
-
 def convert_dict_tree_to_set_of_tuples(tree, path=()):
-    """Convert nested dictionary tree to a set of tuples representing all paths."""
+    """Convert nested dictionary tree to a set of tuples representing all paths, including intermediate branches."""
     tuples_set = set()
     for key, value in tree.items():
         current_path = path + (key,)
+        # Add the current path as an intermediate branch
+        tuples_set.add(current_path)
+        
         if isinstance(value, dict):
             tuples_set.update(convert_dict_tree_to_set_of_tuples(value, current_path))
+        elif isinstance(value, list):
+            # For lists, create a tuple for each element in the list
+            for item in value:
+                tuples_set.add(current_path + (item,))
         else:
             tuples_set.add(current_path)
     return tuples_set

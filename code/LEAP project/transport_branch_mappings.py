@@ -1,6 +1,7 @@
 #%%
 import pandas as pd
-from basic_mappings import ALL_PATHS_SOURCE
+from basic_mappings import ALL_PATHS_SOURCE, ALL_PATHS_LEAP
+from branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING
 SHORTNAME_TO_LEAP_BRANCHES = {
     # Mapping to names used for reference in LEAP
     'Transport type (road)': [
@@ -154,7 +155,6 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Freight road", "Trucks", "EREV heavy", "Biodiesel"),
         ("Freight road", "Trucks", "FCEV heavy", "Hydrogen"),
         ("Freight road", "Trucks", "FCEV medium", "Hydrogen"),
-        ("Freight road", "Trucks", "FCEV light", "Hydrogen"),
         ("Freight road", "Trucks", "PHEV heavy", "Electricity"),
         ("Freight road", "Trucks", "PHEV heavy", "Gasoline"),
         ("Freight road", "Trucks", "PHEV heavy", "Diesel"),
@@ -1025,7 +1025,11 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
         ("Freight road","Trucks","ICE heavy","Gasoline"),
         ("Freight road","Trucks","EREV medium","Gasoline"),
         ("Freight road","Trucks","EREV heavy","Gasoline"),
-        ("Freight road","LCVs","PHEV","Gasoline")
+        ("Freight road","LCVs","PHEV","Gasoline"),
+        ('Passenger road', 'Buses', 'EREV', 'Gasoline'),
+        ('Passenger road', 'Buses', 'PHEV', 'Gasoline'),
+        ('Freight road', 'Trucks', 'PHEV heavy', 'Gasoline'),
+        ('Freight road', 'Trucks', 'PHEV medium', 'Gasoline'),
     ],
     ("15_02_road", "07_petroleum_products", "07_06_kerosene"): [("Nonspecified transport", "Kerosene")],
     ("15_02_road", "07_petroleum_products", "07_07_gas_diesel_oil"): [
@@ -1045,7 +1049,11 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
         ("Passenger road","Motorcycles","ICE","Diesel"),
         ("Freight road","Trucks","EREV medium","Diesel"),
         ("Freight road","Trucks","EREV heavy","Diesel"),
-        ("Freight road","LCVs","PHEV","Diesel")
+        ("Freight road","LCVs","PHEV","Diesel"),
+        ('Passenger road', 'Buses', 'EREV', 'Diesel'),
+        ('Passenger road', 'Buses', 'PHEV', 'Diesel'),
+        ('Freight road', 'Trucks', 'PHEV heavy', 'Diesel'),
+        ('Freight road', 'Trucks', 'PHEV medium', 'Diesel'),
     ],
     ("15_02_road", "07_petroleum_products", "07_08_fuel_oil"): [("Nonspecified transport", "Fuel oil")],
     ("15_02_road", "07_petroleum_products", "07_09_lpg"): [
@@ -1083,6 +1091,10 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
         ("Freight road","Trucks","EREV medium","Biogasoline"),
         ("Freight road","Trucks","EREV heavy","Biogasoline"),
         ("Passenger road", "Buses", "ICE", "Biogasoline"),
+        ('Passenger road', 'Buses', 'EREV', 'Biogasoline'),
+        ('Passenger road', 'Buses', 'PHEV', 'Biogasoline'),
+        ('Freight road', 'Trucks', 'PHEV heavy', 'Biogasoline'),
+        ('Freight road', 'Trucks', 'PHEV medium', 'Biogasoline'),
     ],
     ("15_02_road", "16_others", "16_06_biodiesel"): [
         ("Passenger road","Buses","ICE","Biodiesel"),
@@ -1102,6 +1114,10 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
         ("Freight road","Trucks","EREV medium","Biodiesel"),
         ("Freight road","Trucks","EREV heavy","Biodiesel"),
         ("Freight road","Trucks","ICE heavy","Biodiesel"),
+        ('Passenger road', 'Buses', 'EREV', 'Biodiesel'),
+        ('Passenger road', 'Buses', 'PHEV', 'Biodiesel'),
+        ('Freight road', 'Trucks', 'PHEV heavy', 'Biodiesel'),
+        ('Freight road', 'Trucks', 'PHEV medium', 'Biodiesel'),
     ],
     ("15_02_road", "17_electricity", "x"): [
         ("Passenger road","LPVs","BEV small","Electricity"),
@@ -1117,7 +1133,11 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
         ("Freight road","Trucks","BEV medium","Electricity"),
         ("Freight road","Trucks","EREV medium","Electricity"),
         ("Freight road","Trucks","EREV heavy","Electricity"),
-        ("Freight road","LCVs","PHEV","Electricity")
+        ("Freight road","LCVs","PHEV","Electricity"),
+        ('Passenger road', 'Buses', 'EREV', 'Electricity'),
+        ('Passenger road', 'Buses', 'PHEV', 'Electricity'),
+        ('Freight road', 'Trucks', 'PHEV heavy', 'Electricity'),
+        ('Freight road', 'Trucks', 'PHEV medium', 'Electricity')
     ],
 
     # ------------------------------------------------------------
@@ -1274,6 +1294,8 @@ UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT = {
     ('Freight road', 'Trucks', 'FCEV medium'),
     ('Freight road', 'Trucks', 'ICE heavy'),
     ('Freight road', 'Trucks', 'ICE medium'),
+    ('Freight road', 'Trucks', 'PHEV heavy'),
+    ('Freight road', 'Trucks', 'PHEV medium'),
     ('Passenger non road',),
     ('Passenger non road', 'Air'),
     ('Passenger non road', 'Rail'),
@@ -1283,6 +1305,8 @@ UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT = {
     ('Passenger road', 'Buses', 'BEV'),
     ('Passenger road', 'Buses', 'FCEV'),
     ('Passenger road', 'Buses', 'ICE'),
+    ('Passenger road', 'Buses', 'EREV'),
+    ('Passenger road', 'Buses', 'PHEV'),
     ('Passenger road', 'LPVs'),
     ('Passenger road', 'LPVs', 'BEV large'),
     ('Passenger road', 'LPVs', 'BEV medium'),
@@ -1675,11 +1699,105 @@ LEAP_MEASURE_CONFIG = {
         }
     }
 }
+
 #%%
+def _get_most_detailed_branch_set(branches):
+    """Return only the branch tuples that are not prefixes of longer tuples."""
+
+    branch_list = list(branches)
+    most_detailed = set()
+
+    for branch in branch_list:
+        if not any(
+            other != branch
+            and len(other) > len(branch)
+            and other[: len(branch)] == branch
+            for other in branch_list
+        ):
+            most_detailed.add(branch)
+
+    return most_detailed
 
 
+def validate_branch_combinations_across_mappings(max_examples: int = 5):
+    """Validate that detailed branch tuples appear across all mapping dictionaries.
+
+    The validation compares the most detailed branch combinations defined in:
+
+    * ``LEAP_BRANCH_TO_EXPRESSION_MAPPING`` (ignoring the measure prefix),
+    * ``LEAP_BRANCH_TO_SOURCE_MAP``,
+    * ``ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP`` values,
+    * ``SHORTNAME_TO_LEAP_BRANCHES`` values, and
+    * ``ALL_PATHS_LEAP`` generated from ``basic_mappings``.
+
+    Branches listed in ``UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT`` are excluded
+    when checking coverage inside ``ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP``
+    because they are known to have no ESTO equivalent.
+    """
+
+    expression_branches = _get_most_detailed_branch_set(
+        [key[1:] for key in LEAP_BRANCH_TO_EXPRESSION_MAPPING if len(key) > 1]
+    )
+    shortname_branches = _get_most_detailed_branch_set(
+        branch
+        for branches in SHORTNAME_TO_LEAP_BRANCHES.values()
+        for branch in branches
+    )
+    source_branches = _get_most_detailed_branch_set(LEAP_BRANCH_TO_SOURCE_MAP.keys())
+    esto_branches = _get_most_detailed_branch_set(
+        branch
+        for branches in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP.values()
+        for branch in branches
+    )
+    leap_structure_branches = _get_most_detailed_branch_set(ALL_PATHS_LEAP)
+
+    mapping_sets = {
+        "LEAP_BRANCH_TO_EXPRESSION_MAPPING": expression_branches,
+        "LEAP_BRANCH_TO_SOURCE_MAP": source_branches,
+        "ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP": esto_branches,
+        "SHORTNAME_TO_LEAP_BRANCHES": shortname_branches,
+        "ALL_PATHS_LEAP": leap_structure_branches,
+    }
+
+    missing_summary = {}
+
+    for source_name, branches in mapping_sets.items():
+        for target_name, target_branches in mapping_sets.items():
+            if source_name == target_name:
+                continue
+
+            if target_name == "ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP":
+                branches_to_check = {
+                    branch
+                    for branch in branches
+                    if branch not in UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT
+                }
+            else:
+                branches_to_check = set(branches)
+
+            missing = branches_to_check - target_branches
+            if missing:
+                missing_summary.setdefault(source_name, {}).setdefault(
+                    target_name, set()
+                ).update(missing)
+
+    print("\n=== Branch combination coverage check ===")
+    if not missing_summary:
+        print("All branch combinations are consistent across mappings.")
+    else:
+        for source_name, target_map in missing_summary.items():
+            print(f"\n{source_name} discrepancies:")
+            for target_name, missing in target_map.items():
+                print(f"  Missing in {target_name}: {len(missing)} branches")
+                for branch in sorted(missing)[:max_examples]:
+                    print(f"    - {branch}")
+
+    return missing_summary
+
+#%%
 identify_missing_esto_mappings_for_leap_branches()   
-
+#%%
+validate_branch_combinations_across_mappings()
 #%%
 check_LEAP_BRANCH_TO_SOURCE_MAP_for_missing_proxies_and_combinations(LEAP_BRANCH_TO_SOURCE_MAP, PROXIED_SOURCE_ROWS_WITH_NO_ACTIVITY, COMBINATION_SOURCE_ROWS)
 #%%

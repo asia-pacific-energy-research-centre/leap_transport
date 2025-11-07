@@ -19,6 +19,7 @@ from transport_leap_core import (
     log_leap_data,
     save_leap_data_log,
     build_expression_from_mapping,
+    define_value_based_on_src_tuple
 )
 from transport_branch_mappings import (
     ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
@@ -53,14 +54,22 @@ from transport_mappings_validation import (
     validate_and_fix_shares_normalise_to_one,
     validate_final_energy_use_for_base_year_equals_esto_totals,
 )
-
+import os
 # ------------------------------------------------------------
 # Modular process functions
 # ------------------------------------------------------------
 
-def prepare_input_data(excel_path, economy, base_year, final_year, TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx'):
+def prepare_input_data(excel_path, economy, scenario, base_year, final_year, TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx', LOAD_CHECKPOINT=False):
     """Load and preprocess transport data for a specific economy."""    
     print(f"\n=== Loading Transport Data for {economy} ===")
+    
+    # Check for checkpoint file
+    checkpoint_filename = f"../../intermediate_data/transport_data_{economy}_{scenario}_{base_year}_{final_year}.csv"
+    if LOAD_CHECKPOINT and os.path.exists(checkpoint_filename):
+        print(f"Loading data from checkpoint: {checkpoint_filename}")
+        df = pd.read_csv(checkpoint_filename)
+        return df
+    
     df = pd.read_excel(excel_path)
     df = df[df["Economy"] == economy]
     df = df[(df["Date"] >= base_year) & (df["Date"] <= final_year)]
@@ -100,6 +109,11 @@ def prepare_input_data(excel_path, economy, base_year, final_year, TRANSPORT_EST
 
     # Optionally save or print the report
     share_report.to_csv("../../results/share_validation_report.csv", index=False)
+    
+    # Save checkpoint file
+    os.makedirs("../../intermediate_data", exist_ok=True)
+    df.to_csv(checkpoint_filename, index=False)
+    print(f"Saved checkpoint: {checkpoint_filename}")
     return df
 
 def setup_leap_environment():
@@ -215,7 +229,7 @@ def write_measures_to_leap(
 # ------------------------------------------------------------
 # Main Loader
 # ------------------------------------------------------------
-def load_transport_into_leap_v3(
+def load_transport_into_leap(
     excel_path,
     economy,
     scenario,
@@ -228,7 +242,8 @@ def load_transport_into_leap_v3(
     SAVE_IMPORT_FILE=True,
     import_filename="../../results/leap_import.xlsx",
     TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx',
-    TRANSPORT_ROOT = r"Demand\Transport"
+    TRANSPORT_ROOT = r"Demand\Transport",
+    LOAD_CHECKPOINT=False
 ):
     """Main orchestrator for LEAP transport data loading."""
     results = validate_all_mappings_with_measures(
@@ -241,7 +256,7 @@ def load_transport_into_leap_v3(
         UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT,
         EXAMPLE_SAMPLE_SIZE=1000
     )
-    df = prepare_input_data(excel_path, economy, base_year, final_year)
+    df = prepare_input_data(excel_path, economy, scenario, base_year, final_year, TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx', LOAD_CHECKPOINT=LOAD_CHECKPOINT)
     L = setup_leap_environment()
     leap_data_log = create_leap_data_log() if save_log else None
 
@@ -350,7 +365,7 @@ RUN = True
 if __name__ == "__main__" and RUN:
     pd.options.display.float_format = "{:,.3f}".format
     list_all_measures()
-    load_transport_into_leap_v3(
+    load_transport_into_leap(
         excel_path=r"../../data/bd dummy transport file - 2100.xlsx",
         economy="02_BD",
         scenario='Reference',
@@ -363,7 +378,8 @@ if __name__ == "__main__" and RUN:
         SAVE_IMPORT_FILE=True,
         import_filename="../../results/BD_transport_leap_import.xlsx",
         TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx',
-        TRANSPORT_ROOT = r"Demand\Transport"
+        TRANSPORT_ROOT = r"Demand\Transport",
+        LOAD_CHECKPOINT=True
     )
 #%%
 

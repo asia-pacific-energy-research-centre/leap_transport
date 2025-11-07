@@ -18,31 +18,53 @@ def allocate_fuel_alternatives_energy_and_activity(df, economy):
     #since this system assumes that vehicles that use biofuels (and other alternatives such as efuels) have a separate amount of
     # stocks and activity to their counterparts that use fossil fuels we need to split the energy and activity of the fossil fuel vehicles between the fossil fuel and biofuel variants based on the amount of biofuels used in those vehicles. This will provide a future use as well since we will probably use this function to allocate a ratio of biofuels use to the projections but that is quite hard within leap so we will do it here instead.
     #load in the source df with fuels mapped to
-    src_by_fuel = pd.read_excel(r"../../data/bd dummy fuels 20_USA_NON_ROAD_DETAILED_model_output20250421.xlsx") #Date  EconomyScenario Transport Type  Vehicle Type    Drive   Medium  Fuel    Energy
+    src_by_fuel = pd.read_csv(r"../../data/bd dummy fuels 20_USA_NON_ROAD_DETAILED_model_output20250421.csv") #Date  EconomyScenario Transport Type  Vehicle Type    Drive   Medium  Fuel    Energy
     # 2022      20_USA  Target  passenger       suv     phev_d  road    17_electricity  0
 
     #filter for economy and scenario
     src_by_fuel = src_by_fuel[(src_by_fuel["Economy"] == economy) & (src_by_fuel["Scenario"] == 'Reference')]
 
     #Extract biofules and their counterparts. That is biodiesel/diesel, biogasoline/gasoline, biojet/jet fuel .. we can add more later if needed
-    breakpoint()#extract the fuels and put them through copilot:
-    fuels = src_by_fuel['Fuel'].unique()
+    # breakpoint()#extract the fuels and put them through copilot:
+    # fuels = src_by_fuel['Fuel'].unique()
     fuel_mappings = {
         '07_07_gas_diesel_oil': 'Diesel',
         '07_01_motor_gasoline': 'Gasoline',
         '07_x_jet_fuel': 'Jet fuel',
         '16_05_biogasoline': 'Biogasoline',
         '16_06_biodiesel': 'Biodiesel',
-        '16_07_bio_jet_kerosene': 'Biojet'
+        '16_07_bio_jet_kerosene': 'Biojet',
+        '16_01_biogas': 'Biogas',
+        '16_x_efuel': 'Efuel',
     }
     biofuel_fuel_map = {
         'Biodiesel': 'Diesel',
         'Biogasoline': 'Gasoline',
-        'Biojet': 'Jet fuel'
+        'Biojet': 'Jet fuel',
+        'Biogas': 'Natural gas',
+        'Efuel-g': 'Gasoline',  #efuels repale multiple fuels. not sure how this will work yet
+        'Efuel-d': 'Diesel',
+        'Efuel-j': 'Jet fuel',
     }
+    efuel_drive_to_fuel_mappings = {#since we reocrded efuels as a single fuel but they actually replace multiple fuels we need to map them based on drive type that the efuel is used in
+        'phev_d': 'Efuel-d',
+        'phev_g': 'Efuel-g',
+        'ship_diesel': 'Efuel-d',
+        'rail_diesel': 'Efuel-d',
+        'ice_d': 'Efuel-d',
+        'ice_g': 'Efuel-g',
+        'air_jet_fuel': 'Efuel-j',
+        'air_kerosene': 'Efuel-j',
+        'air_av_gas': 'Efuel-j',
+    }
+
     #extract only those that are within fuel_mappings.keys()
     src_by_fuel = src_by_fuel[src_by_fuel['Fuel'].isin(fuel_mappings.keys())]
     src_by_fuel['Mapped_Fuel'] = src_by_fuel['Fuel'].map(fuel_mappings)
+    #map efuels based on drive type
+    efuel_mask = src_by_fuel['Fuel'] == '16_x_efuel'
+    src_by_fuel.loc[efuel_mask, 'Mapped_Fuel'] = src_by_fuel.loc[efuel_mask, 'Drive'].map(efuel_drive_to_fuel_mappings)
+    
     #now create a sep df of low carbon fuels and a sep df of their counterparts
     biofuel_df = src_by_fuel[src_by_fuel['Mapped_Fuel'].isin(biofuel_fuel_map.keys())].copy()
     fossilfuel_df = src_by_fuel[src_by_fuel['Mapped_Fuel'].isin(biofuel_fuel_map.values())].copy()
@@ -50,6 +72,7 @@ def allocate_fuel_alternatives_energy_and_activity(df, economy):
     biofuel_pivot = biofuel_df.pivot(index=['Date', 'Transport Type', 'Vehicle Type', 'Drive', 'Medium'], columns='Mapped_Fuel', values='Energy').reset_index()
     #merge the fossil fuel df with the biofuel pivot to get the amount of biofuels used
     merged_df = pd.merge(fossilfuel_df, biofuel_pivot, on=['Date', 'Transport Type', 'Vehicle Type', 'Drive', 'Medium'], suffixes=('_fossil', '_bio'))
+    breakpoint()
     #now we should have a df with columns: Date, Transport Type, Vehicle Type, Drive, Medium, Fuel (fossil), Energy (fossil), Biodiesel, Biogasoline, Biojet...etc
     #calculate total energy = fossil + lowcarbonfuels
     merged_df['Total_Energy'] = merged_df['Energy'].fillna(0) + merged_df[list(biofuel_fuel_map.keys())].sum(axis=1, skipna=True)
@@ -90,15 +113,24 @@ def allocate_fuel_alternatives_energy_and_activity(df, economy):
         for col in measure_cols_to_set_the_same_as_fossil:
             merged_final[col] = merged_final[f'Fossil_{col}']
         #update the original df
-        df.update(merged_final[df.columns])
+        breakpoint()
+        # Only update columns that exist in merged_final
+        columns_to_update = [col for col in df.columns if col in merged_final.columns]
+        df.update(merged_final[columns_to_update])
 
         #however now we also need to update the fossil fuel rows to be the remainder after biofuels have been allocated
         df_fossil_update = df[df['Fuel'] == fossilfuel].copy()
-        df_fossil_update = pd.merge(df_fossil_update, merged_df[['Date', 'Transport Type', 'Vehicle Type', 'Drive', 'Medium'] + [f'{biofuel}_share']], on=['Date', 'Transport Type', 'Vehicle Type', 'Drive', 'Medium'])
         for col in measure_cols_to_divvy:
             df_fossil_update[col] = df_fossil_update[col] * (1 - df_fossil_update[f'{biofuel}_share'])
+        # Only update columns that exist in df_fossil_update
+        columns_to_update = [col for col in df.columns if col in df_fossil_update.columns]
+        df.update(df_fossil_update[columns_to_update])
         df.update(df_fossil_update[df.columns])
-
+        breakpoint()#need to rename efuels to E-fuel in the df
+        df.loc[df['Fuel'] == 'Efuel-g', 'Fuel'] = 'Efuel'
+        df.loc[df['Fuel'] == 'Efuel-d', 'Fuel'] = 'Efuel'
+        df.loc[df['Fuel'] == 'Efuel-j', 'Fuel'] = 'Efuel'
+        
     return df
 
 

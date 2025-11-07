@@ -1,5 +1,5 @@
 # ============================================================
-# LEAP_transfers_transport_core.py
+# transport_leap_core.py
 # ============================================================
 # Core helper functions for LEAP transport data integration.
 # Provides connection, diagnostics, normalization, logging,
@@ -8,15 +8,20 @@
 
 import pandas as pd
 from win32com.client import Dispatch, GetActiveObject, gencache
-from LEAP_transfers_transport_MAPPINGS import (
+
+from transport_branch_mappings import (
     ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
     LEAP_BRANCH_TO_SOURCE_MAP,
     SHORTNAME_TO_LEAP_BRANCHES,
-    LEAP_MEASURE_CONFIG
+    LEAP_MEASURE_CONFIG,
 )
-from LEAP_tranposrt_measures_config import SHORTNAME_TO_ANALYSIS_TYPE, get_leap_branch_to_analysis_type_mapping
+from transport_measure_metadata import SHORTNAME_TO_ANALYSIS_TYPE
+from transport_measure_catalog import get_leap_branch_to_analysis_type_mapping
 
-from LEAP_BRANCH_TO_EXPRESSION_MAPPING import LEAP_BRANCH_TO_EXPRESSION_MAPPING, ALL_YEARS
+from branch_expression_mapping import (
+    LEAP_BRANCH_TO_EXPRESSION_MAPPING,
+    ALL_YEARS,
+)
 
 # ------------------------------------------------------------
 # Connection & Core Helpers

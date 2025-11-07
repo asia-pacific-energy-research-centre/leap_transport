@@ -1,19 +1,35 @@
+"""Pre-processing helpers for transport source data prior to LEAP mapping."""
+
+import pandas as pd
+
+
+def calculate_sales(df):
+    # Calculate sales as the difference in stocks year-over-year. this deliberatly ignores turnover rates for simplicity.  Note
+    #that this means that sales_calc measures should be calculated before vehicle_sales_share measures.
+    group_cols = ["Transport Type", "Medium", "Vehicle Type", "Drive", "Fuel"]
+    df = df.sort_values(by=group_cols + ["Date", 'Scenario','Economy'])
+    df['Sales'] = df.groupby(group_cols)["Stocks"].diff().fillna(0)
+    # Convert negative sales to 0 (can happen due to vehicle retirement or data anomalies)
+    df['Sales'] = df['Sales'].clip(lower=0)
+    return df
+
 
 def allocate_fuel_alternatives_energy_and_activity(df, economy):
-    #since this system assumes that vehicles that use biofuels (and other alternatives such as efuels) have a separate amount of stocks and activity to their counterparts that use fossil fuels we need to split the energy and activity of the fossil fuel vehicles between the fossil fuel and biofuel variants based on the amount of biofuels used in those vehicles. This will provide a future use as well since we will probably use this function to allocate a ratio of biofuels use to the projections but that is quite hard within leap so we will do it here instead.
+    #since this system assumes that vehicles that use biofuels (and other alternatives such as efuels) have a separate amount of
+    # stocks and activity to their counterparts that use fossil fuels we need to split the energy and activity of the fossil fuel vehicles between the fossil fuel and biofuel variants based on the amount of biofuels used in those vehicles. This will provide a future use as well since we will probably use this function to allocate a ratio of biofuels use to the projections but that is quite hard within leap so we will do it here instead.
     #load in the source df with fuels mapped to
-    src_by_fuel = pd.read_excel(r"../../data/bd dummy fuels 20_USA_NON_ROAD_DETAILED_model_output20250421.xlsx") #Date	Economy	Scenario	Transport Type	Vehicle Type	Drive	Medium	Fuel	Energy
-    # 2022	20_USA	Target	passenger	suv	phev_d	road	17_electricity	0
-    
+    src_by_fuel = pd.read_excel(r"../../data/bd dummy fuels 20_USA_NON_ROAD_DETAILED_model_output20250421.xlsx") #Date  EconomyScenario Transport Type  Vehicle Type    Drive   Medium  Fuel    Energy
+    # 2022      20_USA  Target  passenger       suv     phev_d  road    17_electricity  0
+
     #filter for economy and scenario
     src_by_fuel = src_by_fuel[(src_by_fuel["Economy"] == economy) & (src_by_fuel["Scenario"] == 'Reference')]
-    
+
     #Extract biofules and their counterparts. That is biodiesel/diesel, biogasoline/gasoline, biojet/jet fuel .. we can add more later if needed
     breakpoint()#extract the fuels and put them through copilot:
     fuels = src_by_fuel['Fuel'].unique()
     fuel_mappings = {
         '07_07_gas_diesel_oil': 'Diesel',
-        '07_01_motor_gasoline': 'Gasoline', 
+        '07_01_motor_gasoline': 'Gasoline',
         '07_x_jet_fuel': 'Jet fuel',
         '16_05_biogasoline': 'Biogasoline',
         '16_06_biodiesel': 'Biodiesel',
@@ -22,7 +38,7 @@ def allocate_fuel_alternatives_energy_and_activity(df, economy):
     biofuel_fuel_map = {
         'Biodiesel': 'Diesel',
         'Biogasoline': 'Gasoline',
-        'Biojet': 'Jet fuel'            
+        'Biojet': 'Jet fuel'
     }
     #extract only those that are within fuel_mappings.keys()
     src_by_fuel = src_by_fuel[src_by_fuel['Fuel'].isin(fuel_mappings.keys())]
@@ -45,10 +61,10 @@ def allocate_fuel_alternatives_energy_and_activity(df, economy):
     for biofuel, fossilfuel in biofuel_fuel_map.items():
         df_bio = df[df['Fuel'] == biofuel].copy()
         df_fossil = df[df['Fuel'] == fossilfuel].copy()
-        
+
         # Activity-dependent variables that should be set to 0
         measure_cols_to_set_the_same_as_fossil = [
-            
+
             "Average_age",  # Fleet average age needs to be 0 since we have no activity therefore no stocks
         ]
         measure_cols_to_divvy = [
@@ -75,13 +91,18 @@ def allocate_fuel_alternatives_energy_and_activity(df, economy):
             merged_final[col] = merged_final[f'Fossil_{col}']
         #update the original df
         df.update(merged_final[df.columns])
-        
+
         #however now we also need to update the fossil fuel rows to be the remainder after biofuels have been allocated
         df_fossil_update = df[df['Fuel'] == fossilfuel].copy()
         df_fossil_update = pd.merge(df_fossil_update, merged_df[['Date', 'Transport Type', 'Vehicle Type', 'Drive', 'Medium'] + [f'{biofuel}_share']], on=['Date', 'Transport Type', 'Vehicle Type', 'Drive', 'Medium'])
         for col in measure_cols_to_divvy:
-            df_fossil_update[col] = df_fossil_update[col] * (1 - df_fossil_update[f'{biofuel}_share'])  
+            df_fossil_update[col] = df_fossil_update[col] * (1 - df_fossil_update[f'{biofuel}_share'])
         df.update(df_fossil_update[df.columns])
-        
+
     return df
-    
+
+
+__all__ = [
+    "calculate_sales",
+    "allocate_fuel_alternatives_energy_and_activity",
+]

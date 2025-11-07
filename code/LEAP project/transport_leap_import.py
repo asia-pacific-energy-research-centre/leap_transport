@@ -1,33 +1,58 @@
 #%%
 # ============================================================
-# LEAP_transfers_transport_loader.py
+# transport_leap_import.py
 # ============================================================
 # Main logic for processing and loading transport data into LEAP.
-# Depends on LEAP_transfers_transport_core.py and mappings/config files.
+# Depends on transport_leap_core.py and mapping/config modules.
 # ============================================================
 
 import pandas as pd
-from LEAP_transfers_transport_core import (
-    connect_to_leap, safe_set_variable,
-    diagnose_leap_branch, normalize_sales_shares, analyze_data_quality,
-    ensure_activity_levels, create_leap_data_log, log_leap_data, save_leap_data_log, validate_shares, build_expression_from_mapping, extract_other_type_rows_from_esto_and_insert_into_transport_df
-)
-from LEAP_transfers_transport_MAPPINGS import LEAP_BRANCH_TO_SOURCE_MAP, SHORTNAME_TO_LEAP_BRANCHES, LEAP_MEASURE_CONFIG, create_new_source_rows_based_on_combinations, create_new_source_rows_based_on_proxies_with_no_activity
-from LEAP_tranposrt_measures_config import calculate_sales, process_measures_for_leap, list_all_measures
-from LEAP_transfers_transport_excel import summarize_and_create_export_df, save_export_file
 
-from LEAP_transfers_transport_MAPPINGS import (
+from transport_leap_core import (
+    connect_to_leap,
+    safe_set_variable,
+    diagnose_leap_branch,
+    normalize_sales_shares,
+    analyze_data_quality,
+    ensure_activity_levels,
+    create_leap_data_log,
+    log_leap_data,
+    save_leap_data_log,
+    validate_shares,
+    build_expression_from_mapping,
+)
+from transport_branch_mappings import (
     ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
     LEAP_BRANCH_TO_SOURCE_MAP,
     SHORTNAME_TO_LEAP_BRANCHES,
     LEAP_MEASURE_CONFIG,
-    UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT
+    UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT,
+    create_new_source_rows_based_on_combinations,
+    create_new_source_rows_based_on_proxies_with_no_activity,
 )
-from LEAP_BRANCH_TO_EXPRESSION_MAPPING import LEAP_BRANCH_TO_EXPRESSION_MAPPING
+from transport_measure_catalog import list_all_measures
+from transport_measure_processing import process_measures_for_leap
+from transport_preprocessing import (
+    allocate_fuel_alternatives_energy_and_activity,
+    calculate_sales,
+)
+from transport_excel_io import summarize_and_create_export_df, save_export_file
+from branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING
+from esto_transport_data import (
+    extract_other_type_rows_from_esto_and_insert_into_transport_df,
+)
 
-from basic_mappings import ESTO_TRANSPORT_SECTOR_TUPLES,add_fuel_column,EXPECTED_COLS_IN_SOURCE
+from basic_mappings import (
+    ESTO_TRANSPORT_SECTOR_TUPLES,
+    add_fuel_column,
+    EXPECTED_COLS_IN_SOURCE,
+)
 
-from LEAP_mappings_validation import validate_all_mappings_with_measures, validate_and_fix_shares_normalise_to_one, validate_final_energy_use_for_base_year_equals_esto_totals
+from transport_mappings_validation import (
+    validate_all_mappings_with_measures,
+    validate_and_fix_shares_normalise_to_one,
+    validate_final_energy_use_for_base_year_equals_esto_totals,
+)
 
 # ------------------------------------------------------------
 # Modular process functions

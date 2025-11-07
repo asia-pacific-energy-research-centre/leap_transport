@@ -1,3 +1,10 @@
+import pandas as pd
+
+from transport_branch_mappings import (
+    ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+    SHORTNAME_TO_LEAP_BRANCHES,
+)
+
 
 def extract_esto_sector_fuels_for_leap_branches(leap_branch_list):
     """

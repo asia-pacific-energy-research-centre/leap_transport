@@ -1,6 +1,7 @@
 import pandas as pd
 from pathlib import Path
-from LEAP_transfers_transport_MAPPINGS import LEAP_MEASURE_CONFIG
+
+from transport_branch_mappings import LEAP_MEASURE_CONFIG
 
 
 # def get_leap_metadata(measure):

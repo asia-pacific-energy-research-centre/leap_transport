@@ -4,7 +4,7 @@ from transport_branch_mappings import (
     ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
     SHORTNAME_TO_LEAP_BRANCHES,
 )
-
+from transport_measure_metadata import SOURCE_MEASURE_TO_UNIT
 
 def extract_esto_sector_fuels_for_leap_branches(leap_branch_list):
     """
@@ -18,25 +18,28 @@ def extract_esto_sector_fuels_for_leap_branches(leap_branch_list):
                 leap_branch_to_esto_sector_fuel[leap_branch].append(esto_sector_fuel)
     return leap_branch_to_esto_sector_fuel
 
-def extract_other_type_rows_from_esto_and_insert_into_transport_df(df, base_year, final_year, economy, TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx'):
+def extract_other_type_rows_from_esto_and_insert_into_transport_df(df, base_year, final_year, economy,scenario, TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx'):
     """Extract 'Other' shortname rows from ESTO and insert them into the transport dataframe."""
     
     #and insert the 'Other' shortname rows. These are those under the Other level 1 and level 2 in SHORTNAME_TO_LEAP_BRANCHES  and are basically rows that arent in this transport dataset because they were modelled separately. However to make it easy to use the same code to load them into LEAP we create rows for them here with activity levels equal to their enertgy use in the ESTO dataset and intensity=1. They will then have energy use = activity level * intensity = activity level = esto energy use. We can access their ESTO energy use from the ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP using extract_esto_sector_fuels_for_leap_branches(leap_branch_list) where leap_branch_list is the list of leap branches for the 'Other' shortnames
     
     #load esto dataset 
-    esto_energy_use = pd.read_excel(TRANSPORT_ESTO_BALANCES_PATH)     
+    esto_energy_use = pd.read_excel(TRANSPORT_ESTO_BALANCES_PATH)   
+
+    esto_energy_use = esto_energy_use[(esto_energy_use["economy"] == economy) & (esto_energy_use["scenarios"] == scenario.lower())]
+     
     other_shortnames = [sn for sn in SHORTNAME_TO_LEAP_BRANCHES.keys() if sn.startswith('Other')]
     other_leap_branches = []
     #extract the leap branches for these 'other' shortnames
     for sn in other_shortnames:
         other_leap_branches.extend(SHORTNAME_TO_LEAP_BRANCHES[sn])
     if len(other_leap_branches) > 0:
-        other_rows = extract_esto_energy_use_for_leap_branches(other_leap_branches, esto_energy_use, economy, base_year, final_year)
+        other_rows = extract_esto_energy_use_for_leap_branches(other_leap_branches, esto_energy_use, economy, scenario, base_year, final_year)
         other_rows_df = pd.concat(other_rows, ignore_index=True)
         df = pd.concat([df, other_rows_df], ignore_index=True)
     return df
 
-def extract_esto_energy_use_for_leap_branches(leap_branches, esto_energy_use,economy, base_year=2022, final_year=2060):
+def extract_esto_energy_use_for_leap_branches(leap_branches, esto_energy_use,economy, scenario, base_year=2022, final_year=2060):
     #todo make sure this works with the validation def and this. 
     esto_sector_fuels_for_other = extract_esto_sector_fuels_for_leap_branches(leap_branches)
     other_rows = []
@@ -59,7 +62,9 @@ def extract_esto_energy_use_for_leap_branches(leap_branches, esto_energy_use,eco
                 (esto_energy_use['sub1sectors'] == subsector) &
                 (esto_energy_use['sub2sectors'] == 'x') &
                 (esto_energy_use['fuels'] == fuel) &
-                (esto_energy_use['subfuels'] == subfuel)
+                (esto_energy_use['subfuels'] == subfuel) &
+                (esto_energy_use['subtotal_layout'] == False)
+                # (esto_energy_use['scenarios'] == scenario.lower())
             ][base_year]
             esto_rows_df_base_year = pd.concat([esto_rows_df_base_year, esto_row_base_year], ignore_index=True)
             
@@ -68,16 +73,21 @@ def extract_esto_energy_use_for_leap_branches(leap_branches, esto_energy_use,eco
                 (esto_energy_use['sub1sectors'] == subsector) &
                 (esto_energy_use['sub2sectors'] == 'x') &
                 (esto_energy_use['fuels'] == fuel) &
-                (esto_energy_use['subfuels'] == subfuel)
+                (esto_energy_use['subfuels'] == subfuel) &
+                (esto_energy_use['subtotal_layout'] == False)
+                # (esto_energy_use['scenarios'] == scenario.lower())
             ][projected_years]
             esto_rows_df = pd.concat([esto_rows_df, esto_row_projected_years], ignore_index=True)
         total_activity_level_base_year = esto_rows_df_base_year.sum().values[0]
         total_activity_levels_projected_years = esto_rows_df.sum().values
-    
+        #we also need to convert it to the units that the other activity values are in.get this from SOURCE_MEASURE_TO_UNIT['Activity'][1]
+        total_activity_level_base_year *= 1/SOURCE_MEASURE_TO_UNIT['Activity'][1]
+        total_activity_levels_projected_years *= 1/SOURCE_MEASURE_TO_UNIT['Activity'][1]
+        
         #create new row in df with this activity level and intensity =1
         df_new_rows = {
             'Economy': economy,
-            'Scenario': 'Reference',
+            'Scenario': scenario,
             'Date': [base_year] + projected_years,
             'Transport Type': leap_branch[0],
             'Medium': leap_branch[1] if len(leap_branch) > 1 else None,#todo is it ok if we make these None? even if it doesnt amtch the way it is in ther rest of the df?
@@ -88,6 +98,8 @@ def extract_esto_energy_use_for_leap_branches(leap_branches, esto_energy_use,eco
             'Intensity': 1,
             'Energy' : [total_activity_level_base_year] + list(total_activity_levels_projected_years)
         }
+        # if subsector =='15_05_pipeline_transport':
+        #     breakpoint()#why is it becming so high? i think acitivty level is being set super high somehow?
         other_rows.append(pd.DataFrame(df_new_rows))
     return other_rows
 #%%

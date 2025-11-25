@@ -41,7 +41,7 @@ def export_apec_historical_sector_fuels(
 ) -> pd.DataFrame:
     """Filter the transport balances data for APEC totals and export unique sector-fuel rows."""
     filtered = transport_balances[
-        (transport_balances["scenarios"] == scenario)
+        (transport_balances["scenarios"] == scenario.lower())
         & (transport_balances["economy"] == economy)
         & (transport_balances["sectors"] == sector)
         & (transport_balances["subtotal_layout"] == False)
@@ -78,7 +78,7 @@ def export_non_apec_historical_energy_use(
     for base_year, economies in base_year_to_economy.items():
         base_year_str = str(base_year)
         filtered = merged_energy[
-            (merged_energy["scenarios"] == scenario)
+            (merged_energy["scenarios"] == scenario.lower())
             & (merged_energy["sectors"] == sector)
             & (merged_energy["subtotal_layout"] == False)
             & (merged_energy[base_year_str] != 0)

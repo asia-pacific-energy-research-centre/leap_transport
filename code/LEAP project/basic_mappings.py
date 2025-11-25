@@ -4,17 +4,17 @@ import pandas as pd
 EXPECTED_COLS_IN_SOURCE = [
     "Economy", "Date", "Medium", "Vehicle Type", "Transport Type", "Drive", "Scenario", "Efficiency", "Energy", "Mileage", "Stocks_old", "Activity", "Occupancy_or_load", "Intensity", "Activity_per_Stock", "Travel_km", "Stocks", "Activity_efficiency_improvement", "Average_age", "Gdp", "Gdp_per_capita", "New_vehicle_efficiency", "Population", "Surplus_stocks", "Stocks_per_thousand_capita", "Turnover_rate", "Age_distribution", "Unit", "Data_available", "Measure", "Vehicle_sales_share", "Stock_turnover", "New_stocks_needed", "Non_road_intensity_improvement", "Activity_growth"
 ]
-SOURCE_CSV_TREE = {
+SOURCE_CSV_TREE = {#this is the structure of the source csv file. Note that the fuels are not final fuels but rather the source fuel categories implied by each drive type. There are added fuels for low carobon fuels where applicable, such as efuels in most combustion engines, biofuels where applicable etc.
     "freight": {
         "air": {
             "all": {
                 "air_av_gas": ["Aviation gasoline"],
-                "air_diesel": ["Diesel", "Efuel"],
+                "air_diesel": ["Diesel"],
                 "air_electric": ["Electricity"],
                 "air_fuel_oil": ["Fuel oil"],
-                "air_gasoline": ["Gasoline", "Efuel"],
+                "air_gasoline": ["Gasoline"],
                 "air_hydrogen": ["Hydrogen"],
-                "air_jet_fuel": ["Jet fuel", "Efuel"],
+                "air_jet_fuel": ["Jet fuel"],
                 "air_kerosene": ["Kerosene"],
                 "air_lpg": ["LPG"]
             }
@@ -22,10 +22,10 @@ SOURCE_CSV_TREE = {
         "rail": {
             "all": {
                 "rail_coal": ["Coal"],
-                "rail_diesel": ["Diesel", "Efuel"],
+                "rail_diesel": ["Diesel"],
                 "rail_electricity": ["Electricity"],
                 "rail_fuel_oil": ["Fuel oil"],
-                "rail_gasoline": ["Gasoline", "Efuel"],
+                "rail_gasoline": ["Gasoline"],
                 "rail_kerosene": ["Kerosene"],
                 "rail_lpg": ["LPG"],
                 "rail_natural_gas": ["Natural gas"]
@@ -36,42 +36,42 @@ SOURCE_CSV_TREE = {
                 "bev": ["Electricity"],
                 "cng": ["CNG"],
                 "fcev": ["Hydrogen"],
-                "ice_d": ["Diesel", "Efuel"],
-                "ice_g": ["Gasoline", "Efuel"],
+                "ice_d": ["Diesel"],
+                "ice_g": ["Gasoline"],
                 "lng": ["LNG"],
                 "lpg": ["LPG"],
-                "phev_d": ["Electricity", "Diesel", "Efuel"],
-                "phev_g": ["Electricity", "Gasoline", "Efuel"]
+                "phev_d": ["Electricity", "Diesel"],
+                "phev_g": ["Electricity", "Gasoline"]
             },
             "lcv": {
                 "bev": ["Electricity"],
                 "cng": ["CNG"],
                 "fcev": ["Hydrogen"],
-                "ice_d": ["Diesel", "Efuel"],
-                "ice_g": ["Gasoline", "Efuel"],
+                "ice_d": ["Diesel"],
+                "ice_g": ["Gasoline"],
                 "lpg": ["LPG"],
-                "phev_d": ["Electricity", "Diesel", "Efuel"],
-                "phev_g": ["Electricity", "Gasoline", "Efuel"]
+                "phev_d": ["Electricity", "Diesel"],
+                "phev_g": ["Electricity", "Gasoline"]
             },
             "mt": {
                 "bev": ["Electricity"],
                 "cng": ["CNG"],
                 "fcev": ["Hydrogen"],
-                "ice_d": ["Diesel", "Efuel"],
-                "ice_g": ["Gasoline", "Efuel"],
+                "ice_d": ["Diesel"],
+                "ice_g": ["Gasoline"],
                 "lng": ["LNG"],
                 "lpg": ["LPG"],
-                "phev_d": ["Electricity", "Diesel", "Efuel"],
-                "phev_g": ["Electricity", "Gasoline", "Efuel"]
+                "phev_d": ["Electricity", "Diesel"],
+                "phev_g": ["Electricity", "Gasoline"]
             }
         },
         "ship": {
             "all": {
                 "ship_ammonia": ["Ammonia"],
-                "ship_diesel": ["Diesel", "Efuel"],
+                "ship_diesel": ["Diesel"],
                 "ship_electric": ["Electricity"],
                 "ship_fuel_oil": ["Fuel oil"],
-                "ship_gasoline": ["Gasoline", "Efuel"],
+                "ship_gasoline": ["Gasoline"],
                 "ship_hydrogen": ["Hydrogen"],
                 "ship_kerosene": ["Kerosene"],
                 "ship_lng": ["LNG"],
@@ -84,12 +84,12 @@ SOURCE_CSV_TREE = {
         "air": {
             "all": {
                 "air_av_gas": ["Aviation gasoline"],
-                "air_diesel": ["Diesel", "Efuel"],
+                "air_diesel": ["Diesel"],
                 "air_electric": ["Electricity"],
                 "air_fuel_oil": ["Fuel oil"],
-                "air_gasoline": ["Gasoline", "Efuel"],
+                "air_gasoline": ["Gasoline"],
                 "air_hydrogen": ["Hydrogen"],
-                "air_jet_fuel": ["Jet fuel", "Efuel"],
+                "air_jet_fuel": ["Jet fuel"],
                 "air_kerosene": ["Kerosene"],
                 "air_lpg": ["LPG"]
             }
@@ -97,10 +97,10 @@ SOURCE_CSV_TREE = {
         "rail": {
             "all": {
                 "rail_coal": ["Coal"],
-                "rail_diesel": ["Diesel", "Efuel"],
+                "rail_diesel": ["Diesel"],
                 "rail_electricity": ["Electricity"],
                 "rail_fuel_oil": ["Fuel oil"],
-                "rail_gasoline": ["Gasoline", "Efuel"],
+                "rail_gasoline": ["Gasoline"],
                 "rail_kerosene": ["Kerosene"],
                 "rail_lpg": ["LPG"],
                 "rail_natural_gas": ["Natural gas"]
@@ -109,57 +109,57 @@ SOURCE_CSV_TREE = {
         "road": {
             "2w": {
                 "bev": ["Electricity"],
-                "ice_d": ["Diesel", "Efuel"],
-                "ice_g": ["Gasoline", "Efuel"]
+                "ice_d": ["Diesel"],
+                "ice_g": ["Gasoline"]
             },
             "bus": {
                 "bev": ["Electricity"],
                 "cng": ["CNG"],
                 "fcev": ["Hydrogen"],
-                "ice_d": ["Diesel", "Efuel"],
-                "ice_g": ["Gasoline", "Efuel"],
+                "ice_d": ["Diesel"],
+                "ice_g": ["Gasoline"],
                 "lpg": ["LPG"],
-                "phev_d": ["Electricity", "Diesel", "Efuel"],
-                "phev_g": ["Electricity", "Gasoline", "Efuel"]
+                "phev_d": ["Electricity", "Diesel"],
+                "phev_g": ["Electricity", "Gasoline"]
             },
             "car": {
                 "bev": ["Electricity"],
                 "cng": ["CNG"],
                 "fcev": ["Hydrogen"],
-                "ice_d": ["Diesel", "Efuel"],
-                "ice_g": ["Gasoline", "Efuel"],
+                "ice_d": ["Diesel"],
+                "ice_g": ["Gasoline"],
                 "lpg": ["LPG"],
-                "phev_d": ["Electricity", "Diesel", "Efuel"],
-                "phev_g": ["Electricity", "Gasoline", "Efuel"]
+                "phev_d": ["Electricity", "Diesel"],
+                "phev_g": ["Electricity", "Gasoline"]
             },
             "lt": {
                 "bev": ["Electricity"],
                 "cng": ["CNG"],
                 "fcev": ["Hydrogen"],
-                "ice_d": ["Diesel", "Efuel"],
-                "ice_g": ["Gasoline", "Efuel"],
+                "ice_d": ["Diesel"],
+                "ice_g": ["Gasoline"],
                 "lpg": ["LPG"],
-                "phev_d": ["Electricity", "Diesel", "Efuel"],
-                "phev_g": ["Electricity", "Gasoline", "Efuel"]
+                "phev_d": ["Electricity", "Diesel"],
+                "phev_g": ["Electricity", "Gasoline"]
             },
             "suv": {
                 "bev": ["Electricity"],
                 "cng": ["CNG"],
                 "fcev": ["Hydrogen"],
-                "ice_d": ["Diesel", "Efuel"],
-                "ice_g": ["Gasoline", "Efuel"],
+                "ice_d": ["Diesel"],
+                "ice_g": ["Gasoline"],
                 "lpg": ["LPG"],
-                "phev_d": ["Electricity", "Diesel", "Efuel"],
-                "phev_g": ["Electricity", "Gasoline", "Efuel"]
+                "phev_d": ["Electricity", "Diesel"],
+                "phev_g": ["Electricity", "Gasoline"]
             }
         },
         "ship": {
             "all": {
                 "ship_ammonia": ["Ammonia"],
-                "ship_diesel": ["Diesel", "Efuel"],
+                "ship_diesel": ["Diesel"],
                 "ship_electric": ["Electricity"],
                 "ship_fuel_oil": ["Fuel oil"],
-                "ship_gasoline": ["Gasoline", "Efuel"],
+                "ship_gasoline": ["Gasoline"],
                 "ship_hydrogen": ["Hydrogen"],
                 "ship_kerosene": ["Kerosene"],
                 "ship_lng": ["LNG"],
@@ -292,6 +292,9 @@ LEAP_STRUCTURE = {
             "HEV small": ["Gasoline", "Diesel", "Biogasoline", "Biodiesel", "Efuel"],
             "HEV medium": ["Gasoline", "Diesel", "Biogasoline", "Biodiesel", "Efuel"],
             "HEV large": ["Gasoline", "Diesel", "Biogasoline", "Biodiesel", "Efuel"],
+            "EREV small": ["Electricity", "Gasoline", "Diesel", "Biogasoline", "Biodiesel", "Efuel"],
+            "EREV medium": ["Electricity", "Gasoline", "Diesel", "Biogasoline", "Biodiesel", "Efuel"],
+            "EREV large": ["Electricity", "Gasoline", "Diesel", "Biogasoline", "Biodiesel", "Efuel"],
         },
     },
     #######################
@@ -351,6 +354,9 @@ LEAP_STRUCTURE = {
                 "Biogasoline",
                 "Biodiesel",
                 "Efuel",
+            ],
+            "EREV": [
+                "Electricity", "Gasoline", "Diesel", "Biogasoline", "Biodiesel", "Efuel",
             ],
         },
     },

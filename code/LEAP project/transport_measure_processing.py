@@ -29,25 +29,18 @@ def apply_scaling(series: pd.Series, leap_measure: str, shortname: str) -> pd.Se
     meta = get_leap_measure(leap_measure, shortname)
     if meta is None:
         return series
-
     source_measure = meta.get("source_mapping")
     factor = meta.get("factor", 1)
     src_unit, src_scale = get_source_unit(source_measure)
-
-    # total scaling = (source scale to base) * (LEAP-level adjustment)
-    total_scale = src_scale * factor
-
-    # Apply nonlinear conversions
-    if leap_measure == "Final Energy Intensity":
-        # Special handling for energy intensity measures
-        if leap_measure == "Final Energy Intensity":
-            # Convert from PJ/km to GJ/km (inverse of intensity) except if the value is 1 - then keep as 1 since it is likely a
-            # placeholder
-            return series.apply(lambda x: None if x == 0 else 1_000.0 / x if x != 1 else 1)
-        elif leap_measure in ["Fuel Economy", "Final On-Road Fuel Economy"]:
-            # Convert from km/PJ to MJ/100km
-            return series.apply(lambda x: None if x == 0 else 100_000.0 / x if x != 1 else 1)
-    return series * total_scale
+    
+    if "inverse" in meta and meta["inverse"]:
+        series = 1 / (series.replace(0, pd.NA)*src_scale)
+        total_scale = factor
+        return series * total_scale
+    else:
+        # total scaling = (source scale to base) * (LEAP-level adjustment)
+        total_scale = src_scale * factor
+        return series * total_scale
 
 
 def aggregate_weighted(df, measure, group_cols, weight_col=None):
@@ -64,7 +57,7 @@ def aggregate_weighted(df, measure, group_cols, weight_col=None):
         Series with weighted average values
     """
     if df.empty or measure not in df.columns:
-        return None
+        return df
 
     # Find an appropriate weight column if not specified
     weight_col = next(
@@ -81,25 +74,42 @@ def aggregate_weighted(df, measure, group_cols, weight_col=None):
 
     if not weight_col or weight_col not in df.columns:
         df.loc[:, measure] = df[measure].mean()
-        return df[measure]
+        return df
     # breakpoint()
     # Create weighted values
-    df = df.copy()
-    df['_weighted_value'] = df[measure].fillna(0) * df[weight_col].fillna(0)
-    df['_weight'] = df[weight_col].fillna(0)
-
-    # Group and calculate weighted average
-    df.loc[:, measure] = df.groupby(group_cols).apply(
-        lambda x: x['_weighted_value'].sum() / x['_weight'].sum() if x['_weight'].sum() > 0 else 0
-    ).values[0]
-    #if all of result is 0 then raise a warning
+    df_copy = df.copy()
+    
+    df_copy.loc[:, '_weighted_value'] = (
+        df_copy[measure].fillna(0).infer_objects(copy=False)
+        * df_copy[weight_col].fillna(0).infer_objects(copy=False)
+    )
+    df_copy.loc[:, '_weight'] = df_copy[weight_col].fillna(0).infer_objects(copy=False)
+    # manual groupby with weighted calculation on the copy (easier to debug and safe)
+    grouped = df_copy.groupby(group_cols)
+    result = []
+    
+    for name, group in grouped:
+        weight_sum = group['_weight'].sum()
+        if weight_sum > 0:
+            weighted_avg = group['_weighted_value'].sum() / weight_sum
+        else:
+            weighted_avg = group[measure].mean()
+        
+        # Create result for this group
+        group_result = group.copy()
+        group_result[measure] = weighted_avg
+        result.append(group_result)
+    
+    df = pd.concat(result, ignore_index=True)
+    # if all of result is 0 then raise a warning
     if (df[measure] == 0).all():
         # breakpoint()#to do. how to make this not be 0 if activity is all 0.
         print(
             f"[WARNING] Weighted aggregation of '{measure}' resulted in all zeros. Check weight column '{weight_col}' for validity."
         )
-
-    return df[measure]
+    # Clean up temporary columns (ignore if missing)
+    df = df.drop(columns=['_weighted_value', '_weight'], errors='ignore')
+    return df
 
 
 def calculate_measures(df: pd.DataFrame, measure: str) -> pd.DataFrame:
@@ -140,19 +150,18 @@ def calculate_measures(df: pd.DataFrame, measure: str) -> pd.DataFrame:
         # Calculate stock share
         df_out[measure] = df_out.groupby(group_cols)["Stocks"].transform(lambda x: x / x.sum() * 100 if x.sum() != 0 else 0)
     elif 'activity_share' in measure.lower():
-        # Calculate activity share - similar to stock share but using Activity column. Note that since passenger and freight km
-        #are measured differently, comaprison of aactivity shares isnot valid between passenger and freight modes.
+        # Calculate activity share - similar to stock share but using Activity column. Note that since passenger and freight km are measured differently, comaprison of aactivity shares isnot valid between passenger and freight modes.
         df_out[measure] = df_out.groupby(group_cols)["Activity"].transform(lambda x: x / x.sum() * 100 if x.sum() != 0 else 0)
 
-    # elif 'sales_calc' in measure.lower():
-    #     # Calculate sales as the difference in stocks year-over-year. this deliberatly ignores turnover rates for simplicity. Note that this means that sales_calc measures should be calculated before vehicle_sales_share measures.
-    #     df_out = df_out.sort_values(by=group_cols + ["Date"])
-    #     # Group by all source columns including Date for proper sales calculation
-    #     # This ensures we're tracking stock changes for each unique vehicle category
-    #     all_group_cols = group_cols + [col for col in source_cols if col not in group_cols]
-    #     df_out[measure] = df_out.groupby(all_group_cols)["Stocks"].diff().fillna(0)
-    #     # Convert negative sales to 0 (can happen due to vehicle retirement or data anomalies)
-    #     df_out[measure] = df_out[measure].clip(lower=0)
+        # elif 'sales_calc' in measure.lower():
+        #     # Calculate sales as the difference in stocks year-over-year. this deliberatly ignores turnover rates for simplicity. Note that this means that sales_calc measures should be calculated before vehicle_sales_share measures.
+        #     df_out = df_out.sort_values(by=group_cols + ["Date"])
+        #     # Group by all source columns including Date for proper sales calculation
+        #     # This ensures we're tracking stock changes for each unique vehicle category
+        #     all_group_cols = group_cols + [col for col in source_cols if col not in group_cols]
+        #     df_out[measure] = df_out.groupby(all_group_cols)["Stocks"].diff().fillna(0)
+        #     # Convert negative sales to 0 (can happen due to vehicle retirement or data anomalies)
+        #     df_out[measure] = df_out[measure].clip(lower=0)
 
     elif 'vehicle_sales_share' in measure.lower():
         #we will just calcaulte sales share as the share of sales within the group cols.
@@ -283,130 +292,156 @@ def aggregate_measures(df_out, src, source_cols_for_grouping, ttype, medium, vty
     # Check if we need to aggregate the data
     source_cols_for_grouping_no_date = source_cols_for_grouping.copy()
     source_cols_for_grouping_no_date.remove('Date')  # we will add date back in later
-    if len(df_out) > 1 and src in AGGREGATION_RULES:
-        agg_type = AGGREGATION_RULES.get(src)
-
-        ####
-        # #find the first category within ttype, medium, vtype, drive, fuel that is None, then filter so the df matches all the categories up to that point, minus 1. e.g. if medium is None, then dont filter at all. if drive is None, then filter for ttype and medium only. This allows for enough data to be able to aggregate shares of the level, weights and so on.
-        # category_hierarchy = [ttype, medium, vtype, drive, fuel]
-        # for i, category in enumerate(category_hierarchy):
-        #     if category is None:
-        #         source_cols_for_grouping_minus_one = source_cols_for_grouping[:i]
-        #         break
-        #     # If we reach here, it means the category is valid
-        #     source_cols_for_grouping_minus_one.append(category)
-        source_cols_for_grouping_minus_one_no_date = source_cols_for_grouping_no_date[:-1]
-        category_hierarchy_minus_one = [ttype, medium, vtype, drive, fuel][:len(source_cols_for_grouping_minus_one_no_date)]
-        category_hierarchy = [ttype, medium, vtype, drive, fuel][:len(source_cols_for_grouping_minus_one_no_date) + 1]
-        #now filter.
-        df_out = filter_source_dataframe_by_categories(
-            df_out,
-            source_cols_for_grouping_minus_one_no_date,
-            category_hierarchy_minus_one,
-        )
-
-        ####
-
-        if agg_type == "weighted":
-            # For weighted average, we need to find appropriate weight column
-            # breakpoint()#not sure how this works
-            weight_col = next((w for w in get_weight_priority(src) if w in df_out.columns), None)
-            if weight_col:
-                # For weighted average aggregation
-                weighted_result = aggregate_weighted(
-                    df_out,
-                    src,
-                    group_cols=source_cols_for_grouping_no_date,
-                    weight_col=weight_col,
-                )
-                if weighted_result is not None:
-                    # Map the aggregated values back to the original dataframe
-                    try:
-                        #first, get the indexes to match
-                        df_out.loc[:, src] = weighted_result
-                    except Exception as e:
-                        breakpoint()
-                        raise e
-            else:
-                raise ValueError(f"No suitable weight column found for weighted aggregation of '{src}'")
-        elif agg_type == "sum":
-            # Simple sum aggregation
-            #drop the latest col from source_cols_for_grouping in case we have multiple categories within it and want to sum over them. e.g. where LPV corresponds to car,suv,lt.
-            df_out = df_out.copy()  # Ensure we have a clean copy
-            df_out.loc[:, src] = df_out.groupby(source_cols_for_grouping_no_date)[src].transform('sum')
-
-        elif agg_type == "share":
-            # if len(source_cols_for_grouping_minus_one)>3:
-            #     #what happens when we try to do this for drives shares?
-            #     breakpoint()#MAYBE THIS SHOULD BE DONE USING .apply(
-            #     #     lambda x: x['_weighted_value'].sum() / x['_weight'].sum() if x['_weight'].sum() > 0 else 0
-            #     # )
-            # Convert to percentage share within each group
-            try:
-                # For share calculation, use the original base measure before conversion
-                base_measure = AGGREGATION_BASE_MEASURES.get(src, None)
-                if base_measure in df_out.columns:
-                    df_out.loc[:, src] = df_out.groupby(
-                        source_cols_for_grouping_minus_one_no_date + ['Date']
-                    )[base_measure].transform(
-                        lambda x: x / x.sum() * 100 if x.sum() != 0 else x
-                    )
-                    # if fuel == None:
-                    #     #double check they add up to 1 within each group
-                    #     breakpoint()
-                else:
-                    breakpoint()
-                    raise ValueError(
-                        f"Base measure '{base_measure}' not found in DataFrame for share calculation of '{src}'"
-                    )
-            except Exception as e:
-                breakpoint()
-        else:
-            pass
-
-    else:
+    if not (len(df_out) > 1 and src in AGGREGATION_RULES):
         breakpoint()
         raise ValueError(f"No aggregation rule defined for source measure: {src}.")
-    #filter for the exact categories again to ensure no extra rows remain after aggregation
-    try:
-        df_filtered = filter_source_dataframe_by_categories(
-            df_out,
-            source_cols_for_grouping_no_date,
-            category_hierarchy,
-        )
-    except Exception as e:
-        breakpoint()
-        df_filtered = filter_source_dataframe_by_categories(
-            df_out,
-            source_cols_for_grouping_no_date,
-            category_hierarchy,
-        )
+    
+    agg_type = AGGREGATION_RULES.get(src)
 
-    df_filtered = df_filtered[['Date'] + source_cols_for_grouping_no_date + [src]].copy()
+    ####
+    # #find the first category within ttype, medium, vtype, drive, fuel that is None, then filter so the df matches all the categories up to that point, minus 1. e.g. if medium is None, then dont filter at all. if drive is None, then filter for ttype and medium only. This allows for enough data to be able to aggregate shares of the level, weights and so on.
+    # category_hierarchy = [ttype, medium, vtype, drive, fuel]
+    # for i, category in enumerate(category_hierarchy):
+    #     if category is None:
+    #         source_cols_for_grouping_minus_one = source_cols_for_grouping[:i]
+    #         break
+    #     # If we reach here, it means the category is valid
+    #     source_cols_for_grouping_minus_one.append(category)
+    
+    source_cols_for_grouping_minus_one_no_date = source_cols_for_grouping_no_date[:-1]
+    source_cols_for_grouping_minus_one = source_cols_for_grouping[:-1]
+    category_hierarchy_minus_one = [ttype, medium, vtype, drive, fuel][:len(source_cols_for_grouping_minus_one_no_date)]
+    category_hierarchy = [ttype, medium, vtype, drive, fuel][:len(source_cols_for_grouping_minus_one_no_date) + 1]
+    #now filter.
+    df_filtered = filter_source_dataframe_by_categories(
+        df_out,
+        source_cols_for_grouping_minus_one_no_date,
+        category_hierarchy_minus_one,
+    )
+
+    ####
+    # if source_cols_for_grouping == ['Date', 'Transport Type', 'Medium', 'Vehicle Type', 'Drive'] and drive == 'erev' and vtype == 'ht':
+    #     breakpoint()#checking why erev heavy trucks are getting wrong aggregation
+    if agg_type == "weighted":
+        # For weighted average, we need to find appropriate weight column
+        # breakpoint()#not sure how this works
+        weight_col = next((w for w in get_weight_priority(src) if w in df_filtered.columns), None)
+        
+        # df_filtered2 = df_filtered.copy()
+        if weight_col:
+            # For weighted average aggregation
+            df_filtered = aggregate_weighted(
+                df_filtered,
+                src,
+                group_cols=source_cols_for_grouping_minus_one,
+                weight_col=weight_col,
+            )
+            # #if any of the values are < 0.4 then try again since its kinda weird
+            # if ((df_filtered[src] < 0.4).any() and (df_filtered['Medium'] =='road')).any():
+            #     breakpoint()
+            #     print(f"[WARNING] Weighted aggregation of '{src}' has values < 0.4, trying unweighted mean instead.")
+            #     df_filtered2 = aggregate_weighted(
+            #     df_filtered,
+            #     src,
+            #     group_cols=source_cols_for_grouping_minus_one,
+            #     weight_col=weight_col,
+            #     )
+        else:
+            raise ValueError(f"No suitable weight column found for weighted aggregation of '{src}'")
+    elif agg_type == "sum":
+        # Simple sum aggregation
+        #drop the latest col from source_cols_for_grouping in case we have multiple categories within it and want to sum over them. e.g. where LPV corresponds to car,suv,lt.
+        df_filtered_copy = df_filtered.copy()  # Ensure we have a clean copy
+        df_filtered.loc[:, src] = df_filtered.groupby(source_cols_for_grouping)[src].transform('sum')
+
+    elif agg_type == "share":
+        #TEMP
+        #lets try fil it with the base measure first then once we have that recorded for all rows we can calculate the share, instead of trying to do it all sequentially. e.g. if measure is stock share and base measure is stocks, then first fill in stocks for all rows, then afgter we've filled in all rows for all medium/ttype/etc rows we will calculate shares based on that.
+        base_measure = AGGREGATION_BASE_MEASURES.get(src, None)
+        if base_measure in df_filtered.columns:     
+            #ignore the warning for the setting with copy since we are working on a filtered df anyway and the alternative results in FutureWarning: Setting an item of incompatible dtype is deprecated and will raise in a future error of pandas.
+            df_filtered[src] = df_filtered[base_measure]
+            #group and sum
+            df_filtered = df_filtered.groupby(source_cols_for_grouping)[src].sum().reset_index()
+            #now calculate share
+        else:
+            raise ValueError(
+                f"Base measure '{base_measure}' not found in DataFrame for share calculation of '{src}'"
+            )
+            
+        # # if len(source_cols_for_grouping_minus_one)>3:
+        # #     #what happens when we try to do this for drives shares?
+        # #     breakpoint()#MAYBE THIS SHOULD BE DONE USING .apply(
+        # #     #     lambda x: x['_weighted_value'].sum() / x['_weight'].sum() if x['_weight'].sum() > 0 else 0
+        # #     # )
+        # # Convert to percentage share within each group
+        # # breakpoint()#i think thisis way off in its scope. 
+        # try:
+        #     # For share calculation, use the original base measure before conversion
+        #     base_measure = AGGREGATION_BASE_MEASURES.get(src, None)
+        #     if base_measure in df_filtered.columns:
+        #         df_filtered_copy = df_filtered[source_cols_for_grouping + [base_measure]].copy()
+        #         #first sum by the group cols .. then we will calculate share within that group minus one col.
+        #         #calc sum of measure
+        #         df_filtered_copy = df_filtered_copy.groupby(source_cols_for_grouping).sum().reset_index()
+                
+        #         # Option 3: Replace NAs with 0 before calculation
+        #         df_filtered_copy[src] = df_filtered_copy.groupby(
+        #             source_cols_for_grouping_minus_one
+        #         )[base_measure].transform(
+        #             lambda x: (x.fillna(0) / x.fillna(0).sum() * 100) if x.fillna(0).sum() != 0 else x.fillna(0)
+        #         )
+        #         #drop src from original df_filtered if it exists
+        #         if src in df_filtered.columns:
+        #             df_filtered = df_filtered.drop(columns=[src])
+        #         df_filtered_copy = df_filtered_copy[source_cols_for_grouping + [src]].copy()
+        #         #since we lost the index from the groupby, we need to merge back to the original filtered df
+        #         df_filtered = pd.merge(
+        #             df_filtered,    df_filtered_copy,
+        #             on=source_cols_for_grouping,
+        #             how='left'
+        #         )
+        #     else:
+        #         breakpoint()
+        #         raise ValueError(
+        #             f"Base measure '{base_measure}' not found in DataFrame for share calculation of '{src}'"
+        #         )
+        # except Exception as e:
+        #     breakpoint()
+    else:
+        pass
+    # ["passenger", "road", "lt", "hev"]
+    #filter for the exact categories again to ensure no extra rows remain after aggregation
+    df_filtered = filter_source_dataframe_by_categories(
+        df_filtered,
+        source_cols_for_grouping_no_date,
+        category_hierarchy,
+    )
+    if len(df_filtered) == 0:
+        breakpoint()
+        raise ValueError(f"[ERROR] No data remaining after aggregation for source measure: {src}. Check filtering criteria.")
+    
+    df_filtered = df_filtered[source_cols_for_grouping + [src]].copy()
     #drop duplicates if any remain after aggregation
     df_filtered = df_filtered.drop_duplicates(
-        subset=['Date'] + source_cols_for_grouping_no_date,
+        subset=source_cols_for_grouping + [src],
         keep='first',
     )
-    try:
-        #double check there are no duplicates of years after aggregation
-        if df_filtered.duplicated(subset=['Date'] + source_cols_for_grouping_no_date).any():
-            duplicated_dates = df_filtered[
-                df_filtered.duplicated(
-                    subset=['Date'] + source_cols_for_grouping_no_date,
-                    keep=False,
-                )
-            ]
-            print(f"[WARNING] Found {len(duplicated_dates)} rows with duplicate dates for {src}:")
-            for date, group in duplicated_dates.groupby('Date'):
-                print(f"  Date {date}: {len(group)} occurrences")
-                print(group[['Date'] + source_cols_for_grouping_no_date + [src]])
-            breakpoint()
-            # raise ValueError(f"[ERROR] Duplicate years found after aggregation for source measure: {src}.")
-    except Exception as e:
-        print(f"[ERROR] Exception while checking for duplicates after aggregation: {e}")
+    #double check there are no duplicates after aggregation. this would indicate a problem where we have multiple rows with the same values for the grouping columns after aggregation. I think its impossible but just in case.
+    if df_filtered.duplicated(subset=source_cols_for_grouping).any():
+        duplicated_dates = df_filtered[
+            df_filtered.duplicated(
+                subset=source_cols_for_grouping,
+                keep=False,
+            )
+        ]
+        print(f"[WARNING] Found {len(duplicated_dates)} rows with duplicate dates for {src}:")
+        for date, group in duplicated_dates.groupby('Date'):
+            print(f"  Date {date}: {len(group)} occurrences")
+            print(group[source_cols_for_grouping + [src]])
         breakpoint()
-        # raise e
+        raise ValueError(f"[ERROR] Duplicate years found after aggregation for source measure: {src}.")
+    
     return df_filtered
 
 
@@ -433,6 +468,8 @@ def process_measures_for_leap(
     print(f"Processing measures for LEAP branch: {shortname}")
     # Apply scaling
     for leap_measure, meta in filtered_measure_config.items():
+        # if leap_measure == 'Final On-Road Fuel Economy':
+        #     breakpoint()  # investigate why large values are occuring
 
         #todo want to create a method here for identifying if the src_tuple maps to a category which is mapped to multiple soruce categories. e.g. if src_tuple is ('freight','road','lcv','ice') then this maps to both ice_d, ice_g. Then we should calculate the measures using the aggregated data for both ice_d and ice_g combined rather than just ice_d or ice_g individually.
         def get_aggregated_categories(src_tuple):
@@ -443,6 +480,7 @@ def process_measures_for_leap(
         #     breakpoint()  # investigate why 1000 is occuring
         # if drive == 'bev' and leap_measure == 'Stock Share':
         #     breakpoint()  # investigate why 1000 is occuring#why is the stock share ended up as >1
+        
         df_out = df.copy()
         print('Recording measure:', leap_measure)
         src = meta["source_mapping"]
@@ -457,13 +495,11 @@ def process_measures_for_leap(
                 df_out.loc[:, src] = calculate_measures(df_out, src)
         elif src not in df_out.columns:
             continue
-
-        #aggregate if needed
-        # if src == 'Intensity':
-        #     breakpoint()
-        # breakpoint()#how to tell when agg is requrid. how to tell what the gruping cols are?
-        # group_cols
+        
         df_out = aggregate_measures(df_out, src, source_cols_for_grouping, ttype, medium, vtype, drive, fuel)
+        
+        # if source_cols_for_grouping == ['Date', 'Transport Type', 'Medium', 'Vehicle Type', 'Drive'] and drive == 'erev' and vtype == 'ht':
+        #     breakpoint()#checking why erev heavy trucks are getting wrong aggregation
 
         df_out[leap_measure] = apply_scaling(df_out.loc[:, src], leap_measure, shortname)
         processed[leap_measure] = df_out[["Date", leap_measure]].copy()

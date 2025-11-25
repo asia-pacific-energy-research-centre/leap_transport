@@ -16,8 +16,9 @@ without importing heavier processing dependencies.
 SOURCE_MEASURE_TO_UNIT = {
     "Energy": ("PJ", 1),
     "Stocks": ("Million_stocks", 1e6),
-    "New_vehicle_efficiency": ("Billion_km_per_pj", 1e-9),
-    "Efficiency": ("Billion_km_per_pj", 1e-9),
+    "Sales": ("Million_vehicles_sold", 1e6),
+    "New_vehicle_efficiency": ("Billion_km_per_pj", 1e9),
+    "Efficiency": ("Billion_km_per_pj", 1e9),
     "Turnover_rate": ("%", 1),
     "Supply_side_fuel_share": ("%", 100),
     "Demand_side_fuel_share": ("%", 100),
@@ -31,7 +32,7 @@ SOURCE_MEASURE_TO_UNIT = {
     "Occupancy_or_load_growth": ("%", 100),
     "Activity_growth": ("%", 100),
     "Travel_km": ("Billion_km", 1e9),
-    "Intensity": ("PJ_per_billion_passenger_or_freight_tonne_km", 1e9),
+    "Intensity": ("PJ_per_billion_passenger_or_freight_tonne_km", 1/1e9),
     "Gdp": ("Real_gdp_millions", 1e6),
     "Population": ("Population_thousands", 1e3),
     "Gdp_per_capita": ("Thousand_Gdp_per_capita", 1e3),
@@ -78,8 +79,8 @@ AGGREGATION_RULES = {
     "Sales": "sum",
     "Vehicle_sales_share_calc_transport_type": "share",
     "Vehicle_sales_share_calc_fuel": "share",
-    "Vehicle_sales_share_vehicle_calc_type": "share",
-
+    "Vehicle_sales_share_calc_vehicle_type": "share",
+    
     # Growth rates (apply later via derivative logic)
     "Activity_growth": "growth",
     "Efficiency_growth": "growth",
@@ -94,7 +95,7 @@ AGGREGATION_BASE_MEASURES = {
     "Activity_share_calc_fuel": "Activity",
     "Vehicle_sales_share_calc_transport_type": "Stocks",
     "Vehicle_sales_share_calc_fuel": "Stocks",
-    "Vehicle_sales_share_vehicle_calc_type": "Stocks",
+    "Vehicle_sales_share_calc_vehicle_type": "Stocks",
 }
 
 CALCULATED_MEASURES = [
@@ -107,7 +108,7 @@ CALCULATED_MEASURES = [
     "Activity_share_calc_fuel",
     "Vehicle_sales_share_calc_transport_type",
     "Vehicle_sales_share_calc_fuel",
-    "Vehicle_sales_share_vehicle_calc_type",
+    "Vehicle_sales_share_calc_vehicle_type",
 ]
 
 SHORTNAME_TO_ANALYSIS_TYPE = {
@@ -122,7 +123,7 @@ SHORTNAME_TO_ANALYSIS_TYPE = {
     "Others (level 2)": "Intensity",
 }
 
-SHARE_MEASURES = ["Stock Share", "Device Share", "Sales Share"]
+SHARE_MEASURES = ["Stock Share", "Device Share", "Sales Share", 'Activity Level',]
 
 __all__ = [
     "SOURCE_MEASURE_TO_UNIT",

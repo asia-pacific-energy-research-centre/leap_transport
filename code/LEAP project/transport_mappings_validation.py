@@ -5,8 +5,9 @@ from collections import defaultdict, Counter
 import pandas as pd
 from transport_measure_metadata import SHARE_MEASURES
 from transport_measure_catalog import get_leap_branch_to_analysis_type_mapping
-from transport_branch_mappings import ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP
+from transport_branch_mappings import ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP, LEAP_MEASURE_CONFIG, DEFAULT_BRANCH_SHARE_SETTINGS_DICT
 from esto_transport_data import extract_esto_energy_use_for_leap_branches
+import numpy as np
 def get_most_detailed_branches(mapping: dict):
     """
     From a mapping of tuple keys (branch hierarchy) → values,
@@ -295,13 +296,25 @@ def validate_all_mappings_with_measures(
 #     )
 #%%
 
-def calculate_energy_use_for_stock_analysis_branch(branch_path, branch_tuple, export_df, BASE_YEAR):
+def calculate_energy_use_for_stock_analysis_branch(branch_path, branch_tuple, export_df, BASE_YEAR, stats_collector = pd.DataFrame()):
     
     # Placeholder function to calculate energy use for stock-based branches
     # This would involve retrieving stocks, mileage, and efficiency from the excel import sheet for leap
 
-    # Example implementation (to be replaced with actual logic):
-    stocks = export_df.loc[(export_df['Branch Path'] == branch_path) & (export_df['Variable'] == 'Stock') , BASE_YEAR].values
+    #need to calcualte the stock by taking the device share for this fuel type and timesing it by the stocks shrea for the level above this branch and finally teh stocks for the level above that branch... e.g. branch path ='Demand\\Transport\\Passenger road\\LPVs\\ICE small\\Gasoline' > then device share is for 'Gasoline' and stocks share is for 'Demand\\Transport\\Passenger road\\LPVs\\ICE small'  and stocks is for 'Demand\\Transport\\Passenger road\\LPVs'
+    branch_path_up_one_level = '\\'.join(branch_path.split('\\')[:-1])
+    branch_path_up_two_levels = '\\'.join(branch_path.split('\\')[:-2])
+    branch_path_up_three_levels = '\\'.join(branch_path.split('\\')[:-3])
+    stock_share = export_df.loc[(export_df['Branch Path'] == branch_path_up_one_level) & (export_df['Variable'] == 'Stock Share') , BASE_YEAR].values
+    device_share = export_df.loc[(export_df['Branch Path'] == branch_path) & (export_df['Variable'] == 'Device Share') , BASE_YEAR].values
+    stocks = export_df.loc[(export_df['Branch Path'] == branch_path_up_two_levels) & (export_df['Variable'] == 'Stock') , BASE_YEAR].values
+    # breakpoint()#we want to access the following:
+    # Demand\Transport\Passenger road\Motorcycles	Stock
+    # Demand\Transport\Passenger road\Motorcycles\ICE	Stock Share
+    # Demand\Transport\Passenger road\Motorcycles\ICE\Gasoline	Device Share
+
+    
+    stocks_new = (stocks * stock_share * device_share)/10000  #divide by 10000 to convert from percentages to shares (e.g. 25% -> 0.25)
     mileage = export_df.loc[(export_df['Branch Path'] == branch_path) & (export_df['Variable'] == 'Mileage') , BASE_YEAR].values
     efficiency = export_df.loc[(export_df['Branch Path'] == branch_path) & (export_df['Variable'] == 'Fuel Economy') , BASE_YEAR].values
 
@@ -310,28 +323,94 @@ def calculate_energy_use_for_stock_analysis_branch(branch_path, branch_tuple, ex
         # breakpoint()
         # raise ValueError(f"Efficiency data missing or zero for branch {branch_path}")
         print('WARNING: efficiency data missing or zero for branch ', branch_path)
-    energy_use = stocks * mileage * (1/efficiency)
+        return 0
+    # Avoid division by zero
+    efficiency_safe = efficiency.copy()
+    efficiency_safe[efficiency_safe == 0] = 1e-10  # Replace zeros with very small number
     
-    return energy_use.sum() if energy_use.size > 0 else 0
+    #do conversion from units to PJ:
+    
+    if 'non road' in branch_path:
+        raise NotImplementedError("Non-road stock-based branches not yet implemented in energy use calculation.")
+    elif 'road' in branch_path:
+        efficiency_scale = LEAP_MEASURE_CONFIG["Fuel (road)"]["Final On-Road Fuel Economy"]["factor"]#todo i think we use Final On-Road Fuel Economy not Fuel Economy here
+        mileage_scale = LEAP_MEASURE_CONFIG["Fuel (road)"]["Mileage"]["factor"]#todo not sure if i need to times by the mileage adjustment factor here as well?
+        stock_scale = LEAP_MEASURE_CONFIG["Vehicle type (road)"]["Stock"]["factor"]
+    else:
+        raise ValueError(f"Unknown branch type in path: {branch_path}")
+    stocks_new = stocks_new / stock_scale
+    mileage = mileage / mileage_scale
+    efficiency_safe = efficiency_safe / efficiency_scale    
+    
+    energy_use = stocks_new * mileage * (efficiency_safe)#in fact our fuel economy is measured in mj / 100 km so we dont need to do a inverse here!
+    
+    # if branch_tuple == ('15_02_road', '07_petroleum_products', '07_01_motor_gasoline'):
+    #     breakpoint()
+    # elif 'Gasoline' in branch_path:
+    #     breakpoint()#check why gasoline energy use is zero here
+        
+    #put the data into stats_collector df using the var names as the col names
+    #create new row
+    new_row = {
+        'Branch Path': branch_path,'l1': branch_tuple[0],'l2': branch_tuple[1] if len(branch_tuple) >1 else None,'l3': branch_tuple[2] if len(branch_tuple) >2 else None,'l4': branch_tuple[3] if len(branch_tuple) >3 else None,'Energy Use': energy_use.sum() if energy_use.size > 0 else 0,'Stocks': stocks_new.sum() if stocks_new.size > 0 else 0,'Mileage': mileage.sum() if mileage.size > 0 else 0,'Efficiency': efficiency_safe.sum() if efficiency_safe.size > 0 else 0, 'stocks_unedited': stocks.sum() if stocks.size > 0 else 0, 'device_share': device_share.sum() if device_share.size > 0 else 0, 'stock_share': stock_share.sum() if stock_share.size > 0 else 0}
+    # append to stats_collector
+    stats_collector = pd.concat([stats_collector, pd.DataFrame([new_row])], ignore_index=True)
+        
+    return energy_use.sum() if energy_use.size > 0 else 0, stats_collector
 
 def calculate_energy_use_for_intensity_analysis_branch(branch_path, branch_tuple, export_df, BASE_YEAR):
     
     # Placeholder function to calculate energy use for intensity-based branches
     # This would involve retrieving activity level and intensity from the excel import sheet for leap
 
-    # Example implementation (to be replaced with actual logic):
-    activity_level = export_df.loc[(export_df['Branch Path'] == branch_path) & (export_df['Variable'] == 'Activity Level'), BASE_YEAR].values
+    
+    if len(branch_path.split('\\')) <4:
+        #this must be either the nonspecified or pipeline branch since these are only 2 levels deep after Demand\Transport. in which case there are no activity shares to consider
+        activity_level = export_df.loc[(export_df['Branch Path'] == branch_path) & (export_df['Variable'] == 'Activity Level'), BASE_YEAR].values
+        # breakpoint()#check if this is right. the energy of pipeline is a bit low
+    else:
+        
+        branch_path_up_one_level = '\\'.join(branch_path.split('\\')[:-1])#this is a share. branch path is also activity share
+        branch_path_up_two_levels = '\\'.join(branch_path.split('\\')[:-2])#this is activity
+        # Example implementation (to be replaced with actual logic):
+        activity_level = export_df.loc[(export_df['Branch Path'] == branch_path_up_two_levels) & (export_df['Variable'] == 'Activity Level'), BASE_YEAR].values
+        activity_level_share1 = export_df.loc[(export_df['Branch Path'] == branch_path_up_one_level) & (export_df['Variable'] == 'Activity Level'), BASE_YEAR].values
+        activity_level_share2 = export_df.loc[(export_df['Branch Path'] == branch_path) & (export_df['Variable'] == 'Activity Level'), BASE_YEAR].values
+        activity_level = (activity_level * activity_level_share1 * activity_level_share2) / 10000  #divide by 10000 to convert from percentages to shares (e.g. 25% -> 0.25)
+    
+    # breakpoint()#Depending on the branch we may need to calc the share first before getting the activity level. e.g. for fuel (non-road) branches we need to get the activity share for the fuel first and then times that by the activity level of the level above this branch.
     intensity = export_df.loc[(export_df['Branch Path'] == branch_path) & (export_df['Variable'] == 'Final Energy Intensity'), BASE_YEAR].values
 
     if (intensity == 0).all() or intensity.size == 0:
         breakpoint()
         print('WARNING: intensity data missing or zero for branch ', branch_path)
         # raise ValueError(f"intensity data missing or zero for branch {branch_path}")
+    
+    #Now apply scaling factors from LEAP_MEASURE_CONFIG
+    if 'non road' in branch_path:
+        intensity_scale = LEAP_MEASURE_CONFIG["Fuel (non-road)"]["Final Energy Intensity"]["factor"]
+        activity_scale = LEAP_MEASURE_CONFIG["Fuel (non-road)"]["Activity Level"]["factor"]
+    elif 'road' in branch_path:
+        raise NotImplementedError("Road intensity-based branches not yet implemented in energy use calculation.")
+    elif 'Pipeline' in branch_path or 'Nonspecified' in branch_path:
+        # intensity_scale = LEAP_MEASURE_CONFIG["Others (level 2)"]['Final Energy Intensity']["factor"]
+        if intensity != 1:
+            breakpoint()
+            raise ValueError(f"Expected intensity of 1 for branch {branch_path}, got {intensity}")
+        intensity_scale = 1#we use a factor of 1 here since the intensity is already just 1 but the scale is 1e9 to cancle out the scaling done through SOURCE_MEASURE_TO_UNIT in apply_scaling()
+        activity_scale = LEAP_MEASURE_CONFIG["Others (level 2)"]['Activity Level']["factor"]
+    else:
+        raise ValueError(f"Unknown branch type in path: {branch_path}")
+    #intensity_scale can be used to convert from wateer unit it was to be in terms of PJ / unit activity
+    # e.g. if intensity is in GJ / tonnekilometer > we want PJ / tonnekilometer, then we need to multiply by 1e-6
+    intensity = intensity / intensity_scale
+    activity_level = activity_level / activity_scale
     # Calculate energy use (this is a simplified example)
     energy_use = activity_level * intensity
+    
     return energy_use.sum() if energy_use.size > 0 else 0
 
-def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, SCENARIO, BASE_YEAR, FINAL_YEAR, export_df, TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx', TRANSPORT_ROOT = r"Demand\Transport"):
+def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, original_scenario,new_scenario, BASE_YEAR, FINAL_YEAR, export_df, TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx', TRANSPORT_ROOT = r"Demand"):
     """
     Validate that LEAP final energy use for the base year matches ESTO totals.
     this will utilise the ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP to sum up LEAP final energy use by branch, using the msot detailed branch levels and then caculating total energy use for each branch based on what measures are avaialble. There would be two types of calculation: 
@@ -343,13 +422,12 @@ def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, SCENARIO
     #filter for the given economy, scenario and base year
     esto_energy_use_filtered = esto_energy_use[
         (esto_energy_use['economy'] == ECONOMY) &
-        (esto_energy_use['scenarios'] == SCENARIO) &
+        (esto_energy_use['scenarios'] == original_scenario.lower()) &
         (esto_energy_use['subtotal_layout'] == False)
     ][['sectors', 'sub1sectors', 'sub2sectors', 'sub3sectors', 'sub4sectors', 'fuels', 'subfuels', BASE_YEAR]]
-
     leap_energy_use_totals = {}
     esto_energy_totals = {}
-    
+    stats_collector = pd.DataFrame()
     for esto_key, leap_branches in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP.items():
         total_energy_use = 0
         for leap_branch in leap_branches:
@@ -362,30 +440,32 @@ def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, SCENARIO
             branch_path = f"{TRANSPORT_ROOT}\\{leap_ttype}" + "".join(
                 f"\\{x}" for x in [leap_vtype, leap_drive, leap_fuel] if x
             )
-            #check if the branch path exists in the export df, if not then skip it since there is no data for it
+            #check if the branch path exists in the export df, if not then skip it since there is no data for it... it will be checked against esto later so if there is a problem it will be caught then
             if branch_path not in export_df['Branch Path'].values:
-                print(f"⚠️  Branch path {branch_path} not found in export data, skipping.")
-                continue
-            try:
-                # Determine if the branch is stock-based or intensity-based
-                if analysis_type == 'Stock':
-                    energy_use = calculate_energy_use_for_stock_analysis_branch(branch_path, leap_branch, export_df, BASE_YEAR)
-                elif analysis_type == 'Intensity':
-                    energy_use = calculate_energy_use_for_intensity_analysis_branch(branch_path, leap_branch, export_df, BASE_YEAR)
-                else:
-                    energy_use = 0  # Unknown branch type
+                print(f"{branch_path} not found in export data, skipping.")
+            else:
+                try:
+                    # Determine if the branch is stock-based or intensity-based
+                    if analysis_type == 'Stock':
+                        energy_use, stats_collector = calculate_energy_use_for_stock_analysis_branch(branch_path, leap_branch, export_df, BASE_YEAR, stats_collector)
+                    elif analysis_type == 'Intensity':
+                        energy_use = calculate_energy_use_for_intensity_analysis_branch(branch_path, leap_branch, export_df, BASE_YEAR)
+                    else:
+                        energy_use = 0  # Unknown branch type
 
-            except Exception as e:
-                breakpoint()
-                print(f"Error calculating energy use for branch {leap_branch}: {e}")
-                energy_use = 0
-
-            total_energy_use += energy_use
-
+                except Exception as e:
+                    breakpoint()
+                    print(f"Error calculating energy use for branch {leap_branch}: {e}")
+                    energy_use = 0
+                total_energy_use += energy_use
+        # if esto_key == ('15_02_road', '07_petroleum_products', '07_01_motor_gasoline'):
+        #     #put statistics together for gasoline in road into a df (flatten arrays and add simple summaries)
+        #     breakpoint()
+                
         leap_energy_use_totals[esto_key] = total_energy_use
         #now find the esto_energy_totals:
         if 'Nonspecified transport' in leap_branch:
-            esto_energy_total_list = extract_esto_energy_use_for_leap_branches(leap_branches, esto_energy_use, ECONOMY, BASE_YEAR, FINAL_YEAR)#todo
+            esto_energy_total_list = extract_esto_energy_use_for_leap_branches(leap_branches, esto_energy_use, ECONOMY, original_scenario, BASE_YEAR, FINAL_YEAR)#todo
             # breakpoint()#how to get the right df format here. it is currently a dict list
             try:
                 esto_energy_total = pd.DataFrame()
@@ -402,6 +482,8 @@ def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, SCENARIO
                 esto_energy_totals[esto_key] = 0
                 continue
         else:
+            if 'Pipeline' in leap_branch:
+                breakpoint()#check why pipeline is not being picked up
             esto_energy_total = esto_energy_use_filtered.loc[
                 (esto_energy_use_filtered['sub1sectors'] == esto_key[0]) &
                 (esto_energy_use_filtered['sub2sectors'] == 'x') &           
@@ -415,24 +497,44 @@ def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, SCENARIO
             if len(esto_energy_total) > 1:
                 breakpoint()
                 raise ValueError(f"Multiple or no rows found in ESTO data for key {esto_key}")
-            else:
-                print(f"⚠️  No ESTO data found for key {esto_key}, setting total to 0.")
+            elif leap_energy_use_totals[esto_key] != 0:
+                breakpoint()
+                print(f"⚠️  No ESTO data found for key {esto_key} but LEAP total is not zero. This is likely an error.")
                 #for now jsut skip it since its not a big deal
                 esto_energy_totals[esto_key] = 0
                 continue
                 # raise ValueError(f"Multiple or no rows found in ESTO data for key {esto_key}")
-                
-        esto_energy_totals[esto_key] = esto_energy_total[BASE_YEAR].values[0]
+            else:
+                if 'Nonspecified transport' in leap_branch:
+                    print(f"ℹ️  No ESTO data found for key {esto_key} allocated to Nonspecified, but LEAP total is zero anyway. Skipping.")    
+                # breakpoint()#for some reason we are missing gasoline in road
+                print(f"ℹ️  No ESTO data found for key {esto_key}, but LEAP total is zero. Skipping.")
+        else:
+            esto_energy_totals[esto_key] = esto_energy_total[BASE_YEAR].values[0]
 
     # Compare LEAP energy use totals with ESTO energy use
     for key, leap_total in leap_energy_use_totals.items():
         esto_total = esto_energy_totals.get(key, 0)
         if leap_total != esto_total:
-            print(f"Discrepancy found for {key}: LEAP = {leap_total}, ESTO = {esto_total}")
+            FOUND_NONSPECIFIED = False
+            for tup in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP[key]:
+                if 'Nonspecified transport' in tup:
+                    FOUND_NONSPECIFIED = True
+                    break  # Skip nonspecified branches since they don't have direct ESTO equivalents
+            if FOUND_NONSPECIFIED:
+                #we cant validate this one here since nonspecified branches are handled differently
+                continue
+            else:
+                # breakpoint()#what is the cause of this discrepancy?
+                print(f"Discrepancy found for {key}: LEAP = {leap_total}, ESTO = {esto_total}")
+    #TEMP
+    print("Saving transport energy use stats collector to Excel...")
+    stats_collector.to_excel('transport_energy_use_stats_collector.xlsx', index=False)
+    #TEMP
+    validate_non_specified_energy_use_for_base_year_equals_esto_totals(BASE_YEAR, export_df, esto_energy_use_filtered, TRANSPORT_ROOT)
+    print("Final energy use validation complete.")
     
-    validate_non_specified_energy_use_for_base_year_equals_esto_totals(BASE_YEAR, export_df, esto_energy_use_filtered)
-    
-def validate_non_specified_energy_use_for_base_year_equals_esto_totals(BASE_YEAR, export_df, esto_energy_use_filtered, TRANSPORT_ROOT = r"Demand\Transport"):
+def validate_non_specified_energy_use_for_base_year_equals_esto_totals(BASE_YEAR, export_df, esto_energy_use_filtered, TRANSPORT_ROOT = r"Demand"):
     """
     #handle non specified slightly differently.. we will add up all of the fuel use for nonspecified branches and compare to the use for their corresponding branches in the esto data set:
     #Note, there are many esto totals for each leap nonsepcified branch. So we will create a entry in nonspecified_branches_leap for each leap branch with non specified in it, and have a tuple with the first entry being the total energy use from leap for that branch, and the second entry bein the total energy use from esto for all the corresponding esto keys that map to that leap branch.
@@ -453,14 +555,14 @@ def validate_non_specified_energy_use_for_base_year_equals_esto_totals(BASE_YEAR
                     )
                     try:
                         if analysis_type == 'Stock':
-                            energy_use = calculate_energy_use_for_stock_analysis_branch(branch_path, leap_branch, export_df, BASE_YEAR)
+                            energy_use,stats_collector = calculate_energy_use_for_stock_analysis_branch(branch_path, leap_branch, export_df, BASE_YEAR)
                         elif analysis_type == 'Intensity':
                             energy_use = calculate_energy_use_for_intensity_analysis_branch(branch_path, leap_branch, export_df, BASE_YEAR)
                         else:
                             energy_use = 0
                     except Exception as e:
                         breakpoint()
-                        print(f"Error calculating energy use for branch {leap_branch}: {e}")
+                        raise Exception(f"Error calculating energy use for branch {leap_branch}: {e}")
                         energy_use = 0
                     nonspecified_branches_leap[leap_branch] = (energy_use, 0)
 
@@ -480,11 +582,12 @@ def validate_non_specified_energy_use_for_base_year_equals_esto_totals(BASE_YEAR
 
     for branch, (leap_total, esto_total) in nonspecified_branches_leap.items():
         if leap_total != esto_total:
+            breakpoint()#not sure if thisis working right
             print(f"Discrepancy found for Nonspecified branch {branch}: LEAP = {leap_total}, ESTO = {esto_total}")
             # You can add additional handling logic here if needed
     print("Nonspecified branch validation complete.")
 
-def validate_and_fix_shares_normalise_to_one(df, BASE_YEAR, LEAP_BRANCH_TO_EXPRESSION_MAPPING, EXAMPLE_SAMPLE_SIZE=5):
+def validate_and_fix_shares_normalise_to_one(df, EXAMPLE_SAMPLE_SIZE=5):
     """
     Validate and (if needed) normalize share measures so that sibling branches sum to 100.
     Updates df in-place for columns 'value' and/or BASE_YEAR when present.
@@ -497,21 +600,17 @@ def validate_and_fix_shares_normalise_to_one(df, BASE_YEAR, LEAP_BRANCH_TO_EXPRE
         if pd.isna(branch):
             return ()
         return tuple(str(branch).split('\\'))
+    
+    # Date	Transport_Type	Medium	Vehicle_Type	Technology	Fuel	Measure	Value	Branch_Path	LEAP_Tuple	Source_Tuple	Units	Scale	Per...
 
-    #make the df tall to make it easier to work with
-    df_wide = df.copy()
-    df = pd.melt(
-        df_wide,
-        id_vars=['Branch Path', 'Variable', 'Scenario', 'Region', 'Scale', 'Units', 'Per...', 'Method','Level 1', 'Level 2', 'Level 3', 'Level 4', 'Level 5', 'Level 6', '#N/A'],
-        var_name='Date',
-        value_name='value'
-    )
+    df_copy = df.copy()
     
     # Pre-compute branch hierarchies for all branches at once
-    df['branch_tuple'] = df['Branch Path'].apply(to_tuple)
+    df['branch_tuple'] = df['Branch_Path'].apply(to_tuple)
     
     for measure in SHARE_MEASURES:
-        measure_data = df[df['Variable'] == measure].copy()
+        # breakpoint()#is there a chance this is sometimes returning the wrong value?e.g. 50 for a set of >2 children?
+        measure_data = df[(df['Measure'] == measure) & (df['Units'] == 'Share')].copy()
         if measure_data.empty:
             continue
 
@@ -539,7 +638,7 @@ def validate_and_fix_shares_normalise_to_one(df, BASE_YEAR, LEAP_BRANCH_TO_EXPRE
                 )
                 
                 # Group by parent and calculate sums
-                parent_sums = level_data.groupby('parent_tuple')['value'].agg(['sum', 'count']).reset_index()
+                parent_sums = level_data.groupby('parent_tuple')['Value'].agg(['sum', 'count']).reset_index()
                 parent_sums.columns = ['parent_tuple', 'total_sum', 'child_count']
                 
                 # Find parents where sum != 100.0 (within tolerance)
@@ -554,19 +653,30 @@ def validate_and_fix_shares_normalise_to_one(df, BASE_YEAR, LEAP_BRANCH_TO_EXPRE
                     )
                     
                     # Calculate normalized values #todo need to find a way to deal with split equally better since we should ideally have real numbers otherwise we are just making things up
-                    def calculate_normalized_value(row, SPLIT_EQUALLY=True):
+                    def calculate_normalized_value(row,DEFAULT_BRANCH_SHARE_SETTINGS_DICT):
+                        measure = row['Measure']
+                        measure_branch_tuple = (measure,) + row['branch_tuple'][:-1]  # parent tuple with measure
+                        SPLIT_EQUALLY = True
+                        split = 0 # Default to empty
+                        if measure_branch_tuple in DEFAULT_BRANCH_SHARE_SETTINGS_DICT:
+                            SPLIT_EQUALLY = False
+                            splits = DEFAULT_BRANCH_SHARE_SETTINGS_DICT[measure_branch_tuple]
+                            split = splits.get(row['branch_tuple'][-1], 0)
+                            
                         if row['total_sum'] == 0.0 and row['child_count'] == 1:
                             return 100.0
                         elif row['total_sum'] == 0.0 and SPLIT_EQUALLY:
                             if row['child_count'] > 0:
+                                # breakpoint()#is there a chance this is sometimes returning the wrong value?e.g. 50 for a set of >2 children?
                                 return 100.0 / row['child_count']
                             else:
                                 breakpoint()#not sure what situation this would be
-                                return 0.0
-                        elif row['total_sum'] == 0.0:
-                            return 0.0
+                                raise ValueError("Child count is zero while total sum is zero.")
+                        elif row['total_sum'] == 0.0 and not SPLIT_EQUALLY:
+                            return split
                         else:
-                            return (row['value'] / row['total_sum']) * 100.0
+                            # breakpoint()#is there a chance this is sometimes returning the wrong value?e.g. 50 for a set of >2 children?
+                            return (row['Value'] / row['total_sum']) * 100.0
                     
                     # Add child count info
                     normalization_data = normalization_data.merge(
@@ -575,33 +685,35 @@ def validate_and_fix_shares_normalise_to_one(df, BASE_YEAR, LEAP_BRANCH_TO_EXPRE
                     )
                     
                     normalization_data['normalized_value'] = normalization_data.apply(
-                        calculate_normalized_value, axis=1
+                        calculate_normalized_value,
+                        axis=1,
+                        args=(DEFAULT_BRANCH_SHARE_SETTINGS_DICT,)  # Pass as tuple for positional args
                     )
-                    
+                    # breakpoint()#is there a chance this is sometimes returning the wrong value?e.g. 50 for a set of >2 children?
                     # Update original dataframe using vectorized operations
                     for idx, row in normalization_data.iterrows():
                         mask = (
-                            (df['Variable'] == measure) & 
+                            (df['Measure'] == measure) & 
                             (df['branch_tuple'] == row['branch_tuple']) & 
                             (df['Date'] == date)
                         )
-                        df.loc[mask, 'value'] = row['normalized_value']
+                        df.loc[mask, 'Value'] = row['normalized_value']
                     
                     # Record issues for reporting
                     for parent_tuple in problematic_parents['parent_tuple'].unique():
                         parent_info = problematic_parents[problematic_parents['parent_tuple'] == parent_tuple].iloc[0]
                         children_info = normalization_data[
                             normalization_data['parent_tuple'] == parent_tuple
-                        ][['branch_tuple', 'value', 'normalized_value']].values.tolist()
+                        ][['branch_tuple', 'Value', 'normalized_value']].values.tolist()
                         
                         issues_found.append({
                             'parent': parent_tuple,
                             'year': date,
                             'total_share': parent_info['total_sum'],
                             'children': [(c, o, n) for c, o, n in children_info],
-                            'Variable': measure
+                            'Measure': measure
                         })
-
+        
         # Report issues (same as before)
         if issues_found:
             print(f"⚠️  {len(issues_found)} normalization issues found and corrected for variable '{measure}':")
@@ -613,117 +725,163 @@ def validate_and_fix_shares_normalise_to_one(df, BASE_YEAR, LEAP_BRANCH_TO_EXPRE
                 for child, original, normalized in issue['children'][:3]:
                     child_str = ' -> '.join(child) if isinstance(child, tuple) else str(child)
                     print(f"     - {child_str}: {original:.3f} → {normalized:.3f}")
+                #double check that the normalization worked
+                normalized_total = sum(n for _, _, n in issue['children'])
+                if abs(normalized_total - 100.0) > tol:
+                    breakpoint()
+                    print(f"     ❌ Normalization failed! New total: {normalized_total:.3f}")
+                else:
+                    pass
         else:
             print(f"✅ All shares already normalized to 100.0 for variable '{measure}'")
             
     #make it wide again:
-    df = df.pivot(
-        index=['Branch Path', 'Variable', 'Scenario', 'Region', 'Scale', 'Units', 'Per...', 'Method','Level 1', 'Level 2', 'Level 3', 'Level 4', 'Level 5', 'Level 6', '#N/A'],
-        columns='Date',
-        values='value'
-    ).reset_index()
-    breakpoint()
+    # df = df.pivot(
+    #     index=['Branch Path', 'Variable', 'Scenario', 'Region', 'Scale', 'Units', 'Per...', 'Method','Level 1', 'Level 2', 'Level 3', 'Level 4', 'Level 5', 'Level 6', '#N/A'],
+    #     columns='Date',
+    #     values='value'
+    # ).reset_index()
+    
     return df
 
 
 
 ######################
-# ------------------------------------------------------------
-#VALIDATION
-# ------------------------------------------------------------
-# ============================================================
-# transport_mappings_validation.py
-# ============================================================
-# Validates and optionally corrects stock/sales shares consistency
-# across all hierarchical levels of the transport dataset.
-# ============================================================
 
-import pandas as pd
 
-def validate_shares(df, tolerance=0.01, auto_correct=False, road_only=False):
-    """
-    Validate that stocks and sales shares sum to ~1.0 at each hierarchy level.
 
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        Input dataframe containing at least:
-        ['Scenario', 'Transport Type', 'Medium', 'Vehicle Type', 'Date',
-         'Vehicle_sales_share', 'Stock Share'] (if applicable)
-    tolerance : float
-        Allowed deviation from 1.0 before flagging (default 0.01 = ±1%)
-    auto_correct : bool
-        If True, renormalize groups that deviate within 5*tolerance.
 
-    Returns
-    -------
-    df : pandas.DataFrame
-        Possibly corrected DataFrame.
-    report : pandas.DataFrame
-        Report summarizing which groups failed validation.
-    """
 
-    print("\n=== Validating Transport Shares Consistency ===")
-    issues = []
 
-    if road_only:
-        df_non_road = df[df["Medium"] != "road"].copy()
-        df = df[df["Medium"] == "road"].copy()
-    def check_and_fix(group, column):
-        """Helper to check one share column per group."""
-        total = group[column].sum(skipna=True)
-        deviation = abs(total - 1.0)
-        status = "OK"
-        if pd.isna(total) or len(group) == 0:
-            status = "Empty"
-        elif deviation > tolerance:
-            status = "FAIL"
-            if auto_correct and deviation < 5 * tolerance:
-                group[column] /= total
-                status = "Corrected"
-        return total, deviation, status, group
 
-    # Define combinations to check
-    group_levels = [
-        ["Scenario", "Transport Type", "Medium", "Vehicle Type", "Date"],
-        # ["Scenario", "Transport Type", "Medium", "Date"],#i think we just want the most detailed levelsand we calcualte the upper levels from these later in calculate_measures()
-    ]
 
-    # Check both shares if available
-    for col in ["Vehicle_sales_share", "Stock Share"]:
-        if col not in df.columns:
-            continue
-        for levels in group_levels:
-            grouped = df.groupby(levels, group_keys=False)
-            for key, g in grouped:
-                total, dev, status, new_g = check_and_fix(g, col)
-                issues.append({
-                    "Share Type": col,
-                    "Group": key,
-                    "Total": total,
-                    "Deviation": dev,
-                    "Status": status,
-                    "Group Size": len(g)
-                })
-                if auto_correct and status == "Corrected":
-                    df.loc[g.index, col] = new_g[col].values
 
-    report = pd.DataFrame(issues)
-    fails = report[report["Status"].isin(["FAIL", "Corrected"])]
 
-    #exclude base year values if it is on Vehicle_sales_share
-    fails = fails[~(fails["Share Type"].eq("Vehicle_sales_share") & fails["Group"].apply(lambda x: x[-1] == 2022))]
 
-    print(f"Checked {len(report)} groups.")
-    if len(fails) == 0:
-        print("✅ All share groups are consistent.")
-    else:
-        print(f"⚠️  {len(fails)} groups deviated from 1.0 "
-              f"({(len(fails)/len(report))*100:.1f}% of total).")
-        print("Sample issues:")
-        print(fails.head(10).to_string(index=False))
 
-    print("=" * 60)
-    if road_only:
-        df = pd.concat([df, df_non_road], ignore_index=True)
-    return df, report
+# def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, original_scenario,new_scenario, BASE_YEAR, FINAL_YEAR, export_df, TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx', TRANSPORT_ROOT = r"Demand"):
+#     """
+#     Validate that LEAP final energy use for the base year matches ESTO totals.
+#     this will utilise the ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP to sum up LEAP final energy use by branch, using the msot detailed branch levels and then caculating total energy use for each branch based on what measures are avaialble. There would be two types of calculation: 
+#     Stock based:  where stocks*mileage*efficiency -> energy use
+#     Intensity based: where activity level * intensity -> energy use
+#     We will iterate over each key in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP, sum up the energy use from each of the LEAP branches mapped to that key, and compare it to the ESTO total for that sector-fuel combination.
+    
+#     THIS FUNCTION HAS BEEN DUPLICATED ABOVE WITH MINOR MODIFICATIONS TO ALLOW FOR use in other sectors BEYOND TRANSPORT
+#     """
+#     esto_energy_use = pd.read_excel(TRANSPORT_ESTO_BALANCES_PATH) 
+#     #filter for the given economy, scenario and base year
+#     esto_energy_use_filtered = esto_energy_use[
+#         (esto_energy_use['economy'] == ECONOMY) &
+#         (esto_energy_use['scenarios'] == original_scenario.lower()) &
+#         (esto_energy_use['subtotal_layout'] == False)
+#     ][['sectors', 'sub1sectors', 'sub2sectors', 'sub3sectors', 'sub4sectors', 'fuels', 'subfuels', BASE_YEAR]]
+#     leap_energy_use_totals = {}
+#     esto_energy_totals = {}
+#     stats_collector = pd.DataFrame()
+#     for esto_key, leap_branches in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP.items():
+#         total_energy_use = 0
+#         for leap_branch in leap_branches:
+#             if 'Nonspecified transport' in leap_branch:
+#                 #todo this. want to make ti so we can calcualte the nonspecified values now in the same way thgat is done in 
+#                 # breakpoint()#is this right if we insert the esto energy?
+#                 continue  # Skip nonspecified branches since they don't have direct ESTO equivalents
+#             analysis_type = get_leap_branch_to_analysis_type_mapping(leap_branch)
+#             leap_ttype, leap_vtype, leap_drive, leap_fuel = (list(leap_branch) + [None] * (4 - len(leap_branch)))[:4]
+#             branch_path = f"{TRANSPORT_ROOT}\\{leap_ttype}" + "".join(
+#                 f"\\{x}" for x in [leap_vtype, leap_drive, leap_fuel] if x
+#             )
+#             #check if the branch path exists in the export df, if not then skip it since there is no data for it... it will be checked against esto later so if there is a problem it will be caught then
+#             if branch_path not in export_df['Branch Path'].values:
+#                 print(f"{branch_path} not found in export data, skipping.")
+#             else:
+#                 try:
+#                     # Determine if the branch is stock-based or intensity-based
+#                     if analysis_type == 'Stock':
+#                         energy_use, stats_collector = calculate_energy_use_for_stock_analysis_branch(branch_path, leap_branch, export_df, BASE_YEAR, stats_collector)
+#                     elif analysis_type == 'Intensity':
+#                         energy_use = calculate_energy_use_for_intensity_analysis_branch(branch_path, leap_branch, export_df, BASE_YEAR)
+#                     else:
+#                         energy_use = 0  # Unknown branch type
+
+#                 except Exception as e:
+#                     breakpoint()
+#                     print(f"Error calculating energy use for branch {leap_branch}: {e}")
+#                     energy_use = 0
+#                 total_energy_use += energy_use
+#         # if esto_key == ('15_02_road', '07_petroleum_products', '07_01_motor_gasoline'):
+#         #     #put statistics together for gasoline in road into a df (flatten arrays and add simple summaries)
+#         #     breakpoint()
+                
+#         leap_energy_use_totals[esto_key] = total_energy_use
+#         #now find the esto_energy_totals:
+#         if 'Nonspecified transport' in leap_branch:
+#             esto_energy_total_list = extract_esto_energy_use_for_leap_branches(leap_branches, esto_energy_use, ECONOMY, original_scenario, BASE_YEAR, FINAL_YEAR)#todo
+#             # breakpoint()#how to get the right df format here. it is currently a dict list
+#             try:
+#                 esto_energy_total = pd.DataFrame()
+#                 for item in esto_energy_total_list:
+#                     esto_energy_total_i = pd.DataFrame(item)
+#                     esto_energy_total = pd.concat([esto_energy_total, esto_energy_total_i], ignore_index=True)
+#                 #and then extract onl the base year then sum energy if we need
+#                 esto_energy_total = esto_energy_total.loc[esto_energy_total['Date'] == BASE_YEAR]
+#                 esto_energy_total[BASE_YEAR] = esto_energy_total['Energy']
+                    
+#             except Exception as e:
+#                 breakpoint()
+#                 print(f"Error converting ESTO nonspecified data to DataFrame for key {esto_key}: {e}")
+#                 esto_energy_totals[esto_key] = 0
+#                 continue
+#         else:
+#             if 'Pipeline' in leap_branch:
+#                 breakpoint()#check why pipeline is not being picked up
+#             esto_energy_total = esto_energy_use_filtered.loc[
+#                 (esto_energy_use_filtered['sub1sectors'] == esto_key[0]) &
+#                 (esto_energy_use_filtered['sub2sectors'] == 'x') &           
+#                 (esto_energy_use_filtered['fuels'] == esto_key[1]) &
+#                 (esto_energy_use_filtered['subfuels'] == esto_key[2]) #&
+#                 # (esto_energy_use_filtered[BASE_YEAR] != 0)
+#             ]
+#         #check its just one row otherwise raise error sicne this shoudlnt occur
+#         if len(esto_energy_total) != 1:
+            
+#             if len(esto_energy_total) > 1:
+#                 breakpoint()
+#                 raise ValueError(f"Multiple or no rows found in ESTO data for key {esto_key}")
+#             elif leap_energy_use_totals[esto_key] != 0:
+#                 breakpoint()
+#                 print(f"⚠️  No ESTO data found for key {esto_key} but LEAP total is not zero. This is likely an error.")
+#                 #for now jsut skip it since its not a big deal
+#                 esto_energy_totals[esto_key] = 0
+#                 continue
+#                 # raise ValueError(f"Multiple or no rows found in ESTO data for key {esto_key}")
+#             else:
+#                 if 'Nonspecified transport' in leap_branch:
+#                     print(f"ℹ️  No ESTO data found for key {esto_key} allocated to Nonspecified, but LEAP total is zero anyway. Skipping.")    
+#                 # breakpoint()#for some reason we are missing gasoline in road
+#                 print(f"ℹ️  No ESTO data found for key {esto_key}, but LEAP total is zero. Skipping.")
+#         else:
+#             esto_energy_totals[esto_key] = esto_energy_total[BASE_YEAR].values[0]
+
+#     # Compare LEAP energy use totals with ESTO energy use
+#     for key, leap_total in leap_energy_use_totals.items():
+#         esto_total = esto_energy_totals.get(key, 0)
+#         if leap_total != esto_total:
+#             FOUND_NONSPECIFIED = False
+#             for tup in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP[key]:
+#                 if 'Nonspecified transport' in tup:
+#                     FOUND_NONSPECIFIED = True
+#                     break  # Skip nonspecified branches since they don't have direct ESTO equivalents
+#             if FOUND_NONSPECIFIED:
+#                 #we cant validate this one here since nonspecified branches are handled differently
+#                 continue
+#             else:
+#                 # breakpoint()#what is the cause of this discrepancy?
+#                 print(f"Discrepancy found for {key}: LEAP = {leap_total}, ESTO = {esto_total}")
+#     #TEMP
+#     print("Saving transport energy use stats collector to Excel...")
+#     stats_collector.to_excel('transport_energy_use_stats_collector.xlsx', index=False)
+#     #TEMP
+#     validate_non_specified_energy_use_for_base_year_equals_esto_totals(BASE_YEAR, export_df, esto_energy_use_filtered, TRANSPORT_ROOT)
+#     print("Final energy use validation complete.")
+    

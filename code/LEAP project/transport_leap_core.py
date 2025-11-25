@@ -31,6 +31,17 @@ def connect_to_leap():
     print("[INFO] Connecting to LEAP...")
     
     try:
+        # Clear win32com cache to fix corrupted type library
+        import shutil
+        import tempfile
+        gen_py_path = gencache.GetGeneratePath()
+        if gen_py_path:
+            try:
+                shutil.rmtree(gen_py_path)
+                print("[INFO] Cleared win32com cache")
+            except Exception as e:
+                print(f"[WARN] Could not clear cache: {e}")
+        
         gencache.EnsureDispatch("LEAP.LEAPApplication")
         try:
             leap_app = GetActiveObject("LEAP.LEAPApplication")
@@ -57,7 +68,7 @@ def connect_to_leap():
         print(f"[ERROR] LEAP connection failed: {e}")
         return None
 
-def safe_branch_call(leap_obj, branch_path, timeout_msg=True):
+def safe_branch_call(leap_obj, branch_path, AUTO_SET_MISSING_BRANCHES=False):
     """
     Safe Branch() call that won't hang - use this instead of L.Branch() directly.
     
@@ -78,22 +89,33 @@ def safe_branch_call(leap_obj, branch_path, timeout_msg=True):
             print("Branch not found")
     """
     if leap_obj is None:
-        if timeout_msg:
-            print(f"[ERROR] No LEAP connection for branch '{branch_path}'")
         return None
     
+    branches = leap_obj.Branches
     try:
-        branch = leap_obj.Branch(branch_path)
-        if timeout_msg:
-            print(f"[SUCCESS] Found branch: {branch_path}")
-        return branch
+        exists = branches.Exists(branch_path)
     except Exception as e:
-        if timeout_msg:
-            error_str = str(e)
-            if len(error_str) > 60:
-                error_str = error_str[:60] + "..."
-            print(f"[INFO] Branch '{branch_path}' not accessible: {error_str}")
+        breakpoint()
+        raise Exception(f"Branches.Exists failed for '{branch_path}': {e}")
+
+    if not exists:
+        if AUTO_SET_MISSING_BRANCHES:
+            print(f"[INFO] AUTO_SET_MISSING_BRANCHES is set to true. The branch will be auto-created: {branch_path}")
+            #set it 
+        else:
+            breakpoint()
+            raise Exception(f"Branches.Exists returned false for '{branch_path}'. AUTO_SET_MISSING_BRANCHES is False so throwing an error.")
         return None
+
+    branch = leap_obj.Branch(branch_path)
+    return branch
+    # except Exception as e:
+    #     if timeout_msg:
+    #         error_str = str(e)
+    #         if len(error_str) > 60:
+    #             error_str = error_str[:60] + "..."
+    #         print(f"[INFO] Branch '{branch_path}' not accessible: {error_str}")
+    #     return None
 
 
 def build_expr(points, expression_type="Interp"):
@@ -134,61 +156,6 @@ def safe_set_variable(obj, varname, expr, context=""):
         return False
 
 
-# ------------------------------------------------------------
-# Diagnostics and Data Analysis
-# ------------------------------------------------------------
-def diagnose_leap_branch(L, branch_path, leap_tuple, expected_vars=None, verbose=False):
-    """Diagnose what variables are available in a LEAP branch."""
-    # Use safe_branch_call instead of direct L.Branch()
-    branch = safe_branch_call(L, branch_path, timeout_msg=False)
-    if branch is None:
-        print(f"[ERROR] Could not access branch {branch_path}")
-        print("=" * 50)
-        return
-        
-    try:
-        if verbose:
-            print(f"\n=== Diagnosing Branch: {leap_tuple} ===")
-        var_count = branch.Variables.Count
-        available_vars = [branch.Variables.Item(i + 1).Name for i in range(var_count)]
-        if expected_vars:
-            missing = set(expected_vars) - set(available_vars)
-            if missing:
-                print(f"Missing expected variables from LEAP: {sorted(missing)}")
-        if verbose:
-            print(f"Available variables: {sorted(available_vars)}")
-    except Exception as e:
-        print(f"[ERROR] Could not enumerate variables in branch {branch_path}: {e}")
-    print("=" * 50)
-
-
-def normalize_sales_shares(df):
-    """Normalize vehicle sales shares within each group."""
-    def scale_group(g):
-        s = g["Vehicle_sales_share"].sum(skipna=True)
-        if pd.isna(s) or s == 0:
-            return g
-        g["Vehicle_sales_share"] /= s
-        return g
-    return df.groupby(["Scenario", "Medium", "Vehicle Type", "Date"], group_keys=False).apply(scale_group)
-
-
-def analyze_data_quality(df):
-    """Analyze data quality issues in the transport dataset."""
-    print("\n=== Data Quality Analysis ===")
-    missing_data = df.isnull().sum()
-    if missing_data.any():
-        print("Missing data by column:")
-        for col, count in missing_data[missing_data > 0].items():
-            pct = (count / len(df)) * 100
-            print(f"  {col}: {count} ({pct:.1f}%)")
-
-    if 'Vehicle_sales_share' in df.columns:
-        zero_shares = (df['Vehicle_sales_share'] == 0).sum()
-        print(f"\nZero vehicle sales shares: {zero_shares} ({(zero_shares/len(df)*100):.1f}%)")
-    print("=" * 40)
-
-
 def define_value_based_on_src_tuple(meta_values, src_tuple):
     ttype, medium, vtype, drive, fuel = tuple(list(src_tuple) + [None] * (5 - len(src_tuple)))[:5]
     for col in ['LEAP_units', 'LEAP_Scale', 'LEAP_Per']:
@@ -200,12 +167,20 @@ def define_value_based_on_src_tuple(meta_values, src_tuple):
                 raise ValueError(f"Unexpected format for metadata value: {val}")
             #now we have special code based on what the pklaceholder is
             if val == 'Passenger-km$Tonne-km':
-                if ttype == 'passenger':
+                if 'passenger' in ttype:
                     resolved_value = 'Passenger-km'
-                elif ttype == 'freight':
+                elif 'freight' in ttype:
                     resolved_value = 'Tonne-km'
                 else:
                     raise ValueError(f"Unexpected ttype for resolving Passenger-km$Tonne-km: {ttype}")
+                meta_values[col] = resolved_value
+            elif val == 'of Tonne-km$of Passenger-km':
+                if 'passenger' in ttype:
+                    resolved_value = 'of Passenger-km'
+                elif 'freight' in ttype:
+                    resolved_value = 'of Tonne-km'
+                else:
+                    raise ValueError(f"Unexpected ttype for resolving of Tonne-km$of Passenger-km: {ttype}")
                 meta_values[col] = resolved_value
             else:
                 raise ValueError(f"Unknown placeholder in metadata value: {val}")
@@ -213,73 +188,41 @@ def define_value_based_on_src_tuple(meta_values, src_tuple):
 # ------------------------------------------------------------
 # Activity Levels
 # ------------------------------------------------------------
-def ensure_activity_levels(L, TRANSPORT_ROOT=r"Demand\Transport"):
-    """Ensure 'Activity Level' variables exist in all transport branches."""
-    print("\n=== Checking and fixing Activity Levels ===")
-    try:
-        breakpoint()
-        transport_branch = safe_branch_call(L, TRANSPORT_ROOT, timeout_msg=False)
-        if transport_branch:
-            if not transport_branch.Variable("Activity Level").Expression:
-                transport_branch.Variable("Activity Level").Expression = "100"
-            for sub in ["Passenger", "Freight"]:
-                try:
-                    b = L.Branch(f"{TRANSPORT_ROOT}\\{sub}")
-                    if not b.Variable("Activity Level").Expression:
-                        b.Variable("Activity Level").Expression = "50"
-                except Exception:
-                    print(f"[WARN] Could not access {TRANSPORT_ROOT}\\{sub}")
-        else:
-            print("[WARN] Could not access Demand branch - skipping Activity Level setup")
-    except Exception as e:
-        print(f"[ERROR] Activity Level setup failed: {e}")
-    print("==============================================\n")
-
-
-
-# def ensure_activity_levels(L):
+# def ensure_activity_levels(L, TRANSPORT_ROOT=r"Demand"):
 #     """Ensure 'Activity Level' variables exist in all transport branches."""
 #     print("\n=== Checking and fixing Activity Levels ===")
-#     if L is None or 'None' in str(type(L)):
-#         print("[ERROR] No LEAP connection provided")
-#         return
-    
 #     try:
-#         # Use safe_branch_call instead of direct L.Branch()
-#         transport_branch = safe_branch_call(L, "Demand", timeout_msg=False)
+#         transport_branch = safe_branch_call(L, TRANSPORT_ROOT, , AUTO_SET_MISSING_BRANCHES=AUTO_SET_MISSING_BRANCHES)
 #         if transport_branch:
 #             if not transport_branch.Variable("Activity Level").Expression:
 #                 transport_branch.Variable("Activity Level").Expression = "100"
-#                 print("[INFO] Set Activity Level = '100' for Demand branch")
+#             for sub in ["Passenger", "Freight"]:
+#                 try:
+#                     b = L.Branch(f"{TRANSPORT_ROOT}\\{sub}")
+#                     if not b.Variable("Activity Level").Expression:
+#                         b.Variable("Activity Level").Expression = "50"
+#                 except Exception:
+#                     print(f"[WARN] Could not access {TRANSPORT_ROOT}\\{sub}")
 #         else:
 #             print("[WARN] Could not access Demand branch - skipping Activity Level setup")
-            
-#         for sub in ["Passenger", "Freight"]:
-#             sub_branch = safe_branch_call(L, f"Demand\\{sub}", timeout_msg=False)
-#             if sub_branch:
-#                 if not sub_branch.Variable("Activity Level").Expression:
-#                     sub_branch.Variable("Activity Level").Expression = "50"
-#                     print(f"[INFO] Set Activity Level = '50' for Demand\\{sub}")
-#             else:
-#                 print(f"[WARN] Could not access Demand\\{sub}")
-                
 #     except Exception as e:
-#         breakpoint()
 #         print(f"[ERROR] Activity Level setup failed: {e}")
 #     print("==============================================\n")
+
+
 
 # ------------------------------------------------------------
 # Logging
 # ------------------------------------------------------------
-def create_leap_data_log():
+def create_leap_export_df():
     """Initialize DataFrame to log all data written to LEAP."""
     return pd.DataFrame(columns=[
         'Date', 'Transport_Type', 'Medium', 'Vehicle_Type', 'Technology', 'Fuel',
         'Measure', 'Value', 'Branch_Path', 'LEAP_Tuple', 'Source_Tuple'
     ])
 
-def log_leap_data(log_df, leap_tuple, src_tuple, branch_path, measure, df_m):
-    """Add processed measure data to the log DataFrame."""
+def write_row_to_leap_export_df(export_df, leap_tuple, src_tuple, branch_path, measure, df_m):
+    """Add processed measure data to the export DataFrame."""
     new_rows = []
     for _, row in df_m.iterrows():
         if pd.notna(row[measure]):
@@ -298,24 +241,16 @@ def log_leap_data(log_df, leap_tuple, src_tuple, branch_path, measure, df_m):
             })
     if new_rows:
         new_df = pd.DataFrame(new_rows)
-        log_df = pd.concat([log_df, new_df], ignore_index=True) if not log_df.empty else new_df.copy()
-    return log_df
+        export_df = pd.concat([export_df, new_df], ignore_index=True) if not export_df.empty else new_df.copy()
+    return export_df
 
 
-def save_leap_data_log(log_df, filename="leap_data_log.xlsx", log_tuple=None):
+def save_leap_export_df(export_df, filename="leap_export.xlsx"):#, log_tuple=None):
     """Save the complete LEAP data log to Excel with summaries."""
-    if log_tuple is None:
-        log_tuple = ('N/A', 'N/A', 'N/A', 'N/A')
-    print("\n=== Summary ===")
-    print(f"✅ Variables written: {log_tuple[0]}")
-    print(f"⚠️  Skipped (no data or invalid tuples): {log_tuple[1]}")
-    print(f"❌ Missing LEAP branches: {log_tuple[2]}")
-    print(f"❌ Missing variables: {log_tuple[3]}")
-    print("================\n")
-    print(f"\n=== Saving LEAP Data Log to {filename} ===")
+    print(f"\n=== Saving LEAP Data for exporting to LEAP to {filename} ===")
     with pd.ExcelWriter(filename, engine='openpyxl') as writer:
-        log_df.to_excel(writer, sheet_name='All_Data', index=False)
-    print(f"✅ Saved {len(log_df)} data points to {filename}")
+        export_df.to_excel(writer, sheet_name='All_Data', index=False)
+    print(f"✅ Saved {len(export_df)} data points to {filename}")
     print("=" * 50)
 
 
@@ -331,35 +266,35 @@ def build_expression_from_mapping(branch_tuple, df_m, measure):
     Returns:
     - expr: string suitable for LEAP variable.Expression
     """
-
-    mapping = LEAP_BRANCH_TO_EXPRESSION_MAPPING.get(branch_tuple, ('Data', ALL_YEARS))
+    entry = (measure,) + branch_tuple
+    mapping = LEAP_BRANCH_TO_EXPRESSION_MAPPING.get(entry, ('Data', ALL_YEARS))
     mode, arg = mapping
 
     # Default: Data from all available years
     if mode == 'Data':
         pts = [
-            (int(r["Date"]), float(r[measure]))
+            (int(r["Date"]), float(r['Value']))
             for _, r in df_m.iterrows()
-            if pd.notna(r[measure])
+            if pd.notna(r['Value'])
         ]
-        return build_expr(pts, "Data") if pts else None
+        return build_expr(pts, "Data") if pts else None, 'Data'
 
     # Interp between given years
     elif mode == 'Interp':
         start, end = arg[0], arg[-1]
         df_filtered = df_m[(df_m["Date"] >= start) & (df_m["Date"] <= end)]
         pts = [
-            (int(r["Date"]), float(r[measure]))
+            (int(r["Date"]), float(r['Value']))
             for _, r in df_filtered.iterrows()
-            if pd.notna(r[measure])
+            if pd.notna(r['Value'])
         ]
-        return build_expr(pts, "Interp") if pts else None
+        return build_expr(pts, "Interp") if pts else None, 'Interp'
 
     # Flat value (constant for a single year)
     elif mode == 'Flat':
         year = arg[0]
         val = df_m.loc[df_m["Date"] == year, measure].mean()
-        return str(float(val)) if pd.notna(val) else None
+        return str(float(val)) if pd.notna(val) else None, 'Flat'
 
     # Custom function for special logic
     elif mode == 'Custom':
@@ -378,22 +313,230 @@ def build_expression_from_mapping(branch_tuple, df_m, measure):
         try:
             func = globals().get(func_name)
             if callable(func):
-                return func(branch_tuple, df_m, measure)
+                return func(branch_tuple, df_m, measure), 'Custom'
             else:
                 print(f"[WARN] Custom function '{func_name}' not found for {branch_tuple}")
-                return None
+                return None, None
         except Exception as e:
             print(f"[ERROR] Custom expression failed for {branch_tuple}: {e}")
-            return None
+            return None, None
 
     # Default fallback
     else:
         print(f"[WARN] Unknown mode '{mode}' for {branch_tuple}. Using raw data.")
         pts = [
-            (int(r["Date"]), float(r[measure]))
+            (int(r["Date"]), float(r['Value']))
             for _, r in df_m.iterrows()
-            if pd.notna(r[measure])
+            if pd.notna(r['Value'])
         ]
-        return build_expr(pts, "Data") if pts else None
+        return build_expr(pts, "Data") if pts else None, 'Data'
 
 #%%
+
+#################################################
+# Auto-Creation of LEAP Branches
+#################################################
+# ------------------------------------------------------------
+# Constants mapped to LEAP BranchType enumeration values
+# According to LEAP TypeLib: 1 = DemandCategoryBranchType,
+# 4 = DemandTechnologyBranchType, 36 = DemandFuelBranchType
+BRANCH_DEMAND_CATEGORY = 1
+BRANCH_DEMAND_TECHNOLOGY = 4
+BRANCH_DEMAND_FUEL = 36
+
+
+def _choose_branch_type_for_segment(current_path, segment_name, branch_tuple):
+    """
+    Decide what LEAP branch type to use when auto-creating a missing segment.
+
+    Parameters
+    ----------
+    current_path : str
+        Full path up to (but not including) this segment.
+    segment_name : str
+        The missing branch name we are about to create.
+    branch_tuple : any
+        One of the tuples stored in SHORTNAME_TO_LEAP_BRANCHES[key].
+        We infer 'shortname' and branch type rules from this.
+    """
+
+    # First identify what type of branch_tuple we have by going through
+    # all the keys in SHORTNAME_TO_LEAP_BRANCHES and seeing if the
+    # branch_tuple matches any of the values.
+    shortname = None
+    for key, values in SHORTNAME_TO_LEAP_BRANCHES.items():
+        if branch_tuple in values:
+            shortname = key
+            break
+    
+    if shortname is None:
+        raise ValueError(f"Branch tuple {branch_tuple} not found in SHORTNAME_TO_LEAP_BRANCHES.")
+
+    short_lower = shortname.lower()
+
+    # ------------------------------------------------------------------
+    # STOCK-BASED BRANCHES (contain '(road)' in the shortname)
+    # ------------------------------------------------------------------
+    # If shortname has (road) in it, it is a stock-based branch and we
+    # cannot set its technology-based branches (DemandTechnologyBranchType=4)
+    # within the LEAP API. However, we can set its fuel-based branches.
+    #
+    # So:
+    #   - If shortname == 'Fuel (road)': set as DemandFuelBranchType (36)
+    #   - Otherwise: raise, user must manually create that branch in LEAP
+    # ------------------------------------------------------------------
+    if "(road)" in short_lower:
+        if shortname == "Fuel (road)":
+            return BRANCH_DEMAND_FUEL
+        else:
+            raise RuntimeError(
+                "Attempted to auto-create a stock-based ('(road)') branch that is "
+                "not 'Fuel (road)'. LEAP requires these technology/category "
+                "branches to be created manually in the UI.\n"
+                f"  shortname: {shortname}\n"
+                f"  path: {current_path}\\{segment_name}"
+            )
+
+    # ------------------------------------------------------------------
+    # INTENSITY-BASED BRANCHES (no '(road)' in the shortname)
+    # ------------------------------------------------------------------
+    # If the shortname is not stock based, then it is intensity based and
+    # we have to identify whether it is a technology branch.
+    #
+    # This is done by checking if the shortname is in:
+    #   ['Others (level 2)', 'Fuel (non-road)']
+    #
+    # Since intensity-based branches don't have fuel branches at the end,
+    # only technology branches, 'Fuel (non-road)' is treated as a *technology*.
+    #
+    # If so, we can set it as a DemandTechnologyBranchType (4).
+    # Otherwise, we can set it as a DemandCategoryBranchType (1).
+    # ------------------------------------------------------------------
+    if shortname in ["Others (level 2)", "Fuel (non-road)"]:
+        # Intensity-based technology branch
+        return BRANCH_DEMAND_TECHNOLOGY
+
+    # Fallback: generic intensity-based category
+    return BRANCH_DEMAND_CATEGORY
+
+def ensure_branch_exists(L, full_path, branch_tuple,AUTO_SET_MISSING_BRANCHES=True):
+    """
+    Ensures a LEAP branch exists at full_path, creating any missing segments
+    using _choose_branch_type_for_segment() and LEAPApplication Add* methods.
+
+    Parameters
+    ----------
+    L : LEAPApplication COM object
+    full_path : str
+        Example: "Demand\\Freight non road\\Air\\Aviation gasoline"
+    branch_tuple : tuple
+        One of the tuples stored in SHORTNAME_TO_LEAP_BRANCHES for this
+        logical branch type. Used to infer whether this path is stock-based
+        vs intensity-based, and whether a missing segment is a category
+        vs technology.
+    """
+    parts = [p for p in full_path.split("\\") if p]
+    parent_branch = None
+
+    for i, part in enumerate(parts):
+        current_path = "\\".join(parts[:i+1])
+        # Try to get the branch via your safe helper
+        br = safe_branch_call(L, current_path, AUTO_SET_MISSING_BRANCHES=AUTO_SET_MISSING_BRANCHES)
+        if br is not None:
+            parent_branch = br
+            continue
+
+        # Branch is missing: decide what type it should be
+        parent_path = "\\".join(parts[:i]) if i > 0 else ""
+        branch_type = _choose_branch_type_for_segment(
+            current_path=parent_path,
+            segment_name=part,
+            branch_tuple=branch_tuple,
+        )
+        if AUTO_SET_MISSING_BRANCHES:
+            # Create the new branch with LEAPApplication methods
+            new_branch = _create_child_branch(L, parent_branch, part, branch_type)
+        else:
+            breakpoint()#not sure how this will behave
+            new_branch = None
+        parent_branch = new_branch
+
+    return parent_branch
+
+def _create_child_branch(L, parent_branch, name, branch_type):
+    """
+    Create a new LEAP branch under parent_branch, using LEAPApplication
+    methods (AddCategory, AddTechnology, etc.).
+
+    NOTE:
+    - LEAP has no AddDemandFuel API. Demand fuel branches (type 36) are
+      created implicitly when you create technologies with a fuel.
+    """
+    
+    if parent_branch is None:
+        breakpoint()
+        raise RuntimeError(
+            f"Cannot create top-level branch '{name}' without an existing parent. "
+            "In practice, roots like 'Demand' must already exist."
+        )
+
+    # Get the parent ID from the branch
+    parent_id = parent_branch.ID  # COM property: Branch.ID
+
+    # Category: use AddCategory(parent_id, name, Scale, AcUnit)
+    if branch_type == BRANCH_DEMAND_CATEGORY:
+        # Use blank defaults for scale and activity unit; user can edit later.
+        # AddCategory(ParentID, BName, Scale, AcUnit) :contentReference[oaicite:2]{index=2}
+        return L.AddCategory(parent_id, name, "", "")
+
+    # Technology (Activity method): use AddTechnology(...)
+    if branch_type == BRANCH_DEMAND_TECHNOLOGY:
+        # AddTechnology(ParentID, BName, Scale, AcUnit, Fuel, EnergyUnit) :contentReference[oaicite:3]{index=3}
+        # We don't know the actual defaults from here, so use empty strings. The user will need to set them manually... they may also get set by the imported data.
+        
+        # and let the user fill in fuel & units in LEAP later.
+        #AddTechnology(ParentID, BName, Scale, AcUnit, Fuel, EnergyUnit)
+        print(f"Creating technology branch '{name}' under parent ID {parent_id}. Remember to set units manually in LEAP.")
+        return L.AddTechnology(parent_id, name, "", "", name, "")
+
+    # Demand fuel branches: LEAP exposes BranchType=36 but no AddDemandFuel.
+    # These are normally created when you define a technology with an
+    # associated fuel, not directly via API.
+    if branch_type == BRANCH_DEMAND_FUEL:
+        breakpoint()
+        raise RuntimeError(
+            f"Cannot auto-create demand fuel branch '{name}': LEAP API "
+            "does not expose an AddDemandFuel method. Create the associated "
+            "technology (with its fuel) in LEAP, or handle this branch manually."
+        )
+
+    raise RuntimeError(f"Unsupported branch_type={branch_type} for '{name}'.")
+
+
+# ------------------------------------------------------------
+def diagnose_measures_in_leap_branch(L, branch_path, leap_tuple, expected_vars=None, verbose=False):
+    """Diagnose variables available in a LEAP branch."""
+    branch = safe_branch_call(L, branch_path)
+    if branch is None:
+        print(f"[ERROR] Could not access branch {branch_path}")
+        print("=" * 50)
+        return
+
+    try:
+        var_count = branch.Variables.Count
+        available_vars = [branch.Variables.Item(i + 1).Name for i in range(var_count)]
+
+        if verbose:
+            print(f"\n=== Diagnosing Branch: {leap_tuple} ===")
+            print(f"Available variables: {sorted(available_vars)}")
+
+        if expected_vars:
+            missing = set(expected_vars) - set(available_vars)
+            if missing:
+                print(f"Missing expected variables: {sorted(missing)}")
+
+    except Exception as e:
+        print(f"[ERROR] Could not enumerate variables in '{branch_path}': {e}")
+
+    print("=" * 50)
+    return

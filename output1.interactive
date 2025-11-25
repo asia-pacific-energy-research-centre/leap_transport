@@ -1,0 +1,115 @@
+[INFO] Prepared but not applied: Activity Level on Demand\Transport\Nonspecified transport
+Processing measures for LEAP branch: Others (level 1)
+Recording measure: Activity Level
+[INFO] Prepared but not applied: Activity Level on Demand\Transport\Pipeline transport
+
+=== Summary ===
+✅ Variables written: 994
+⚠️  Skipped (no data or invalid tuples): 23
+❌ Missing LEAP branches: 0
+❌ Missing variables: 0
+================
+
+
+=== Saving LEAP Data Log to ../../results/USA_transport_leap_data_log.xlsx ===
+✅ Saved 38766 data points to ../../results/USA_transport_leap_data_log.xlsx
+==================================================
+
+=== Creating LEAP Import File (structured) ===
+Demand\Transport\Passenger non road\Rail\Biodiesel not found in export data, skipping.
+Demand\Transport\Freight non road\Rail\Biodiesel not found in export data, skipping.
+Demand\Transport\Passenger non road\Shipping\Biodiesel not found in export data, skipping.
+Demand\Transport\Freight non road\Shipping\Biodiesel not found in export data, skipping.
+Discrepancy found for ('15_01_domestic_air_transport', '07_petroleum_products', '07_02_aviation_gasoline'): LEAP = 21.72047362999993, ESTO = 21.7204736328
+Discrepancy found for ('15_01_domestic_air_transport', '07_petroleum_products', '07_x_jet_fuel'): LEAP = 2238.854304999994, ESTO = 2238.8543054352
+Discrepancy found for ('15_02_road', '07_petroleum_products', '07_01_motor_gasoline'): LEAP = 1110.1422460120175, ESTO = 14782.7536660872
+Discrepancy found for ('15_02_road', '07_petroleum_products', '07_07_gas_diesel_oil'): LEAP = 1169.6517959690732, ESTO = 5199.5595718224
+Discrepancy found for ('15_02_road', '07_petroleum_products', '07_09_lpg'): LEAP = 621.3832691933159, ESTO = 2.3887913004
+Discrepancy found for ('15_02_road', '08_gas', '08_01_natural_gas'): LEAP = 988.8387638932028, ESTO = 63.9394865712
+Discrepancy found for ('15_02_road', '16_others', '16_05_biogasoline'): LEAP = 87.91537398162137, ESTO = 1181.8016888112
+Discrepancy found for ('15_02_road', '16_others', '16_06_biodiesel'): LEAP = 75.51855658553707, ESTO = 334.9771343352
+Discrepancy found for ('15_02_road', '17_electricity', 'x'): LEAP = 0.0, ESTO = 33.9661183824
+Discrepancy found for ('15_03_rail', '07_petroleum_products', '07_07_gas_diesel_oil'): LEAP = 465.25203624457606, ESTO = 463.133055924
+Discrepancy found for ('15_03_rail', '16_others', '16_06_biodiesel'): LEAP = 0, ESTO = 32.15797344
+Discrepancy found for ('15_03_rail', '17_electricity', 'x'): LEAP = 60.260846859999646, ESTO = 26.2947284784
+Discrepancy found for ('15_04_domestic_navigation', '07_petroleum_products', '07_01_motor_gasoline'): LEAP = 130.0270864046603, ESTO = 140.324307318
+Discrepancy found for ('15_04_domestic_navigation', '07_petroleum_products', '07_07_gas_diesel_oil'): LEAP = 155.46115766123975, ESTO = 156.8921783004
+Discrepancy found for ('15_04_domestic_navigation', '07_petroleum_products', '07_08_fuel_oil'): LEAP = 23.030180039999937, ESTO = 23.0301800352
+Discrepancy found for ('15_04_domestic_navigation', '16_others', '16_06_biodiesel'): LEAP = 0, ESTO = 8.6063274648
+Discrepancy found for ('15_05_pipeline_transport', '07_petroleum_products', '07_07_gas_diesel_oil'): LEAP = 1.3521197254909171e-08, ESTO = 0.0
+Discrepancy found for ('15_05_pipeline_transport', '07_petroleum_products', '07_08_fuel_oil'): LEAP = 1.541927113126328e-08, ESTO = 0.0
+Discrepancy found for ('15_05_pipeline_transport', '08_gas', '08_01_natural_gas'): LEAP = 2.944694095357244e-06, ESTO = 1192.6681053444
+Discrepancy found for ('15_05_pipeline_transport', '17_electricity', 'x'): LEAP = 1.4076453622023258e-07, ESTO = 0.0
+Discrepancy found for Nonspecified branch ('Nonspecified transport', 'Gasoline'): LEAP = 3.26035358427227e-07, ESTO = 0.0
+Discrepancy found for Nonspecified branch ('Nonspecified transport', 'Kerosene'): LEAP = 4.62553592850792e-09, ESTO = 0.0
+Discrepancy found for Nonspecified branch ('Nonspecified transport', 'Fuel oil'): LEAP = 1.1171040153885359e-07, ESTO = 0.0
+Discrepancy found for Nonspecified branch ('Nonspecified transport', 'Coal products'): LEAP = 3.744632052e-11, ESTO = 0
+Discrepancy found for Nonspecified branch ('Nonspecified transport', 'LPG'): LEAP = 7.012754960018234e-10, ESTO = 0.0
+Discrepancy found for Nonspecified branch ('Nonspecified transport', 'Diesel'): LEAP = 4.261283550802605e-07, ESTO = 0.0
+Discrepancy found for Nonspecified branch ('Nonspecified transport', 'Other petroleum products'): LEAP = 3.119166e-12, ESTO = 0.0
+Discrepancy found for Nonspecified branch ('Nonspecified transport', 'Natural gas'): LEAP = 4.46645687320001e-09, ESTO = 0.0
+Discrepancy found for Nonspecified branch ('Nonspecified transport', 'Electricity'): LEAP = 2.1041226415427215e-07, ESTO = 0.0
+Nonspecified branch validation complete.
+
+=== Transport data successfully filled into LEAP. ===
+
+⚠️  273 normalization issues found and corrected for variable 'Stock Share':
+   • Parent: Demand -> Transport -> Freight road, Year: 2022, Original Total: 0.000
+     - Demand -> Transport -> Freight road -> LCVs: 0.000 → 50.000
+     - Demand -> Transport -> Freight road -> Trucks: 0.000 → 50.000
+   • Parent: Demand -> Transport -> Passenger road, Year: 2022, Original Total: 0.000
+     - Demand -> Transport -> Passenger road -> Buses: 0.000 → 33.333
+     - Demand -> Transport -> Passenger road -> LPVs: 0.000 → 33.333
+     - Demand -> Transport -> Passenger road -> Motorcycles: 0.000 → 33.333
+   • Parent: Demand -> Transport -> Freight road -> LCVs, Year: 2022, Original Total: 0.028
+     - Demand -> Transport -> Freight road -> LCVs -> BEV: 0.000 → 0.000
+     - Demand -> Transport -> Freight road -> LCVs -> ICE: 0.028 → 100.000
+     - Demand -> Transport -> Freight road -> LCVs -> PHEV: 0.000 → 0.000
+   • Parent: Demand -> Transport -> Freight road -> Trucks, Year: 2022, Original Total: 10.733
+     - Demand -> Transport -> Freight road -> Trucks -> BEV heavy: 0.000 → 0.000
+     - Demand -> Transport -> Freight road -> Trucks -> BEV medium: 0.000 → 0.000
+     - Demand -> Transport -> Freight road -> Trucks -> FCEV heavy: 0.000 → 0.000
+   • Parent: Demand -> Transport -> Passenger road -> Buses, Year: 2022, Original Total: 5.665
+     - Demand -> Transport -> Passenger road -> Buses -> BEV: 0.000 → 0.000
+     - Demand -> Transport -> Passenger road -> Buses -> FCEV: 0.000 → 0.000
+     - Demand -> Transport -> Passenger road -> Buses -> ICE: 5.665 → 100.000
+⚠️  715 normalization issues found and corrected for variable 'Device Share':
+   • Parent: Demand -> Transport -> Freight road -> LCVs -> BEV, Year: 2022, Original Total: 0.000
+     - Demand -> Transport -> Freight road -> LCVs -> BEV -> Electricity: 0.000 → 100.000
+   • Parent: Demand -> Transport -> Freight road -> LCVs -> ICE, Year: 2022, Original Total: 400.000
+     - Demand -> Transport -> Freight road -> LCVs -> ICE -> Biodiesel: 6.065 → 1.516
+     - Demand -> Transport -> Freight road -> LCVs -> ICE -> Biogasoline: 7.338 → 1.835
+     - Demand -> Transport -> Freight road -> LCVs -> ICE -> CNG: 100.000 → 25.000
+   • Parent: Demand -> Transport -> Freight road -> LCVs -> PHEV, Year: 2022, Original Total: 0.000
+     - Demand -> Transport -> Freight road -> LCVs -> PHEV -> Biodiesel: 0.000 → 16.667
+     - Demand -> Transport -> Freight road -> LCVs -> PHEV -> Biogasoline: 0.000 → 16.667
+     - Demand -> Transport -> Freight road -> LCVs -> PHEV -> Diesel: 0.000 → 16.667
+   • Parent: Demand -> Transport -> Freight road -> Trucks -> BEV heavy, Year: 2022, Original Total: 0.000
+     - Demand -> Transport -> Freight road -> Trucks -> BEV heavy -> Electricity: 0.000 → 100.000
+   • Parent: Demand -> Transport -> Freight road -> Trucks -> BEV medium, Year: 2022, Original Total: 0.000
+     - Demand -> Transport -> Freight road -> Trucks -> BEV medium -> Electricity: 0.000 → 100.000
+⚠️  195 normalization issues found and corrected for variable 'Sales Share':
+   • Parent: Demand -> Transport -> Freight road -> LCVs, Year: 2022, Original Total: 0.028
+     - Demand -> Transport -> Freight road -> LCVs -> BEV: 0.000 → 0.000
+     - Demand -> Transport -> Freight road -> LCVs -> ICE: 0.028 → 100.000
+     - Demand -> Transport -> Freight road -> LCVs -> PHEV: 0.000 → 0.000
+   • Parent: Demand -> Transport -> Freight road -> Trucks, Year: 2022, Original Total: 10.733
+     - Demand -> Transport -> Freight road -> Trucks -> BEV heavy: 0.000 → 0.000
+     - Demand -> Transport -> Freight road -> Trucks -> BEV medium: 0.000 → 0.000
+     - Demand -> Transport -> Freight road -> Trucks -> FCEV heavy: 0.000 → 0.000
+   • Parent: Demand -> Transport -> Passenger road -> Buses, Year: 2022, Original Total: 5.665
+     - Demand -> Transport -> Passenger road -> Buses -> BEV: 0.000 → 0.000
+     - Demand -> Transport -> Passenger road -> Buses -> FCEV: 0.000 → 0.000
+     - Demand -> Transport -> Passenger road -> Buses -> ICE: 5.665 → 100.000
+   • Parent: Demand -> Transport -> Passenger road -> LPVs, Year: 2022, Original Total: 3.427
+     - Demand -> Transport -> Passenger road -> LPVs -> BEV large: 0.000 → 0.000
+     - Demand -> Transport -> Passenger road -> LPVs -> BEV medium: 0.000 → 0.000
+     - Demand -> Transport -> Passenger road -> LPVs -> BEV small: 0.000 → 0.000
+   • Parent: Demand -> Transport -> Passenger road -> Motorcycles, Year: 2022, Original Total: 0.000
+     - Demand -> Transport -> Passenger road -> Motorcycles -> BEV: 0.000 → 50.000
+     - Demand -> Transport -> Passenger road -> Motorcycles -> ICE: 0.000 → 50.000
+✅ Created LEAP import file with 994 entries.
+ - Years covered: 2022–2060
+ - Variables: 11
+ - Branches: 229
+============================================================

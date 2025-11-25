@@ -1,3 +1,4 @@
+#%%
 import pandas as pd
 from pathlib import Path
 
@@ -31,7 +32,7 @@ def create_import_instructions_sheet(writer):
     instructions.to_excel(writer, sheet_name="Instructions", index=False)
 
 
-def summarize_and_create_export_df(log_df, scenario, region, method, base_year, final_year
+def finalise_export_df(log_df, scenario, region, base_year, final_year
 ):
     """
     Create a LEAP-compatible Excel import file using LEAP_MEASURE_CONFIG metadata.
@@ -82,7 +83,7 @@ def summarize_and_create_export_df(log_df, scenario, region, method, base_year, 
     pivot_df["Variable"] = pivot_df["Measure"]
     pivot_df["Scenario"] = scenario
     pivot_df["Region"] = region
-    pivot_df["Method"] = method
+    # pivot_df["Method"] = ''
 
     # # Fetch LEAP metadata from measure config
     # breakpoint()#check if htis is working. seems to me skipping steps
@@ -115,29 +116,483 @@ def summarize_and_create_export_df(log_df, scenario, region, method, base_year, 
     pivot_df = pivot_df.sort_values(by=["Branch_Path", "Variable_sort_order"]).drop(columns="Variable_sort_order")
 
     # --- Column order ---
-    base_cols = ["Branch Path", "Variable", "Scenario", "Region", "Scale", "Units", "Per...", "Method"]
+    base_cols = ["Branch Path", "Variable", "Scenario", "Region", "Scale", "Units", "Per..."]#, "Method"
     level_cols = [f"Level {i}" for i in range(1, max_levels + 1)]
-    export_df = pivot_df[base_cols + year_cols + level_cols]
+    export_df = pivot_df[base_cols + year_cols + level_cols].copy()
 
     # --- Add trailing placeholder column for #N/A ---
-    export_df.loc[:, "#N/A"] = pd.NA
+    # export_df.loc[:, "#N/A"] = pd.NA
     
     return export_df
 
 
-def save_export_file(export_df, log_df, filename, base_year, final_year):
+def save_export_files(leap_export_df, export_df_for_viewing, leap_export_filename, base_year, final_year, model_name):
     """Save the export DataFrame and log DataFrame to an Excel file."""
     # --- Write to Excel ---
-    out_path = Path(filename)
+    out_path = Path(leap_export_filename)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Create two header rows for LEAP format
+    # Row 0: Area/Version info
+    # Row 1: Empty
+    # Row 2: Column headers (will be set by pandas)
+    
+    leap_export_df2 = leap_export_df.copy()
+    export_df_for_viewing2 = export_df_for_viewing.copy()
+    
+    # Create header rows with all columns from the dataframe
+    # Row 0: Area and Version info
+    header_data_0 = {col: '' for col in leap_export_df2.columns}
+    header_data_0['Branch Path'] = 'Area:'
+    header_data_0['Variable'] = model_name
+    header_data_0['Scenario'] = 'Ver:'
+    header_data_0['Region'] = '2'
+    header_row_0 = pd.DataFrame([header_data_0])
+    
+    # Row 1: Empty row
+    nas = pd.DataFrame([{col: pd.NA for col in leap_export_df2.columns}])
+    
+    header_row_2 = pd.DataFrame([leap_export_df2.columns], columns=leap_export_df2.columns)
+    
+    # Concatenate header rows with data
+    leap_export_df2 = pd.concat([header_row_0, nas, header_row_2, leap_export_df2], ignore_index=True)
+    # Same for viewing sheet
+    header_data_0_view = {col: '' for col in export_df_for_viewing2.columns}
+    header_data_0_view['Branch Path'] = 'Area:'
+    header_data_0_view['Variable'] = model_name
+    header_data_0_view['Scenario'] = 'Ver:'
+    header_data_0_view['Region'] = '2'
+    header_row_0_view = pd.DataFrame([header_data_0_view])
+    
+    nas = pd.DataFrame([{col: pd.NA for col in export_df_for_viewing2.columns}])
+    
+    # Row 2: Column names row (for compatibility with some LEAP import formats)
+    header_row_2_view = pd.DataFrame([export_df_for_viewing2.columns], columns=export_df_for_viewing2.columns)
+    
+    export_df_for_viewing2 = pd.concat([header_row_0_view, nas, header_row_2_view, export_df_for_viewing2], ignore_index=True)
+    
     with pd.ExcelWriter(out_path, engine="openpyxl") as writer:
-        export_df.to_excel(writer, sheet_name="Data", index=False)
-        create_import_instructions_sheet(writer)
-        log_df.to_excel(writer, sheet_name="Source_Log_Data", index=False)
-
-    print(f"✅ Created LEAP import file with {len(export_df)} entries.")
+        export_df_for_viewing2.to_excel(writer, sheet_name="FOR_VIEWING", index=False, header=False, startrow=0)
+        leap_export_df2.to_excel(writer, sheet_name="LEAP", index=False, header=False, startrow=0)
+    print(f"✅ Created file for importing into leap, and viewing at {leap_export_filename}, with {len(export_df_for_viewing)} entries.")
     print(f" - Years covered: {base_year}–{final_year}")
-    print(f" - Variables: {export_df['Variable'].nunique()}")
-    print(f" - Branches: {export_df['Branch Path'].nunique()}")
+    print(f" - Variables: {leap_export_df['Variable'].nunique()}")
+    print(f" - Branches: {export_df_for_viewing['Branch Path'].nunique()}")
     print("=" * 60)
     
+
+def join_and_check_import_structure_matches_export_structure(import_filename, export_df, export_df_for_viewing, STRICT_CHECKS=True):
+    new_current_account_df = pd.DataFrame()
+    import_df = pd.read_excel(import_filename, sheet_name='Export', header=2)    
+    #make sure we have the same Scenario and Region in both. 
+    scenario = export_df['Scenario'].iloc[0]
+    region = export_df['Region'].iloc[0]
+    scenario_df = import_df[(import_df['Scenario'] == scenario) & (import_df['Region'] == region)]
+    
+    #########################
+    #FIRST HANDLE CURRENT ACCOUNTS SPECIAL CASE
+    #########################
+    #this next block is to handle current accounts scenario checking. an example of rows that are in current accoutns but not in other scenarios are things like 'Stock shares' for the the branches in between the top level and the lowest level. these are needed for current accounts to define stocks but arent needed in other scenarios since they are calculated. 
+    
+    #also extract a current accounts set of data. we will create copies of the export df with this scenario based on the base year data
+    imported_current_account_df = import_df[(import_df['Scenario'] == 'Current Accounts') & (import_df['Region'] == region)]
+    
+    #check where there are rows in current accounts df that are not in the import df for the target scenario
+    missing_in_import_df = imported_current_account_df.merge(
+        scenario_df,
+        how='outer',
+        on=['Branch Path', 'Variable', 'Region'],
+        indicator=True,
+        suffixes=('', '_import')
+    )
+    if not missing_in_import_df[missing_in_import_df['_merge'] != 'both'].empty:
+        #skip those with unneeded variables:
+        unneeded_vars = [
+            'First Sales Year',]
+        missing_in_import_df = missing_in_import_df[~missing_in_import_df['Variable'].isin(unneeded_vars)]
+        #if there are some right only rows then that is kind of unexpected..
+        if len(missing_in_import_df[missing_in_import_df['_merge'] == 'right_only']) > 0:
+            breakpoint()#if this is occuring then it means we would need to have rows in the scneario df that we dont copy into the current accounts df
+            raise ValueError("[ERROR] Some rows are missing in Current Accounts scenario that exist in the import dataframe for the target scenario:")
+            print("[WARN] Some rows are missing in Current Accounts scenario that exist in the import dataframe for the target scenario:")
+        #search for the left only rows in the export df to see if they exist there. if they do, we will extract them now, otherwise we will raise an error
+        current_accounts_only_rows = missing_in_import_df[missing_in_import_df['_merge'] == 'left_only'][['Branch Path', 'Variable', 'Region', "BranchID", "VariableID", "ScenarioID", "RegionID"]]
+        rows_to_add = export_df.merge(
+            current_accounts_only_rows,
+            how='right',
+            on=['Branch Path', 'Variable', 'Region'],
+            indicator=True
+        )
+        rows_to_add['Scenario'] = 'Current Accounts'
+        #drop them from export_df sicne we only want them for the current accounts scenario
+        export_df = export_df[~export_df.set_index(['Branch Path', 'Variable', 'Region']).index.isin(current_accounts_only_rows.set_index(['Branch Path', 'Variable', 'Region']).index)]
+        #if there are any rows in current_accounts_only_rows that are not in the export df then raise an error
+        if len(rows_to_add[rows_to_add['_merge'] == 'right_only']) > 0:
+            breakpoint()
+            # raise ValueError("[ERROR] Some rows are missing in the export dataframe that exist in Current Accounts scenario:")
+            print("[WARN] Some rows are missing in the export dataframe that exist in Current Accounts scenario:")
+        #now we can add the rows to the new_current_account_df which we will add to later.
+        new_current_account_df = pd.concat([new_current_account_df, rows_to_add[rows_to_add['_merge'] == 'both'].drop(columns=['_merge'])], ignore_index=True)
+    
+    #########################
+    #NOW CHECK THE STRUCTURE OF THE IMPORT AND EXPORT DFs for main SCENARIO
+    #########################
+    
+    #now we can move on to checking the structure of the import and export dfs. we will create current accounts rows based on the result and add on the extra current accounts rows later
+    
+    #check that the import df and export df have the same structure #commented out since its too strict
+    # if scenario_df.shape != export_df.shape:
+    #     breakpoint()
+    #     # raise ValueError(f"Import and export dataframes have different shapes: {scenario_df.shape} vs {export_df.shape}")
+    for col in export_df.columns:
+        if col not in scenario_df.columns:
+            if col not in []:#levels are not necessary 
+                breakpoint()
+                print(f"[WARN] Column {col} is missing in import dataframe")
+                # raise ValueError(f"Column {col} is missing in import dataframe")
+    for col in scenario_df.columns:
+        if col not in export_df.columns:
+            if col not in ["BranchID", "VariableID", "ScenarioID", "RegionID"]:
+                if 'Unnamed' in col:
+                    continue
+                if 'Level' in col:#levels are not necessary 
+                    continue
+                breakpoint()
+                print(f"[WARN] Column {col} is missing in export dataframe")
+                # raise ValueError(f"Column {col} is missing in export dataframe")
+    print("Import and export dataframes have matching structure.")
+    
+    #now join them together for comparison
+    comparison_df = scenario_df.merge(export_df, how='outer', on=['Branch Path', 'Variable', 'Scenario', 'Region'], suffixes=('_import', '_export'), indicator=True)
+    #where valyes are not the same in the cols: Scale	Units	Per... then print them out
+    different_cols = comparison_df.copy()
+    # Fill NAs with 'NA' for comparison
+    for col in ['Scale', 'Units', 'Per...']:
+        different_cols[f'{col}_import'] = different_cols[f'{col}_import'].fillna('NA')
+        different_cols[f'{col}_export'] = different_cols[f'{col}_export'].fillna('NA')
+    #filter to only those rows where the cols are different
+    different_cols = different_cols[
+        ((different_cols['Scale_import'] != different_cols['Scale_export']) |
+        (different_cols['Units_import'] != different_cols['Units_export']) |
+                (different_cols['Per..._import'] != different_cols['Per..._export'])) & (different_cols['_merge'] == 'both')
+            ]
+    
+    unneeded_vars = [
+    "Fraction of Scrapped Replaced",
+    "Max Scrappage Fraction",
+    "Scrappage",
+    "Fuel Economy Correction Factor",
+    "Mileage Correction Factor"
+    ]
+    #drop those with unneeded variables:
+    different_cols = different_cols[~different_cols['Variable'].isin(unneeded_vars)]
+    if not different_cols.empty:
+        print("[WARN] Differences found between import and export dataframes in Scale, Units, or Per... columns:")
+        print(different_cols)
+        if STRICT_CHECKS:
+            breakpoint()
+            raise ValueError("Differences found between import and export dataframes in Scale, Units, or Per... columns:")
+        
+    #also check for where merge is not 'both'. first drop unneeded vars
+    comparison_df = comparison_df[~comparison_df['Variable'].isin(unneeded_vars)]
+    if not comparison_df[comparison_df['_merge'] != 'both'].empty:
+        breakpoint()
+        print("[WARN] Some rows are missing in either import or export dataframes:")
+        # raise ValueError("Some rows are missing in either import or export dataframes:")
+        # print(comparison_df[comparison_df['_merge'] != 'both'])
+        right_dfs = comparison_df[comparison_df['_merge'] == 'right_only']
+        left_dfs = comparison_df[comparison_df['_merge'] == 'left_only']
+        if not right_dfs.empty:
+            breakpoint()
+            print("Rows missing in import dataframe. This is usually where we have created values in this system for branches that dont exist in leap or are spelt differently:")
+            print(right_dfs)
+        if not left_dfs.empty:
+            breakpoint()
+            print("Rows missing in export dataframe. This is usually where we have created values for branches in leap that dont exist in this system or are spelt differently:")
+            print(left_dfs)
+        comparison_df = comparison_df[comparison_df['_merge'] == 'both']   
+        
+    #now drop all the extra cols except the new ones (BranchID	VariableID	ScenarioID)
+    #first rename all cols to remove _export suffixes since we want to keep those
+    comparison_df = comparison_df.rename(columns=lambda x: x.replace('_export', ''))
+    #then drop the _import cols
+    comparison_df = comparison_df.drop(columns=[col for col in comparison_df.columns if col.endswith('_import') or col == '_merge'])
+    #then reorder cols to be in the follwoing roder:
+    # BranchID	VariableID	ScenarioID	RegionID	Branch Path	Variable	Scenario	Region	Scale	Units	Per...	Expression		Level 1	Level 2	Level 3	Level 4	Level 5	Level 6	Level 7	Level 8...									
+    base_cols = ["BranchID", "VariableID", "ScenarioID", "RegionID", "Branch Path", "Variable", "Scenario", "Region", "Scale", "Units", "Per...", "Expression"]
+    level_cols = [f"Level {i}" for i in range(1, 15) if f"Level {i}" in comparison_df.columns] + [f"Level {i}..." for i in range(1, 15) if f"Level {i}..." in comparison_df.columns]
+    other_cols = [col for col in comparison_df.columns if col not in base_cols + level_cols]
+    if len(other_cols) > 0:
+        print("In addition to the expect cols in the export df, we have these other cols:", other_cols)
+        if STRICT_CHECKS:
+            breakpoint()
+            raise ValueError("Unexpected extra columns found in comparison dataframe.")
+    comparison_df = comparison_df[base_cols + level_cols + other_cols]
+    ##################################
+    
+    ##################################
+    #now we want to create a copy of that df which contains all of the current accounts rows as well. To make it simple we will just copy the rows from this comparison df and rename the scenario to current accounts, then add on the extra current accounts rows we found earlier:
+    if imported_current_account_df.empty:
+        breakpoint()
+        raise ValueError("No current accounts rows were found to add to the comparison dataframe. This wasnt expected")
+        # print("[WARN] No current accounts rows were found to add to the comparison dataframe.")
+        current_account_comparison_df = comparison_df.copy()
+        current_account_comparison_df['Scenario'] = 'Current Accounts'
+    else:
+        current_account_comparison_df = comparison_df.copy()
+        current_account_comparison_df['Scenario'] = 'Current Accounts'
+        #drop the BranchID	VariableID	ScenarioID	RegionID rows since they will be different for current accounts
+        current_account_comparison_df = current_account_comparison_df.drop(columns=['BranchID', 'VariableID', 'ScenarioID', 'RegionID'])
+        #join to get the right IDs from the current_account_df
+        current_account_comparison_df = current_account_comparison_df.merge(
+            imported_current_account_df[['Branch Path', 'Variable', 'Scenario', 'Region', 'RegionID', 'BranchID', 'VariableID', 'ScenarioID']],
+            how='left',
+            on=['Branch Path', 'Variable', 'Scenario', 'Region']
+        )
+                
+        #find any cols missing in imported_current_account_df that are in current_account_comparison_df
+        for col in current_account_comparison_df.columns:
+            if col not in imported_current_account_df.columns:
+                #double check its not a levelcol
+                if 'Level' in col:
+                    continue
+                print(f"[WARN] Column {col} is missing in imported_current_account_df")
+                if STRICT_CHECKS:
+                    breakpoint()
+                    raise ValueError(f"Column {col} is missing in current_account_df")
+                # current_account_df[col] = pd.NA
+                
+        #concat the set of extra current accounts rows that are not in the export df which we found earlier
+        new_current_account_df = pd.concat([new_current_account_df, current_account_comparison_df], ignore_index=True)
+        
+    ################################
+    
+    ################################
+    #finally we will concat the new_current_account_df to the comparison_df so we fianlly have all scenarios together
+    final_export_df = pd.concat([comparison_df, new_current_account_df], ignore_index=True)
+        
+    ################################
+    
+    ################################
+    #lastly we are going to join on the for_viewing sheet to get the first three cols as well as the current accounts rows in case it can be useful for viewing.
+    
+    #frist, do the meege on the main export df to get the first three cols.
+    export_df_for_viewing = export_df_for_viewing.merge(comparison_df[['Branch Path', 'Variable', 'Scenario', 'Region', 'RegionID', 'BranchID', 'VariableID', 'ScenarioID']],
+        how='outer',
+        on=['Branch Path', 'Variable', 'Scenario', 'Region'],
+        indicator=True
+    )
+    #if there are any left only rows then raise an error
+    if len(export_df_for_viewing[export_df_for_viewing['_merge'] == 'left_only']) > 0:
+        #drop any values in current_accounts_only_rows from the left only rows since we expect those to be missing
+        #drop them from export_df sicne we only want them for the current accounts scenario
+        export_df_for_viewing = export_df_for_viewing[~export_df_for_viewing.set_index(['Branch Path', 'Variable', 'Region']).index.isin(current_accounts_only_rows.set_index(['Branch Path', 'Variable', 'Region']).index)]
+        if len(export_df_for_viewing[export_df_for_viewing['_merge'] == 'left_only']) > 0:
+            if STRICT_CHECKS:
+                breakpoint()
+                raise ValueError(f"Some rows in export_df_for_viewing are missing in export dataframe for {scenario} scenario:")
+            print(f"[WARN] Some rows in export_df_for_viewing are missing in export dataframe for {scenario} scenario:")
+            # raise ValueError("[ERROR] Some rows in export_df_for_viewing are missing in comparison dataframe:")
+            print(export_df_for_viewing[export_df_for_viewing['_merge'] == 'left_only'])
+    #likewise for right only rows
+    if len(export_df_for_viewing[export_df_for_viewing['_merge'] == 'right_only']) > 0:
+        if STRICT_CHECKS:
+            breakpoint()
+            raise ValueError(f"Some rows in export_df are missing in export_df_for_viewing for {scenario} scenario:")
+        print(f"[WARN] Some rows in export_df are missing in export_df_for_viewing for {scenario} scenario:")
+        # raise ValueError("[ERROR] Some rows in export_df_for_viewing are missing in comparison dataframe:")
+        print(export_df_for_viewing[export_df_for_viewing['_merge'] == 'right_only'])
+    export_df_for_viewing = export_df_for_viewing.drop(columns=['_merge'])    
+    
+    # Second create a version of the new rows in new_current_account_df with the expression col expanded into its respective years. The expression col has pattern: WORD(year1, value1, year2, value2, ...)
+    new_current_account_df_for_viewing = new_current_account_df.copy()
+    def expand_expression_col(row):
+        expr = row['Expression']
+        result = row.copy()
+        if pd.isna(expr):
+            return result
+        parts = expr.split('(')
+        if len(parts) < 2:
+            return result
+        args = parts[1].rstrip(')').split(',')
+        year_value_pairs = list(zip(args[::2], args[1::2]))
+        for year, value in year_value_pairs:
+            year = year.strip()
+            value = value.strip()
+            try:
+                year_str = str(year)
+                value_float = float(value)
+                result[year_str] = value_float
+                
+            except ValueError:
+                breakpoint()
+                continue
+        #set method in row using the word
+        result['Method'] = parts[0].strip()
+        return result
+    new_current_account_df_for_viewing = new_current_account_df_for_viewing.apply(expand_expression_col, axis=1)
+    #drop the expression col and
+    #change the year cols names to all be ints
+    year_cols = [col for col in new_current_account_df_for_viewing.columns if str(col).isdigit() and len(str(col)) == 4]
+    for col in year_cols:
+        new_current_account_df_for_viewing = new_current_account_df_for_viewing.rename(columns={col: int(col)})
+        
+    new_current_account_df_for_viewing = new_current_account_df_for_viewing.drop(columns=['Expression'])
+    export_df_for_viewing=pd.concat([new_current_account_df_for_viewing, export_df_for_viewing], ignore_index=True)
+    #make sure that RegionID	BranchID	VariableID	ScenarioID are at the front and also are ints
+    for col in ['RegionID', 'BranchID', 'VariableID', 'ScenarioID']:
+        final_export_df[col] = final_export_df[col].astype('Int64')
+        export_df_for_viewing[col] = export_df_for_viewing[col].astype('Int64')
+        
+        #if any are na then raise a warning
+        if final_export_df[col].isna().any():
+            if STRICT_CHECKS:
+                breakpoint()
+                raise ValueError(f"Some rows in final_export_df have NA values in column {col}")
+            breakpoint()
+            print(f"[WARN] Some rows in final_export_df have NA values in column {col}")
+        if export_df_for_viewing[col].isna().any():
+            if STRICT_CHECKS:
+                breakpoint()
+                raise ValueError(f"Some rows in export_df_for_viewing have NA values in column {col}")
+            breakpoint()
+            print(f"[WARN] Some rows in export_df_for_viewing have NA values in column {col}")
+        
+    export_df_for_viewing = export_df_for_viewing[['RegionID', 'BranchID', 'VariableID', 'ScenarioID'] + [col for col in export_df_for_viewing.columns if col not in ['RegionID', 'BranchID', 'VariableID', 'ScenarioID']]]
+    
+    return final_export_df, export_df_for_viewing
+         
+         
+# def create_key_assumptions_branches():
+#     """Create key assumptions branches inside LEAP import file."""
+#     print(f"\n=== Creating Key Assumptions Branches ===")
+#     # Create a DataFrame for key assumptions branches
+#     key_assumptions_data = {
+#         "Branch Path": [
+#             "Key Assumptions",
+            
+            
+def copy_energy_spreadsheet_into_leap_import_file(
+    leap_export_filename='../../results/leap_balances_export_file.xlsx',
+    energy_spreadsheet_filename='../../data/merged_file_energy_ALL_20250814.csv',
+    ECONOMY='20_USA',
+    BASE_YEAR=2022,
+    SUBTOTAL_COLUMN='subtotal_results',
+    SCENARIO="reference",
+    ROOT=r"Key Assumptions\Energy Balances",
+    REGION="Region 1",
+    DROP_ZERO_BRANCHES=True,
+    sheet_name="Energy_Balances",
+    units="PJ"
+):
+    """
+    Create a LEAP import-style sheet from an energy balance spreadsheet.
+
+    Branch paths are constructed as:
+        ROOT\\sector\\sub1\\sub2\\sub3\\sub4\\fuel\\subfuel
+    The resulting dataframe includes Level 1-8 columns derived from that path.
+    Branches with no energy across all years are dropped when DROP_ZERO_BRANCHES=True.
+
+    Returns the constructed dataframe and, if leap_export_filename is provided,
+    writes/replaces the sheet named ``sheet_name`` in that workbook.
+    """
+    source_path = energy_spreadsheet_filename
+    if '.csv' in source_path:
+        energy_df = pd.read_csv(source_path)
+    else:
+        energy_df = pd.read_excel(source_path)
+
+    # Filter down to the requested economy/scenario and exclude subtotal rows
+    filtered = energy_df[
+        (energy_df["economy"] == ECONOMY)
+        & (energy_df["scenarios"] == SCENARIO.lower())
+        & (energy_df[SUBTOTAL_COLUMN] == False)
+    ].copy()
+
+    hierarchy_cols = ["sectors", "sub1sectors", "sub2sectors", "sub3sectors", "sub4sectors", "fuels", "subfuels"]
+
+    def _clean_part(val):
+        if pd.isna(val):
+            return None
+        val_str = str(val).strip()
+        if val_str.lower() in {"", "x", "nan"}:
+            return None
+        return val_str
+
+    def _build_branch_path(row):
+        parts = [ROOT]
+        for col in hierarchy_cols:
+            part = _clean_part(row[col])
+            if part:
+                parts.append(part)
+        return "\\".join(parts)
+
+    filtered["Branch Path"] = filtered.apply(_build_branch_path, axis=1)
+
+    # Identify numeric or str year columns
+    year_cols = sorted([c for c in filtered.columns if isinstance(c, (int, float, str))])
+    
+    # Only keep the base year
+    year_cols = [c for c in year_cols if str(c) == str(BASE_YEAR)]
+    
+    if not year_cols:
+        breakpoint()
+        print(f"[WARN] Base year {BASE_YEAR} not found in data columns.")
+        return pd.DataFrame()
+
+    if DROP_ZERO_BRANCHES:
+        energy_totals = filtered[year_cols].fillna(0).sum(axis=1)
+        filtered = filtered[energy_totals != 0]
+
+    if filtered.empty:
+        breakpoint()
+        print("[WARN] No energy rows remain after filtering; nothing to copy into LEAP import file.")
+        return pd.DataFrame()
+
+    export_df = filtered[["Branch Path"] + year_cols].copy()
+    export_df.insert(1, "Variable", "Energy Balance")
+    export_df.insert(2, "Scenario", SCENARIO)
+    export_df.insert(3, "Region", REGION)
+    export_df.insert(4, "Scale", pd.NA)
+    export_df.insert(5, "Units", units)
+    export_df.insert(6, "Per...", pd.NA)
+
+    # Add Level 1-8 based on the branch path structure
+    max_levels = min(8, export_df["Branch Path"].str.split("\\").str.len().max())
+    for i in range(1, max_levels + 1):
+        export_df[f"Level {i}"] = export_df["Branch Path"].apply(
+            lambda x: x.split("\\")[i - 1] if len(x.split("\\")) >= i else ""
+        )
+
+    base_cols = ["Branch Path", "Variable", "Scenario", "Region", "Scale", "Units", "Per..."]
+    level_cols = [f"Level {i}" for i in range(1, max_levels + 1)]
+    export_df = export_df[base_cols + year_cols + level_cols]
+    
+    if leap_export_filename:
+        with pd.ExcelWriter(leap_export_filename, engine="openpyxl", mode="w") as writer:
+            export_df.to_excel(writer, sheet_name=sheet_name, index=False)
+        print(f"[INFO] Energy balances written to {leap_export_filename} (sheet '{sheet_name}').")
+
+    # return export_df
+
+
+#%%
+copy_energy_spreadsheet_into_leap_import_file(
+leap_export_filename='../../results/leap_balances_export_file.xlsx',
+energy_spreadsheet_filename='../../data/merged_file_energy_ALL_20250814.csv',
+ECONOMY='20_USA',
+BASE_YEAR=2022,
+SUBTOTAL_COLUMN='subtotal_results',
+SCENARIO="reference",
+ROOT=r"Key Assumptions\Energy Balances",
+REGION="Region 1",
+DROP_ZERO_BRANCHES=True,
+sheet_name="Energy_Balances",
+units="PJ")
+#%%
+
+# filtered = energy_df[
+#     (energy_df["economy"] == ECONOMY)
+#     & (energy_df["scenarios"] == SCENARIO.lower())
+#     & (energy_df[SUBTOTAL_COLUMN] == False)
+# ].copy()

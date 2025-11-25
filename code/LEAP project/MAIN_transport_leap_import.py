@@ -3,18 +3,18 @@
 # transport_leap_import.py
 # ============================================================
 # Main logic for processing and loading transport data into LEAP.
-# Depends on transport_leap_core.py and mapping/config modules.
+# Depends on LEAP_core.py and mapping/config modules.
 # ============================================================
 
 import pandas as pd
 
-from transport_leap_core import (
+from LEAP_core import (
     connect_to_leap,
     diagnose_measures_in_leap_branch,
     ensure_branch_exists,
     safe_set_variable,
     # diagnose_leap_branch,
-    create_leap_export_df,
+    create_transport_export_df,
     write_row_to_leap_export_df,
     build_expression_from_mapping,
     define_value_based_on_src_tuple
@@ -34,7 +34,7 @@ from transport_preprocessing import (
     allocate_fuel_alternatives_energy_and_activity,
     calculate_sales,
     normalize_and_calculate_shares)
-from transport_excel_io import finalise_export_df, save_export_files,join_and_check_import_structure_matches_export_structure
+from LEAP_excel_io import finalise_export_df, save_export_files,join_and_check_import_structure_matches_export_structure
 from branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING
 from esto_transport_data import (
     extract_other_type_rows_from_esto_and_insert_into_transport_df,
@@ -111,15 +111,8 @@ def prepare_input_data(transport_model_excel_path, economy, scenario, base_year,
     print(f"Saved checkpoint: {checkpoint_filename}")
     return df
 
-def setup_leap_environment():
-    """Connect to LEAP and ensure Activity Levels are initialized."""
-    print("\n=== Setting up LEAP Environment ===")
-    L = connect_to_leap()
-    # ensure_activity_levels(L)#dont kow wat the point of this was
-    # breakpoint()
-    return L
 
-def process_branch_mapping(leap_tuple, src_tuple, TRANSPORT_ROOT=r"Demand"):
+def process_transport_branch_mapping(leap_tuple, src_tuple, TRANSPORT_ROOT=r"Demand"):
     """Construct LEAP branch path and identify column groupings."""
     ttype = medium = vtype = drive = fuel = None
     if len(src_tuple) == 5:
@@ -148,7 +141,7 @@ def process_branch_mapping(leap_tuple, src_tuple, TRANSPORT_ROOT=r"Demand"):
     
     return ttype, medium, vtype, drive, fuel, branch_path, source_cols_for_grouping
 
-def write_measures_to_export_df_for_current_branch(
+def write_measures_to_transport_export_df_for_current_branch(
     df_copy, leap_tuple, src_tuple, branch_path, filtered_measure_config,
     shortname, source_cols_for_grouping, leap_export_df
 ):
@@ -243,7 +236,7 @@ def write_export_df_to_leap(
             total_missing_variables += 1
     print(f"\n=== Finished setting variables in LEAP. Total written: {total_written}, Missing variables: {total_missing_variables} ===\n")
 
-def process_single_leap_mapping(
+def process_single_leap_transport_mapping(
     *,
     L,
     df,
@@ -263,7 +256,7 @@ def process_single_leap_mapping(
     Returns updated leap_export_df.
     """
     df_copy = df.copy()
-    ttype, medium, vtype, drive, fuel, branch_path, source_cols_for_grouping = process_branch_mapping(
+    ttype, medium, vtype, drive, fuel, branch_path, source_cols_for_grouping = process_transport_branch_mapping(
         leap_tuple, src_tuple, TRANSPORT_ROOT=TRANSPORT_ROOT
     )
 
@@ -287,7 +280,7 @@ def process_single_leap_mapping(
         ensure_branch_exists(L, branch_path, leap_tuple, AUTO_SET_MISSING_BRANCHES=True)
         diagnose_measures_in_leap_branch(L, branch_path, leap_tuple, expected_measures)
 
-    leap_export_df = write_measures_to_export_df_for_current_branch(
+    leap_export_df = write_measures_to_transport_export_df_for_current_branch(
         df_copy,
         leap_tuple,
         src_tuple,
@@ -342,15 +335,15 @@ def load_transport_into_leap(
     
     df = prepare_input_data(transport_model_excel_path, economy, original_scenario, base_year, final_year, TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx', LOAD_CHECKPOINT=LOAD_INPUT_CHECKPOINT, TRANSPORT_FUELS_DATA_FILE_PATH = TRANSPORT_FUELS_DATA_FILE_PATH)
     
-    L = setup_leap_environment()
-    leap_export_df = create_leap_export_df()
+    L = connect_to_leap()
+    leap_export_df = create_transport_export_df()
     
     first_branch_diagnosed = False
     first_of_each_length_diagnosed = set()
     for leap_tuple, src_tuple in LEAP_BRANCH_TO_SOURCE_MAP.items():
         if LOAD_EXPORT_DF_CHECKPOINT or LOAD_HALFWAY_CHECKPOINT:
             break
-        leap_export_df = process_single_leap_mapping(
+        leap_export_df = process_single_leap_transport_mapping(
             L=L,
             df=df,
             leap_tuple=leap_tuple,

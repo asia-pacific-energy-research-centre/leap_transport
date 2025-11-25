@@ -483,9 +483,14 @@ def copy_energy_spreadsheet_into_leap_import_file(
     REGION="Region 1",
     DROP_ZERO_BRANCHES=True,
     sheet_name="Energy_Balances",
-    units="PJ"
+    variable_col_value='Key Assumption',
+    units="PJ",
+    filters_dict=None,
 ):
     """
+    
+    NOTE THAT THIS FUCTION HAS BEEN BUILT TO WORK INDEPENDTLY OF THE TRANSPORT BASED SYSTEM.
+    
     Create a LEAP import-style sheet from an energy balance spreadsheet.
 
     Branch paths are constructed as:
@@ -495,6 +500,8 @@ def copy_energy_spreadsheet_into_leap_import_file(
 
     Returns the constructed dataframe and, if leap_export_filename is provided,
     writes/replaces the sheet named ``sheet_name`` in that workbook.
+    
+    filters_dict can be set to choose only specific sectors or fuels to include. if they are None then all sectors and fuels are included.
     """
     source_path = energy_spreadsheet_filename
     if '.csv' in source_path:
@@ -508,9 +515,22 @@ def copy_energy_spreadsheet_into_leap_import_file(
         & (energy_df["scenarios"] == SCENARIO.lower())
         & (energy_df[SUBTOTAL_COLUMN] == False)
     ].copy()
-
+    if filters_dict is not None:
+        for column in filters_dict:
+            allowed_values = filters_dict[column]
+            filtered = filtered[filtered[column].isin(allowed_values)]
     hierarchy_cols = ["sectors", "sub1sectors", "sub2sectors", "sub3sectors", "sub4sectors", "fuels", "subfuels"]
 
+    # Remove numeric prefixes (and leading whitespace) from hierarchy parts. they can be like 15_01_01_passenger, 15_transport_sector or so on. 
+    for col in hierarchy_cols:
+        filtered[col] = (
+            filtered[col]
+            .astype("string")
+            .str.strip()
+            .str.replace(r'^(?:\d+[_\-\s]*)+', '', regex=True)
+        )
+    # breakpoint()#check that all hierarchy cols done right
+    
     def _clean_part(val):
         if pd.isna(val):
             return None
@@ -548,9 +568,9 @@ def copy_energy_spreadsheet_into_leap_import_file(
         breakpoint()
         print("[WARN] No energy rows remain after filtering; nothing to copy into LEAP import file.")
         return pd.DataFrame()
-
+    
     export_df = filtered[["Branch Path"] + year_cols].copy()
-    export_df.insert(1, "Variable", "Energy Balance")
+    export_df.insert(1, "Variable", variable_col_value)
     export_df.insert(2, "Scenario", SCENARIO)
     export_df.insert(3, "Region", REGION)
     export_df.insert(4, "Scale", pd.NA)
@@ -577,18 +597,6 @@ def copy_energy_spreadsheet_into_leap_import_file(
 
 
 #%%
-copy_energy_spreadsheet_into_leap_import_file(
-leap_export_filename='../../results/leap_balances_export_file.xlsx',
-energy_spreadsheet_filename='../../data/merged_file_energy_ALL_20250814.csv',
-ECONOMY='20_USA',
-BASE_YEAR=2022,
-SUBTOTAL_COLUMN='subtotal_results',
-SCENARIO="reference",
-ROOT=r"Key Assumptions\Energy Balances",
-REGION="Region 1",
-DROP_ZERO_BRANCHES=True,
-sheet_name="Energy_Balances",
-units="PJ")
 #%%
 
 # filtered = energy_df[

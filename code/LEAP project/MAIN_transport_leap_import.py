@@ -52,6 +52,27 @@ from transport_mappings_validation import (
     validate_final_energy_use_for_base_year_equals_esto_totals,
 )
 import os
+
+##########
+#for reconciliation:
+
+# imports and data loading
+import pandas as pd
+from energy_use_reconciliation import (
+    build_branch_rules_from_mapping,
+    reconcile_energy_use,
+)
+from transport_branch_mappings import (
+    ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+    UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT,
+    ALL_LEAP_BRANCHES_TRANSPORT,
+)
+
+from transport_measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
+
+from energy_use_reconciliation_transport import transport_energy_fn, transport_adjustment_fn, build_transport_esto_energy_totals
+
+
 # ------------------------------------------------------------
 # Modular process functions
 # ------------------------------------------------------------
@@ -88,8 +109,10 @@ def prepare_input_data(transport_model_excel_path, economy, scenario, base_year,
     new_rows2 = create_new_source_rows_based_on_proxies_with_no_activity(df)
     df = pd.concat([df, new_rows2], ignore_index=True)
     if new_rows1.empty:
+        breakpoint()
         raise ValueError("No new source rows were created from combinations; check the mapping and source data just in case.")
     if new_rows2.empty:
+        breakpoint()
         raise ValueError("No new source rows were created from proxies; check the mapping and source data just in case.")
     
     #check for duplicates
@@ -262,6 +285,7 @@ def process_single_leap_transport_mapping(
 
     expected_shortname = {k for k, v in SHORTNAME_TO_LEAP_BRANCHES.items() if leap_tuple in v}
     if len(expected_shortname) != 1:
+        breakpoint()
         raise ValueError(f"[ERROR] Expected exactly one shortname for LEAP branch {leap_tuple}, found: {expected_shortname}")
 
     shortname = expected_shortname.pop()
@@ -404,37 +428,107 @@ def load_transport_into_leap(
 # ------------------------------------------------------------
 # Optional: run directly
 # ------------------------------------------------------------
-RUN = True
-if __name__ == "__main__" and RUN:
+RUN_INPUT_CREATION = False
+RUN_RECONCILIATION = True
+TEST = True
+if __name__ == "__main__" and (RUN_INPUT_CREATION or RUN_RECONCILIATION):
     pd.options.display.float_format = "{:,.3f}".format
-    list_all_measures()
-    load_transport_into_leap(
-        transport_model_excel_path=r"../../data/USA transport file.xlsx",
-        economy="20_USA",
-        original_scenario='Target',
-        new_scenario='Target',
-        region="Region 1",
-        diagnose_method='all',
-        base_year=2022,
-        final_year=2060,
-        model_name="USA transport",
-        CHECK_BRANCHES_IN_LEAP_USING_COM=True,
-        SET_VARS_IN_LEAP_USING_COM=False,
-        AUTO_SET_MISSING_BRANCHES=False,
-        export_filename="../../results/USA_transport_leap_export_Target.xlsx",
-        import_filename="../../data/import_files/USA_transport_leap_import_Target.xlsx",
-        TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx',
-        TRANSPORT_FUELS_DATA_FILE_PATH = '../../data/USA fuels model output.csv',
-        TRANSPORT_ROOT = r"Demand",
-        #make sure that if one of these is true the earlier ones are true too.  i.e. if LOAD_THREEQUART_WAY_CHECKPOINT is true then LOAD_HALFWAY_CHECKPOINT and LOAD_INPUT_CHECKPOINT must also be true.
-        LOAD_INPUT_CHECKPOINT=True,
-        LOAD_HALFWAY_CHECKPOINT=False,
-        LOAD_THREEQUART_WAY_CHECKPOINT=False,
-        LOAD_EXPORT_DF_CHECKPOINT=False,
-        MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE=True
-    )
+    if RUN_INPUT_CREATION:
+        list_all_measures()
+        load_transport_into_leap(
+            transport_model_excel_path=r"../../data/USA transport file.xlsx",
+            economy="20_USA",
+            original_scenario='Target',
+            new_scenario='Target',
+            region="Region 1",
+            diagnose_method='all',
+            base_year=2022,
+            final_year=2060,
+            model_name="USA transport",
+            CHECK_BRANCHES_IN_LEAP_USING_COM=True,
+            SET_VARS_IN_LEAP_USING_COM=False,
+            AUTO_SET_MISSING_BRANCHES=False,
+            export_filename="../../results/USA_transport_leap_export_Target.xlsx",
+            import_filename="../../data/import_files/USA_transport_leap_import_Target.xlsx",
+            TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx',
+            TRANSPORT_FUELS_DATA_FILE_PATH = '../../data/USA fuels model output.csv',
+            TRANSPORT_ROOT = r"Demand",
+            #make sure that if one of these is true the earlier ones are true too.  i.e. if LOAD_THREEQUART_WAY_CHECKPOINT is true then LOAD_HALFWAY_CHECKPOINT and LOAD_INPUT_CHECKPOINT must also be true.
+            LOAD_INPUT_CHECKPOINT=True,
+            LOAD_HALFWAY_CHECKPOINT=False,
+            LOAD_THREEQUART_WAY_CHECKPOINT=False,
+            LOAD_EXPORT_DF_CHECKPOINT=False,
+            MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE=True
+        )
+    if RUN_RECONCILIATION:
+        # esto_df and export_df loaded elsewhere
+        TRANSPORT_ESTO_BALANCES_PATH ='../../data/all transport balances data.xlsx'
+        TRANSPORT_EXPORT_PATH = "../../results/USA_transport_leap_export_Target.xlsx"
+        esto_df = pd.read_excel(TRANSPORT_ESTO_BALANCES_PATH)
+        export_df = pd.read_excel(TRANSPORT_EXPORT_PATH, header=2)#skip first two rows which are metadata
+        #filter for only scenario = Current Accounts. Later on we can fill in the values for other scenarios too... or is it a TODO that we need to stop our other scnearios from having base year values in them to avoid this step?
+        #TODO above: check with user if they want to reconcile all scenarios or just current accounts
+        export_df = export_df[export_df['Scenario'] == 'Current Accounts']
+
+        ECONOMY = '20_USA'
+        BASE_YEAR = 2022
+        FINAL_YEAR = 2060
+        SUBTOTAL_COLUMN = 'subtotal_layout'
+        SCENARIO = "reference"
+        if not TEST:
+            #  build ESTO totals including nonspecified
+            esto_energy_totals = build_transport_esto_energy_totals(
+                esto_df=esto_df,
+                economy=ECONOMY,
+                original_scenario=SCENARIO,
+                base_year=BASE_YEAR,
+                final_year=FINAL_YEAR,
+                SUBTOTAL_COLUMN=SUBTOTAL_COLUMN,
+            )
+
+            #  build mapping rules (unchanged)
+            branch_rules = build_branch_rules_from_mapping(
+                esto_to_leap_mapping=ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+                unmappable_branches=UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT,
+                all_leap_branches=ALL_LEAP_BRANCHES_TRANSPORT,
+                analysis_type_lookup=LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP.get,
+                root="Demand",
+            )
+        
+            #save teh inputs to pickle so we can quickly test the below
+            pd.Series(esto_energy_totals).to_pickle("../../data/temp/transport_esto_energy_totals.pkl")
+            pd.Series(branch_rules).to_pickle("../../data/temp/transport_branch_rules.pkl")
+        else:            
+            esto_energy_totals = pd.read_pickle("../../data/temp/transport_esto_energy_totals.pkl").to_dict()
+            branch_rules = pd.read_pickle("../../data/temp/transport_branch_rules.pkl").to_dict()
+        
+        breakpoint()
+        #  run reconciliation
+        working_df, summary_df = reconcile_energy_use(
+            export_df=export_df,
+            base_year=BASE_YEAR,
+            branch_mapping_rules=branch_rules,
+            esto_energy_totals=esto_energy_totals,
+            energy_fn=transport_energy_fn,
+            adjustment_fn=transport_adjustment_fn,
+        )
 #%%
 
-# export_df =  pd.read_pickle('export_df.pkl')
-# base_year = 2022
-# export_df = validate_and_fix_shares_normalise_to_one(export_df, base_year, LEAP_BRANCH_TO_EXPRESSION_MAPPING, EXAMPLE_SAMPLE_SIZE=5)
+# from transport_branch_mappings import ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,     UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT, SHORTNAME_TO_LEAP_BRANCHES, ALL_LEAP_BRANCHES_TRANSPORT
+# from transport_measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
+# from energy_use_reconciliation import reconcile_energy_use, build_branch_rules_from_mapping
+# from energy_use_reconciliation_transport import build_transport_esto_energy_totals
+# from esto_transport_data import extract_esto_energy_use_for_leap_branches
+# import pandas as pd
+# export_df = pd.read_excel("../../results/USA_transport_leap_export_Target.xlsx")
+# esto_totals = {("15_02_road", "07_petroleum_products", "07_01_motor_gasoline"): 100.0}
+# # ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP, UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT
+# LEAP_BRANCHES_LIST = [branch for branches in SHORTNAME_TO_LEAP_BRANCHES.values() for branch in branches]
+
+# # branch_rules = build_branch_rules_from_mapping(
+# #     ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+# #     UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT,
+# #     all_leap_branches=LEAP_BRANCHES_LIST,    
+# #     analysis_type_lookup=LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP.get,
+# #     root="Demand",
+# # )

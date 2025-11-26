@@ -4,7 +4,7 @@
 from collections import defaultdict, Counter
 import pandas as pd
 from transport_measure_metadata import SHARE_MEASURES
-from transport_measure_catalog import get_leap_branch_to_analysis_type_mapping
+from transport_measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
 from transport_branch_mappings import ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP, LEAP_MEASURE_CONFIG, DEFAULT_BRANCH_SHARE_SETTINGS_DICT
 from esto_transport_data import extract_esto_energy_use_for_leap_branches
 import numpy as np
@@ -366,10 +366,12 @@ def calculate_energy_use_for_intensity_analysis_branch(branch_path, branch_tuple
     
     if len(branch_path.split('\\')) <4:
         #this must be either the nonspecified or pipeline branch since these are only 2 levels deep after Demand\Transport. in which case there are no activity shares to consider
-        activity_level = export_df.loc[(export_df['Branch Path'] == branch_path) & (export_df['Variable'] == 'Activity Level'), BASE_YEAR].values
+        branch_path_up_one_level = '\\'.join(branch_path.split('\\')[:-1])#this is activity
+        activity_level = export_df.loc[(export_df['Branch Path'] == branch_path_up_one_level) & (export_df['Variable'] == 'Activity Level'), BASE_YEAR].values
+        activity_level_share1 = export_df.loc[(export_df['Branch Path'] == branch_path) & (export_df['Variable'] == 'Activity Level'), BASE_YEAR].values
+        activity_level = (activity_level * activity_level_share1) / 100  #divide by 100 to convert from percentages to shares (e.g. 25% -> 0.25)
         # breakpoint()#check if this is right. the energy of pipeline is a bit low
     else:
-        
         branch_path_up_one_level = '\\'.join(branch_path.split('\\')[:-1])#this is a share. branch path is also activity share
         branch_path_up_two_levels = '\\'.join(branch_path.split('\\')[:-2])#this is activity
         # Example implementation (to be replaced with actual logic):
@@ -435,7 +437,7 @@ def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, original
                 #todo this. want to make ti so we can calcualte the nonspecified values now in the same way thgat is done in 
                 # breakpoint()#is this right if we insert the esto energy?
                 continue  # Skip nonspecified branches since they don't have direct ESTO equivalents
-            analysis_type = get_leap_branch_to_analysis_type_mapping(leap_branch)
+            analysis_type = LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP[leap_branch]
             leap_ttype, leap_vtype, leap_drive, leap_fuel = (list(leap_branch) + [None] * (4 - len(leap_branch)))[:4]
             branch_path = f"{TRANSPORT_ROOT}\\{leap_ttype}" + "".join(
                 f"\\{x}" for x in [leap_vtype, leap_drive, leap_fuel] if x
@@ -547,7 +549,7 @@ def validate_non_specified_energy_use_for_base_year_equals_esto_totals(BASE_YEAR
                 if leap_branch in nonspecified_branches_leap.keys():
                     pass  # Skip already processed nonspecified branches
                 else:
-                    analysis_type = get_leap_branch_to_analysis_type_mapping(leap_branch)
+                    analysis_type = LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP[leap_branch]
                     
                     leap_ttype, leap_vtype, leap_drive, leap_fuel = (list(leap_branch) + [None] * (4 - len(leap_branch)))[:4]
                     branch_path = f"{TRANSPORT_ROOT}\\{leap_ttype}" + "".join(

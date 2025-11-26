@@ -25,6 +25,7 @@ BRANCH_KEY_ASSUMPTION_CATEGORY = 10#contains many sub-branches
 #                 [in] VARIANT BName, 
 #                 [out, retval] ILEAPBranch** Value);
 
+from traitlets import Tuple
 from LEAP_core import (
     fill_branches_from_export_file,
     create_branches_from_export_file,
@@ -95,3 +96,33 @@ fill_branches_from_export_file(
 )
 
 #%%
+
+
+
+
+from transport_branch_mappings import ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,     UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT, SHORTNAME_TO_LEAP_BRANCHES
+from transport_measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
+from energy_use_reconciliation import reconcile_energy_use, build_branch_rules_from_mapping
+from energy_use_reconciliation_transport import build_transport_esto_energy_totals
+from esto_transport_data import extract_esto_energy_use_for_leap_branches
+import pandas as pd
+export_df = pd.read_excel("../../results/USA_transport_leap_export_Target.xlsx")
+esto_totals = {("15_02_road", "07_petroleum_products", "07_01_motor_gasoline"): 100.0}
+# ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP, UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT
+LEAP_BRANCHES_LIST = [branch for branches in SHORTNAME_TO_LEAP_BRANCHES.values() for branch in branches]
+
+# branch_rules = build_branch_rules_from_mapping(
+#     ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+#     UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT,
+#     all_leap_branches=LEAP_BRANCHES_LIST,    
+#     analysis_type_lookup=LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP.get,
+#     root="Demand",
+# )
+# adjusted_df, summary = reconcile_energy_use(
+#     export_df=export_df,
+#     base_year=2022,
+#     branch_mapping_rules=branch_rules,
+#     esto_energy_totals=esto_totals,
+# )
+
+

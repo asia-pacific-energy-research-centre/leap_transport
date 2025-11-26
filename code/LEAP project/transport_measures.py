@@ -11,7 +11,7 @@ functions so existing notebooks and scripts can continue importing from
 """
 
 from transport_measure_catalog import (
-    get_leap_branch_to_analysis_type_mapping,
+    LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP,
     get_leap_measure,
     get_source_unit,
     get_weight_priority,
@@ -33,7 +33,7 @@ from transport_preprocessing import (
 
 __all__ = [
     # Catalog helpers
-    "get_leap_branch_to_analysis_type_mapping",
+    "LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP",
     "get_leap_measure",
     "get_source_unit",
     "get_weight_priority",

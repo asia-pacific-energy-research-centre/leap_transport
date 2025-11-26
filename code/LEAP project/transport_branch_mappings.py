@@ -338,6 +338,7 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Pipeline transport", "Electricity"),
     ]
 }
+ALL_LEAP_BRANCHES_TRANSPORT = [branch for branches in SHORTNAME_TO_LEAP_BRANCHES.values() for branch in branches]
 
 LEAP_BRANCH_TO_SOURCE_MAP = {
     #tuples map to: LEAP: (Transport Type, Medium, Vehicle Type, Drive, Fuel): (Transport Type, Medium, Vehicle Type, Drive, Fuel)
@@ -1693,83 +1694,55 @@ UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT = {
     ("Passenger road", "Motorcycles", "ICE"),
 }
 
-def identify_missing_esto_mappings_for_leap_branches():
+def identify_missing_esto_mappings_for_leap_branches(
+    esto_to_leap_mapping,
+    unmappable_branches,
+    all_leap_branches,
+):
     """
-    Identifies LEAP branches that don't have corresponding ESTO mappings.
-    Returns a dictionary with missing branches categorized by type.
+    Check that every LEAP branch is either mapped to an ESTO key or marked as unmappable.
+
+    Parameters
+    ----------
+    esto_to_leap_mapping: Mapping of ESTO keys to lists of LEAP branch tuples.
+    unmappable_branches: Iterable of branch tuples that should be excluded from coverage checks.
+    all_leap_branches: Iterable of all branch tuples that should be represented in the mapping.
+
+    Returns
+    -------
+    dict containing the missing branches (if any) and a summary of coverage.
     """
-    # Get all LEAP branches from SHORTNAME_TO_LEAP_BRANCHES
-    all_leap_branches = set()
-    for category, branches in SHORTNAME_TO_LEAP_BRANCHES.items():
-        for branch in branches:
-            all_leap_branches.add(branch)
-    
-    # Get all LEAP branches that have ESTO mappings
-    mapped_leap_branches = set()
-    for esto_key, leap_branches_list in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP.items():
-        for leap_branch in leap_branches_list:
-            mapped_leap_branches.add(leap_branch)
-    
-    # Add branches that are explicitly marked as unmappable
-    unmappable_branches = UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT
-    
-    # Find branches that are neither mapped nor explicitly unmappable
-    missing_branches = all_leap_branches - mapped_leap_branches - unmappable_branches
-    
-    # If there are missing branches, raise an error
-    if missing_branches:
-        missing_list = sorted(list(missing_branches))
-        error_msg = f"""
-            ERROR: Found {len(missing_branches)} LEAP branches without ESTO mappings that are not marked as unmappable.
-
-            These branches need to be either:
-            1. Added to ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP with proper mappings, OR
-            2. Added to UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT if they cannot be mapped
-
-            Missing branches:
-            {chr(10).join(f"  {branch}" for branch in missing_list)}
-
-            Please update the mappings before proceeding.
-            """
-        raise ValueError(error_msg)
-    
-    # Categorize missing branches (this will only run if no missing branches)
-    categorized_missing = {
-        "road_passenger": [],
-        "road_freight": [],
-        "non_road_passenger": [],
-        "non_road_freight": [],
-        "others": []
+    all_leap_set = set(all_leap_branches)
+    mapped_leap_branches = {
+        leap_branch for leap_branches_list in esto_to_leap_mapping.values() for leap_branch in leap_branches_list
     }
-    
-    # Print results
-    print("=== MISSING ESTO MAPPINGS ANALYSIS ===\n")
-    
-    total_branches = len(all_leap_branches)
+    unmappable_set = set(unmappable_branches)
+
+    missing_branches = all_leap_set - mapped_leap_branches - unmappable_set
+
+    total_branches = len(all_leap_set)
     mapped_count = len(mapped_leap_branches)
-    unmappable_count = len(unmappable_branches)
+    unmappable_count = len(unmappable_set)
     missing_count = len(missing_branches)
-    
-    print(f"Total LEAP branches: {total_branches}")
-    print(f"Branches with ESTO mappings: {mapped_count}")
-    print(f"Branches explicitly unmappable: {unmappable_count}")
-    print(f"Branches missing ESTO mappings: {missing_count}")
-    print(f"Coverage: {((mapped_count + unmappable_count) / total_branches * 100):.1f}%\n")
-    
-    print("✅ All LEAP branches are either mapped or explicitly marked as unmappable!")
-    
-    return {
-        "missing_branches": missing_branches,
-        "categorized_missing": categorized_missing,
-        "summary": {
-            "total_branches": total_branches,
-            "mapped_count": mapped_count,
-            "unmappable_count": unmappable_count,
-            "missing_count": missing_count,
-            "coverage_percent": (mapped_count + unmappable_count) / total_branches * 100
-        }
+
+    summary = {
+        "total_branches": total_branches,
+        "mapped_count": mapped_count,
+        "unmappable_count": unmappable_count,
+        "missing_count": missing_count,
+        "coverage_percent": (mapped_count + unmappable_count) / total_branches * 100 if total_branches else 0,
     }
-     
+
+    if missing_branches:
+        missing_list = "\n  ".join(str(branch) for branch in sorted(missing_branches))
+        raise ValueError(
+            "Found LEAP branches without ESTO mappings that are not marked as unmappable.\n"
+            "Add them to the ESTO to LEAP mapping or the unmappable list.\n"
+            f"Missing branches ({missing_count}):\n  {missing_list}"
+        )
+
+    print(f"All LEAP branches are covered ({summary['coverage_percent']:.1f}% mapped or marked unmappable).")
+    return {"missing_branches": missing_branches, "summary": summary}
 
 #%%
 # ============================================================
@@ -2608,7 +2581,11 @@ def validate_branch_combinations_across_mappings(max_examples: int = 5):
     return missing_summary
 
 #%%
-identify_missing_esto_mappings_for_leap_branches()   
+identify_missing_esto_mappings_for_leap_branches(
+    ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+    UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT,
+    [branch for branches in SHORTNAME_TO_LEAP_BRANCHES.values() for branch in branches],
+)
 #%%
 validate_branch_combinations_across_mappings()
 #%%

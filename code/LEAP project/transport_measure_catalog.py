@@ -13,22 +13,37 @@ from transport_measure_metadata import (
     SOURCE_WEIGHT_PRIORITY,
 )
 
-
-def get_leap_branch_to_analysis_type_mapping(leap_branch):
-    """Return the analysis type associated with a LEAP branch path."""
+def create_leap_branch_to_analysis_type_mapping():
+    """Create a mapping of LEAP branch paths to analysis types."""
+    leap_branch_to_analysis_type_map = {}
     for shortname, branches in SHORTNAME_TO_LEAP_BRANCHES.items():
-        if leap_branch in branches:
-            analysis_type = SHORTNAME_TO_ANALYSIS_TYPE.get(shortname, None)
-            if analysis_type is None:
-                print(
-                    f"Shortname {shortname} not found in SHORTNAME_TO_ANALYSIS_TYPE mapping. Analysis type cannot be determined."
-                )
-                return None
-            return analysis_type
-    print(
-        f"LEAP branch {leap_branch} not found in SHORTNAME_TO_LEAP_BRANCHES mapping. Analysis type cannot be determined."
-    )
-    return None
+        analysis_type = SHORTNAME_TO_ANALYSIS_TYPE.get(shortname, None)
+        if analysis_type is None:
+            raise ValueError(
+                f"Shortname {shortname} not found in SHORTNAME_TO_ANALYSIS_TYPE mapping. Analysis type cannot be determined."
+            )
+            continue
+        for branch in branches:
+            leap_branch_to_analysis_type_map[branch] = analysis_type
+    return leap_branch_to_analysis_type_map
+
+LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP = create_leap_branch_to_analysis_type_mapping()
+
+# def get_leap_branch_to_analysis_type_mapping(leap_branch):
+#     """Return the analysis type associated with a LEAP branch path."""
+#     for shortname, branches in SHORTNAME_TO_LEAP_BRANCHES.items():
+#         if leap_branch in branches:
+#             analysis_type = SHORTNAME_TO_ANALYSIS_TYPE.get(shortname, None)
+#             if analysis_type is None:
+#                 print(
+#                     f"Shortname {shortname} not found in SHORTNAME_TO_ANALYSIS_TYPE mapping. Analysis type cannot be determined."
+#                 )
+#                 return None
+#             return analysis_type
+#     print(
+#         f"LEAP branch {leap_branch} not found in SHORTNAME_TO_LEAP_BRANCHES mapping. Analysis type cannot be determined."
+#     )
+#     return None
 
 
 def list_all_measures(shortname=None):

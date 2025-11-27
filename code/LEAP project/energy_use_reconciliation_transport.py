@@ -6,6 +6,7 @@ from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 from energy_use_reconciliation import (
     LEAP_MEASURE_CONFIG,
     _apply_proportional_adjustment,
+    get_adjustment_year_columns,
     build_branch_path,
 )
 from transport_branch_mappings import (
@@ -47,12 +48,17 @@ def _get_scalar(
 def _scale_series_if_present(
     df: pd.DataFrame,
     mask: pd.Series,
-    base_year: int | str,
+    year_columns: Sequence[int | str],
     scale_factor: float,
 ) -> None:
-    """Multiply values in the base_year column by scale_factor only where mask is True."""
-    if mask.any():
-        df.loc[mask, base_year] = df.loc[mask, base_year] * scale_factor
+    """Multiply values in the provided year columns by scale_factor where mask is True."""
+    if not mask.any():
+        return
+
+    for year_col in year_columns:
+        if year_col not in df.columns:
+            continue
+        df.loc[mask, year_col] = df.loc[mask, year_col] * scale_factor
         
 def transport_adjustment_fn(
     export_df: pd.DataFrame,
@@ -60,6 +66,8 @@ def transport_adjustment_fn(
     rule: Mapping[str, object],
     scale_factor: float,
     strategies: Mapping[str, Sequence[str]],
+    year_columns: Optional[Sequence[int | str]] = None,
+    apply_to_future_years: bool = False,
 ) -> None:
     """Scale inputs used by transport energy_fn across all relevant branch paths.
 
@@ -82,6 +90,9 @@ def transport_adjustment_fn(
         => leaf-level energy scales by f^2 = scale_factor.
     """
     branch_path = build_branch_path(rule["branch_tuple"], root=rule.get("root", "Demand"))
+    years_to_adjust = list(year_columns) if year_columns is not None else get_adjustment_year_columns(
+        export_df, base_year, include_future_years=apply_to_future_years
+    )
     parts = branch_path.split("\\")
     strategy = rule.get("calculation_strategy")
     path_lower = branch_path.lower()
@@ -115,6 +126,7 @@ def transport_adjustment_fn(
             mode_path=mode_path,
             device_path=device_path,
             device_stock_factor=f,
+            year_columns=years_to_adjust,
         )
 
         # 2) Scale mileage and fuel economy for THIS device branch by f.
@@ -123,7 +135,7 @@ def transport_adjustment_fn(
                 export_df,
                 (export_df["Branch Path"] == device_path)
                 & (export_df["Variable"] == variable),
-                base_year,
+                years_to_adjust,
                 f,
             )
 
@@ -158,6 +170,7 @@ def transport_adjustment_fn(
                 share1_path=share1_path,
                 leaf_path=leaf_path,
                 leaf_activity_factor=f,
+                year_columns=years_to_adjust,
             )
 
             if 'rail' in path_lower:
@@ -169,7 +182,7 @@ def transport_adjustment_fn(
                 export_df,
                 (export_df["Branch Path"] == branch_path)
                 & (export_df["Variable"] == "Final Energy Intensity"),
-                base_year,
+                years_to_adjust,
                 f,
             )
             
@@ -189,6 +202,7 @@ def transport_adjustment_fn(
                 share1_path=share1_path,
                 leaf_path=leaf_path,
                 leaf_activity_factor=scale_factor,
+                year_columns=years_to_adjust,
             )
 
             # Intensity is 1, but safe to scale
@@ -196,7 +210,7 @@ def transport_adjustment_fn(
                 export_df,
                 (export_df["Branch Path"] == branch_path)
                 & (export_df["Variable"] == "Final Energy Intensity"),
-                base_year,
+                years_to_adjust,
                 scale_factor,
             )
         else:
@@ -205,7 +219,7 @@ def transport_adjustment_fn(
                 f"Intensity-based adjustment not implemented for branch {branch_path}"
             )
     else:
-        _apply_proportional_adjustment(export_df, base_year, rule, scale_factor, strategies)
+        _apply_proportional_adjustment(export_df, base_year, rule, scale_factor, strategies, years_to_adjust)
         
 
 def transport_energy_fn(
@@ -372,6 +386,7 @@ def _adjust_device_stock_and_shares_exact(
     mode_path: str,
     device_path: str,
     device_stock_factor: float,
+    year_columns: Optional[Sequence[int | str]] = None,
 ) -> None:
     r"""
     Adjust Stock at `parent_path` (e.g. Demand\\Transport\\Passenger road),
@@ -395,8 +410,6 @@ def _adjust_device_stock_and_shares_exact(
     if not parent_mask.any():
         return
 
-    S_tot0 = float(df.loc[parent_mask, base_year].iloc[0])
-
     # 2. Mode-level stock shares (direct children of parent_path)
     depth_parent = parent_path.count("\\")
     depth_mode = depth_parent + 1
@@ -410,108 +423,119 @@ def _adjust_device_stock_and_shares_exact(
         return
 
     mode_paths = df.loc[modes_mask, "Branch Path"].tolist()
-    mode_shares = df.loc[modes_mask, base_year].astype(float)
-    T_s = mode_shares.sum()  # e.g. 100 or 1
-
-    # 3. Collect device shares per mode and compute original device stocks
-    #    Stock_mode0[m] = S_tot0 * (s_m0 / T_s)
-    #    Stock_device0[(m, j)] = Stock_mode0[m] * (d_mj0 / D_m)
-    mode_info: dict[str, dict] = {}
-    Stock_device0: dict[tuple[str, str], float] = {}
-    
-    for m_path, s_m0 in zip(mode_paths, mode_shares):
+    dev_masks: dict[str, pd.Series] = {}
+    for m_path in mode_paths:
         mode_depth = m_path.count("\\")
         device_depth = mode_depth + 1
-
-        dev_mask = (
+        dev_masks[m_path] = (
             (df["Variable"] == "Device Share")
             & df["Branch Path"].str.startswith(m_path + "\\")
             & (df["Branch Path"].str.count(r"\\") == device_depth)
         )
 
-        dev_series = df.loc[dev_mask, base_year].astype(float)
-        dev_paths = df.loc[dev_mask, "Branch Path"].tolist()
-        D_m = float(dev_series.sum()) if not dev_series.empty else 0.0
+    years = list(year_columns or [base_year])
 
-        mode_info[m_path] = {
-            "share0": float(s_m0),
-            "device_paths": dev_paths,
-            "device_shares0": dev_series,
-            "D_m": D_m,
-        }
+    for year_col in years:
+        if year_col not in df.columns:
+            continue
 
-        Stock_mode0 = S_tot0 * (float(s_m0) / T_s) if T_s != 0 else 0.0
-        if D_m > 0 and Stock_mode0 != 0:
-            for d_path, d_share0 in zip(dev_paths, dev_series):
-                Stock_device0[(m_path, d_path)] = Stock_mode0 * (float(d_share0) / D_m)
-        else:
-            # No device split or zero stock -> treat as no devices
-            for d_path in dev_paths:
-                Stock_device0[(m_path, d_path)] = 0.0
+        S_tot0 = float(df.loc[parent_mask, year_col].iloc[0])
 
-    # Ensure the target device exists
-    if (mode_path not in mode_info) or ((mode_path, device_path) not in Stock_device0):
-        return
+        mode_shares = df.loc[modes_mask, year_col].astype(float)
+        T_s = mode_shares.sum()  # e.g. 100 or 1
 
-    # 4. Apply scaling to target device; keep others unchanged
-    Stock_device1: dict[tuple[str, str], float] = {}
-    for key, val in Stock_device0.items():
-        if key == (mode_path, device_path):
-            Stock_device1[key] = device_stock_factor * val
-        else:
-            Stock_device1[key] = val
+        # 3. Collect device shares per mode and compute original device stocks
+        #    Stock_mode0[m] = S_tot0 * (s_m0 / T_s)
+        #    Stock_device0[(m, j)] = Stock_mode0[m] * (d_mj0 / D_m)
+        mode_info: dict[str, dict] = {}
+        Stock_device0: dict[tuple[str, str], float] = {}
+        
+        for m_path, s_m0 in zip(mode_paths, mode_shares):
+            dev_mask = dev_masks[m_path]
 
-    # 5. New total stock
-    S_tot1 = sum(Stock_device1.values())
-    if S_tot1 <= 0:
-        return
+            dev_series = df.loc[dev_mask, year_col].astype(float)
+            dev_paths = df.loc[dev_mask, "Branch Path"].tolist()
+            D_m = float(dev_series.sum()) if not dev_series.empty else 0.0
 
-    # 6. New mode-level stocks and Stock Shares
-    Stock_mode1: dict[str, float] = {}
-    for m_path in mode_paths:
-        Stock_mode1[m_path] = sum(
-            Stock_device1[(m_path, d_path)]
-            for d_path in mode_info[m_path]["device_paths"]
-            if (m_path, d_path) in Stock_device1
-        )
+            mode_info[m_path] = {
+                "share0": float(s_m0),
+                "device_paths": dev_paths,
+                "device_shares0": dev_series,
+                "D_m": D_m,
+            }
 
-    new_mode_shares = {}
-    for m_path in mode_paths:
-        if S_tot1 > 0:
-            new_mode_shares[m_path] = T_s * Stock_mode1[m_path] / S_tot1
-        else:
-            new_mode_shares[m_path] = mode_info[m_path]["share0"]
+            Stock_mode0 = S_tot0 * (float(s_m0) / T_s) if T_s != 0 else 0.0
+            if D_m > 0 and Stock_mode0 != 0:
+                for d_path, d_share0 in zip(dev_paths, dev_series):
+                    Stock_device0[(m_path, d_path)] = Stock_mode0 * (float(d_share0) / D_m)
+            else:
+                # No device split or zero stock -> treat as no devices
+                for d_path in dev_paths:
+                    Stock_device0[(m_path, d_path)] = 0.0
 
-    # 7. New device shares, per mode, preserving per-device stocks
-    new_device_shares: dict[tuple[str, str], float] = {}
-    for m_path in mode_paths:
-        dev_paths = mode_info[m_path]["device_paths"]
-        D_m = mode_info[m_path]["D_m"]
-        Stock_m1 = Stock_mode1[m_path]
+        # Ensure the target device exists
+        if (mode_path not in mode_info) or ((mode_path, device_path) not in Stock_device0):
+            continue
 
-        if Stock_m1 > 0 and D_m > 0:
-            for d_path in dev_paths:
-                key = (m_path, d_path)
-                stock_d1 = Stock_device1.get(key, 0.0)
-                new_device_shares[key] = D_m * stock_d1 / Stock_m1
-        else:
-            # Fall back to original shares if we cannot safely rescale
-            dev_series = mode_info[m_path]["device_shares0"]
-            for d_path, d_share0 in zip(dev_paths, dev_series):
-                new_device_shares[(m_path, d_path)] = float(d_share0)
+        # 4. Apply scaling to target device; keep others unchanged
+        Stock_device1: dict[tuple[str, str], float] = {}
+        for key, val in Stock_device0.items():
+            if key == (mode_path, device_path):
+                Stock_device1[key] = device_stock_factor * val
+            else:
+                Stock_device1[key] = val
 
-    # 8. Write back parent stock, mode Stock Shares, and device Device Shares
-    df.loc[parent_mask, base_year] = S_tot1
+        # 5. New total stock
+        S_tot1 = sum(Stock_device1.values())
+        if S_tot1 <= 0:
+            continue
 
-    # Mode Stock Shares
-    for m_path in mode_paths:
-        mask_m = (df["Branch Path"] == m_path) & (df["Variable"] == "Stock Share")
-        df.loc[mask_m, base_year] = new_mode_shares[m_path]
+        # 6. New mode-level stocks and Stock Shares
+        Stock_mode1: dict[str, float] = {}
+        for m_path in mode_paths:
+            Stock_mode1[m_path] = sum(
+                Stock_device1[(m_path, d_path)]
+                for d_path in mode_info[m_path]["device_paths"]
+                if (m_path, d_path) in Stock_device1
+            )
 
-    # Device Shares
-    for (m_path, d_path), d_share1 in new_device_shares.items():
-        mask_d = (df["Branch Path"] == d_path) & (df["Variable"] == "Device Share")
-        df.loc[mask_d, base_year] = d_share1
+        new_mode_shares: dict[str, float] = {}
+        for m_path in mode_paths:
+            if S_tot1 > 0:
+                new_mode_shares[m_path] = T_s * Stock_mode1[m_path] / S_tot1
+            else:
+                new_mode_shares[m_path] = mode_info[m_path]["share0"]
+
+        # 7. New device shares, per mode, preserving per-device stocks
+        new_device_shares: dict[tuple[str, str], float] = {}
+        for m_path in mode_paths:
+            dev_paths = mode_info[m_path]["device_paths"]
+            D_m = mode_info[m_path]["D_m"]
+            Stock_m1 = Stock_mode1[m_path]
+
+            if Stock_m1 > 0 and D_m > 0:
+                for d_path in dev_paths:
+                    key = (m_path, d_path)
+                    stock_d1 = Stock_device1.get(key, 0.0)
+                    new_device_shares[key] = D_m * stock_d1 / Stock_m1
+            else:
+                # Fall back to original shares if we cannot safely rescale
+                dev_series = mode_info[m_path]["device_shares0"]
+                for d_path, d_share0 in zip(dev_paths, dev_series):
+                    new_device_shares[(m_path, d_path)] = float(d_share0)
+
+        # 8. Write back parent stock, mode Stock Shares, and device Device Shares
+        df.loc[parent_mask, year_col] = S_tot1
+
+        # Mode Stock Shares
+        for m_path in mode_paths:
+            mask_m = (df["Branch Path"] == m_path) & (df["Variable"] == "Stock Share")
+            df.loc[mask_m, year_col] = new_mode_shares[m_path]
+
+        # Device Shares
+        for (m_path, d_path), d_share1 in new_device_shares.items():
+            mask_d = (df["Branch Path"] == d_path) & (df["Variable"] == "Device Share")
+            df.loc[mask_d, year_col] = d_share1
         
 
 def _adjust_activity_and_shares_exact(
@@ -521,6 +545,7 @@ def _adjust_activity_and_shares_exact(
     share1_path: str,
     leaf_path: str,
     leaf_activity_factor: float,
+    year_columns: Optional[Sequence[int | str]] = None,
 ) -> None:
     r"""
     Adjust Activity Level at `parent_path` (e.g. Demand\\Transport\\Non-road X),
@@ -545,8 +570,6 @@ def _adjust_activity_and_shares_exact(
     if not parent_mask.any():
         return
 
-    A0 = float(df.loc[parent_mask, base_year].iloc[0])
-
     # 2. First-level shares (share1) under parent_path
     depth_parent = parent_path.count("\\")
     depth_share1 = depth_parent + 1
@@ -560,117 +583,126 @@ def _adjust_activity_and_shares_exact(
         return
 
     share1_paths = df.loc[share1_mask, "Branch Path"].tolist()
-    share1_vals = df.loc[share1_mask, base_year].astype(float)
-    T1 = share1_vals.sum()  # e.g. 100
-
-    # 3. Build leaf activities before adjustment
-    #    Keyed as (share1_path, leaf_path)
-    leaf_act0: dict[tuple[str, str], float] = {}
-    share1_info: dict[str, dict] = {}
-
-    for s1_path, s1_val in zip(share1_paths, share1_vals):
+    share2_masks: dict[str, pd.Series] = {}
+    for s1_path in share1_paths:
         s1_depth = s1_path.count("\\")
         depth_share2 = s1_depth + 1
-
-        # share2 nodes under this share1 (may be empty in one-share case)
-        share2_mask = (
+        share2_masks[s1_path] = (
             (df["Variable"] == "Activity Level")
             & df["Branch Path"].str.startswith(s1_path + "\\")
             & (df["Branch Path"].str.count(r"\\") == depth_share2)
         )
-        share2_paths = df.loc[share2_mask, "Branch Path"].tolist()
-        share2_vals = df.loc[share2_mask, base_year].astype(float) if share2_mask.any() else pd.Series([], dtype=float)
 
-        if share2_paths:
-            Dm = share2_vals.sum()
-            share1_info[s1_path] = {
-                "share1_val": float(s1_val),
-                "leaf_paths": share2_paths,
-                "leaf_shares0": share2_vals,
-                "D_m": float(Dm),
-            }
-            # leaf with two levels of shares
-            if T1 != 0 and Dm != 0:
-                for l_path, l_share in zip(share2_paths, share2_vals):
-                    leaf_act0[(s1_path, l_path)] = A0 * (float(s1_val) / T1) * (float(l_share) / Dm)
-            else:
-                for l_path in share2_paths:
-                    leaf_act0[(s1_path, l_path)] = 0.0
-        else:
-            # One-share case: treat share1 node itself as a leaf.
-            Dm = 1.0
-            share1_info[s1_path] = {
-                "share1_val": float(s1_val),
-                "leaf_paths": [s1_path],
-                "leaf_shares0": pd.Series([Dm]),
-                "D_m": Dm,
-            }
-            if T1 != 0:
-                leaf_act0[(s1_path, s1_path)] = A0 * (float(s1_val) / T1)
-            else:
-                leaf_act0[(s1_path, s1_path)] = 0.0
+    years = list(year_columns or [base_year])
 
-    # Ensure target leaf exists
-    # In one-share case, leaf_path == share1_path and key is (share1_path, share1_path).
-    target_key = (share1_path, leaf_path if (share1_path, leaf_path) in leaf_act0 else share1_path)
-    if target_key not in leaf_act0:
-        return
-
-    # 4. Apply scaling to target leaf; keep others unchanged
-    leaf_act1: dict[tuple[str, str], float] = {}
-    for key, val in leaf_act0.items():
-        if key == target_key:
-            leaf_act1[key] = leaf_activity_factor * val
-        else:
-            leaf_act1[key] = val
-
-    # 5. New total activity
-    A1 = sum(leaf_act1.values())
-    if A1 <= 0:
-        return
-
-    # 6. New share1 activities and shares
-    leaf_act1_by_s1: dict[str, float] = {s1_path: 0.0 for s1_path in share1_paths}
-    for (s1_path, l_path), v in leaf_act1.items():
-        leaf_act1_by_s1[s1_path] += v
-
-    new_share1_vals: dict[str, float] = {}
-    for s1_path in share1_paths:
-        new_share1_vals[s1_path] = T1 * leaf_act1_by_s1[s1_path] / A1 if A1 > 0 else share1_info[s1_path]["share1_val"]
-
-    # 7. New share2 (leaf-level shares) per share1 group
-    new_leaf_shares: dict[tuple[str, str], float] = {}
-    for s1_path in share1_paths:
-        info = share1_info[s1_path]
-        leaf_paths_s1 = info["leaf_paths"]
-        Dm = info["D_m"]
-
-        total_act_s1 = leaf_act1_by_s1[s1_path]
-        if total_act_s1 > 0 and Dm > 0:
-            for l_path in leaf_paths_s1:
-                key = (s1_path, l_path)
-                act_leaf = leaf_act1.get(key, 0.0)
-                new_leaf_shares[key] = Dm * act_leaf / total_act_s1
-        else:
-            # Fall back to original shares if we cannot rescale safely
-            for l_path, l_share0 in zip(leaf_paths_s1, info["leaf_shares0"]):
-                new_leaf_shares[(s1_path, l_path)] = float(l_share0)
-
-    # 8. Write back parent activity, share1 and leaf shares
-    df.loc[parent_mask, base_year] = A1
-
-    # share1 (first-level) Activity Level
-    for s1_path in share1_paths:
-        mask_s1 = (df["Branch Path"] == s1_path) & (df["Variable"] == "Activity Level")
-        df.loc[mask_s1, base_year] = new_share1_vals[s1_path]
-
-    # leaf (second-level) Activity Level
-    for (s1_path, l_path), l_share1 in new_leaf_shares.items():
-        if l_path == s1_path:
-            # one-share case, already handled via share1 value
+    for year_col in years:
+        if year_col not in df.columns:
             continue
-        mask_leaf = (df["Branch Path"] == l_path) & (df["Variable"] == "Activity Level")
-        df.loc[mask_leaf, base_year] = l_share1
+
+        A0 = float(df.loc[parent_mask, year_col].iloc[0])
+        share1_vals = df.loc[share1_mask, year_col].astype(float)
+        T1 = share1_vals.sum()  # e.g. 100
+
+        # 3. Build leaf activities before adjustment
+        #    Keyed as (share1_path, leaf_path)
+        leaf_act0: dict[tuple[str, str], float] = {}
+        share1_info: dict[str, dict] = {}
+
+        for s1_path, s1_val in zip(share1_paths, share1_vals):
+            share2_mask = share2_masks[s1_path]
+            share2_paths = df.loc[share2_mask, "Branch Path"].tolist()
+            share2_vals = df.loc[share2_mask, year_col].astype(float) if share2_mask.any() else pd.Series([], dtype=float)
+
+            if share2_paths:
+                Dm = share2_vals.sum()
+                share1_info[s1_path] = {
+                    "share1_val": float(s1_val),
+                    "leaf_paths": share2_paths,
+                    "leaf_shares0": share2_vals,
+                    "D_m": float(Dm),
+                }
+                # leaf with two levels of shares
+                if T1 != 0 and Dm != 0:
+                    for l_path, l_share in zip(share2_paths, share2_vals):
+                        leaf_act0[(s1_path, l_path)] = A0 * (float(s1_val) / T1) * (float(l_share) / Dm)
+                else:
+                    for l_path in share2_paths:
+                        leaf_act0[(s1_path, l_path)] = 0.0
+            else:
+                # One-share case: treat share1 node itself as a leaf.
+                Dm = 1.0
+                share1_info[s1_path] = {
+                    "share1_val": float(s1_val),
+                    "leaf_paths": [s1_path],
+                    "leaf_shares0": pd.Series([Dm]),
+                    "D_m": Dm,
+                }
+                if T1 != 0:
+                    leaf_act0[(s1_path, s1_path)] = A0 * (float(s1_val) / T1)
+                else:
+                    leaf_act0[(s1_path, s1_path)] = 0.0
+
+        # Ensure target leaf exists
+        # In one-share case, leaf_path == share1_path and key is (share1_path, share1_path).
+        target_key = (share1_path, leaf_path if (share1_path, leaf_path) in leaf_act0 else share1_path)
+        if target_key not in leaf_act0:
+            continue
+
+        # 4. Apply scaling to target leaf; keep others unchanged
+        leaf_act1: dict[tuple[str, str], float] = {}
+        for key, val in leaf_act0.items():
+            if key == target_key:
+                leaf_act1[key] = leaf_activity_factor * val
+            else:
+                leaf_act1[key] = val
+
+        # 5. New total activity
+        A1 = sum(leaf_act1.values())
+        if A1 <= 0:
+            continue
+
+        # 6. New share1 activities and shares
+        leaf_act1_by_s1: dict[str, float] = {s1_path: 0.0 for s1_path in share1_paths}
+        for (s1_path, l_path), v in leaf_act1.items():
+            leaf_act1_by_s1[s1_path] += v
+
+        new_share1_vals: dict[str, float] = {}
+        for s1_path in share1_paths:
+            new_share1_vals[s1_path] = T1 * leaf_act1_by_s1[s1_path] / A1 if A1 > 0 else share1_info[s1_path]["share1_val"]
+
+        # 7. New share2 (leaf-level shares) per share1 group
+        new_leaf_shares: dict[tuple[str, str], float] = {}
+        for s1_path in share1_paths:
+            info = share1_info[s1_path]
+            leaf_paths_s1 = info["leaf_paths"]
+            Dm = info["D_m"]
+
+            total_act_s1 = leaf_act1_by_s1[s1_path]
+            if total_act_s1 > 0 and Dm > 0:
+                for l_path in leaf_paths_s1:
+                    key = (s1_path, l_path)
+                    act_leaf = leaf_act1.get(key, 0.0)
+                    new_leaf_shares[key] = Dm * act_leaf / total_act_s1
+            else:
+                # Fall back to original shares if we cannot rescale safely
+                for l_path, l_share0 in zip(leaf_paths_s1, info["leaf_shares0"]):
+                    new_leaf_shares[(s1_path, l_path)] = float(l_share0)
+
+        # 8. Write back parent activity, share1 and leaf shares
+        df.loc[parent_mask, year_col] = A1
+
+        # share1 (first-level) Activity Level
+        for s1_path in share1_paths:
+            mask_s1 = (df["Branch Path"] == s1_path) & (df["Variable"] == "Activity Level")
+            df.loc[mask_s1, year_col] = new_share1_vals[s1_path]
+
+        # leaf (second-level) Activity Level
+        for (s1_path, l_path), l_share1 in new_leaf_shares.items():
+            if l_path == s1_path:
+                # one-share case, already handled via share1 value
+                continue
+            mask_leaf = (df["Branch Path"] == l_path) & (df["Variable"] == "Activity Level")
+            df.loc[mask_leaf, year_col] = l_share1
 
 
 ###################################################################
@@ -1204,17 +1236,6 @@ def build_transport_esto_energy_totals(
             )
 
     return esto_energy_totals
-
-
-
-
-
-
-
-
-
-
-
 
 
 

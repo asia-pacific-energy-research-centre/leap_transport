@@ -199,12 +199,38 @@ def _compute_scale_factor(leap_total: float, esto_total: float) -> float:
     return esto_total / leap_total
 
 
+def get_adjustment_year_columns(
+    export_df: pd.DataFrame,
+    base_year: int | str,
+    include_future_years: bool = False,
+    apply_adjustments_to_past_years: bool = False,
+) -> List[int | str]:
+    """Return a list of year columns to adjust, including the base year."""
+    if not include_future_years:
+        return [base_year]
+    
+    years: List[int | str] = []
+    year_columns = [
+        col
+        for col in export_df.columns
+        if len(str(col)) == 4 and str(col).isdigit()
+    ]
+    #in case we are considering years before and after the base year we want to sort them properly.. not that this causes a potential issue where any afdjustments to historical data may not result in the same energy use as is expected.
+    for col in sorted(year_columns, key=lambda c: int(str(c))):
+        if not apply_adjustments_to_past_years and int(col) < int(base_year):
+            continue
+        years.append(col)
+
+    return years
+
+
 def _apply_proportional_adjustment(
     export_df: pd.DataFrame,
     base_year: int | str,
     rule: Mapping[str, object],
     scale_factor: float,
     strategies: Mapping[str, Sequence[str]],
+    year_columns: Optional[Sequence[int | str]] = None,
 ) -> None:
     """Scale the base-year inputs for a branch by the provided factor.
 
@@ -214,11 +240,17 @@ def _apply_proportional_adjustment(
       
     NOTE THIS PROBABLY WON'T WORK FOR ANY SECTOR SINCE THEY ARE ALL SOMEWHAT COMPLEX AND NEED THEIR OWN ADJUSTMENT LOGIC
     """
+    years_to_adjust = list(year_columns or [base_year])
     input_vars = rule.get("input_variables_override") or strategies[rule["calculation_strategy"]]
     branch_path = build_branch_path(rule["branch_tuple"], root=rule.get("root", "Demand"))
     for variable in input_vars:
         mask = (export_df["Branch Path"] == branch_path) & (export_df["Variable"] == variable)
-        export_df.loc[mask, base_year] = export_df.loc[mask, base_year] * scale_factor
+        if not mask.any():
+            continue
+        for year_col in years_to_adjust:
+            if year_col not in export_df.columns:
+                continue
+            export_df.loc[mask, year_col] = export_df.loc[mask, year_col] * scale_factor
         
 def reconcile_energy_use(
     export_df: pd.DataFrame,
@@ -227,7 +259,12 @@ def reconcile_energy_use(
     esto_energy_totals: Mapping[Tuple[str, ...], float],
     strategies: Optional[Mapping[str, Sequence[str]]] = None,
     tolerance: float = 1e-6,
-    adjustment_fn: Optional[Callable[[pd.DataFrame, int | str, Mapping[str, object], float, Mapping[str, Sequence[str]]], None]] = None,
+    adjustment_fn: Optional[
+        Callable[
+            [pd.DataFrame, int | str, Mapping[str, object], float, Mapping[str, Sequence[str]], Optional[Sequence[int | str]]],
+            None,
+        ]
+    ] = None,
     combination_fn: Optional[Callable[[List[pd.Series]], pd.Series]] = None,
     energy_fn: Optional[
         Callable[[pd.DataFrame, int | str, Mapping[str, object], Mapping[str, Sequence[str]], Optional[Callable]], float]
@@ -235,6 +272,8 @@ def reconcile_energy_use(
     input_series_provider: Optional[
         Callable[[pd.DataFrame, int | str, str, Sequence[str]], List[pd.Series]]
     ] = None,
+    apply_adjustments_to_future_years: bool = False,
+    apply_adjustments_to_past_years: bool = False,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Compare modelled totals with ESTO totals and scale inputs when needed.
 
@@ -247,7 +286,13 @@ def reconcile_energy_use(
     strategies: Optional mapping of strategy names to input-variable lists.
     tolerance: Difference threshold before adjustments are applied.
     adjustment_fn: Optional custom adjustment function with signature
-        (export_df, base_year, rule, scale_factor, strategies).
+        (export_df, base_year, rule, scale_factor, strategies, year_columns).
+    apply_adjustments_to_future_years: When True, apply the same scale factor to
+        all year columns after `base_year` (if present) instead of only scaling
+        the base year.
+    apply_adjustments_to_past_years: When True, apply the same scale factor to
+        all year columns before `base_year` (if present) instead of only scaling
+        the base year. - this is only relevant if `apply_adjustments_to_future_years` is also True.
     combination_fn: Optional custom function for combining input variables into
         energy use.
     energy_fn: Optional function that fully overrides how energy is calculated
@@ -263,6 +308,9 @@ def reconcile_energy_use(
         breakpoint()
         raise ValueError("Provide a custom adjustment_fn when using a custom energy_fn so scale factors are applied correctly.")
     adjust = adjustment_fn or _apply_proportional_adjustment
+    adjustment_year_columns = get_adjustment_year_columns(
+        working_df, base_year, include_future_years=apply_adjustments_to_future_years, apply_adjustments_to_past_years=apply_adjustments_to_past_years
+    )
 
     results = []
     for esto_key, rules in branch_mapping_rules.items():
@@ -291,7 +339,7 @@ def reconcile_energy_use(
         if abs(leap_total - esto_total) > tolerance and scale_factor != 1.0:
             for rule in rules:
                 try:
-                    adjust(working_df, base_year, rule, scale_factor, strategy_lookup)
+                    adjust(working_df, base_year, rule, scale_factor, strategy_lookup, adjustment_year_columns)
                     adjusted_paths.append(build_branch_path(rule["branch_tuple"], root=rule.get("root", "Demand")))
                 except Exception:
                     breakpoint()

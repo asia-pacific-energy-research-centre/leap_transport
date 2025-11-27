@@ -431,6 +431,7 @@ def load_transport_into_leap(
 RUN_INPUT_CREATION = False
 RUN_RECONCILIATION = True
 TEST = True
+APPLY_ADJUSTMENTS_TO_FUTURE_YEARS = True
 if __name__ == "__main__" and (RUN_INPUT_CREATION or RUN_RECONCILIATION):
     pd.options.display.float_format = "{:,.3f}".format
     if RUN_INPUT_CREATION:
@@ -511,6 +512,8 @@ if __name__ == "__main__" and (RUN_INPUT_CREATION or RUN_RECONCILIATION):
             esto_energy_totals=esto_energy_totals,
             energy_fn=transport_energy_fn,
             adjustment_fn=transport_adjustment_fn,
+            apply_adjustments_to_future_years=APPLY_ADJUSTMENTS_TO_FUTURE_YEARS,
+            apply_adjustments_to_past_years=False,
         )
         #double check reconcilliation worked by running it again on the output and seeing iff the scale factor is 1.0 everywhere
         _, summary_df_check = reconcile_energy_use(
@@ -520,6 +523,8 @@ if __name__ == "__main__" and (RUN_INPUT_CREATION or RUN_RECONCILIATION):
             esto_energy_totals=esto_energy_totals,
             energy_fn=transport_energy_fn,
             adjustment_fn=transport_adjustment_fn,
+            apply_adjustments_to_future_years=APPLY_ADJUSTMENTS_TO_FUTURE_YEARS,
+            apply_adjustments_to_past_years=False,
         )
         if summary_df_check["Scale Factor"].apply(lambda x: abs(x - 1.0) < 1e-6).all():
             print("Reconciliation successful: all scale factors are 1.0")

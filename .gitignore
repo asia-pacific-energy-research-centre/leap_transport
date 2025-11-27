@@ -16,10 +16,6 @@
 *.pkl
 *.dll
 !.gitkeep
-!master_config.xlsx
-!01_AUS_charts_2022-07-14-1530 - 8thEdition.xlsx
-!9th_EBT_schema.xlsx
-#01_AUS_charts_2022-07-14-1530.xlsx is an important input for 1_prepare_8th_workbook.py
 
 env_leap/*
 #######################################

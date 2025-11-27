@@ -38,8 +38,8 @@ from LEAP_excel_io import (
 L = connect_to_leap()
 
 # Define parameters
-leap_export_filename = '../../results/leap_balances_export_file.xlsx'
-energy_spreadsheet_filename = '../../data/merged_file_energy_ALL_20250814.csv'
+leap_export_filename = '../results/leap_balances_export_file.xlsx'
+energy_spreadsheet_filename = '../data/merged_file_energy_ALL_20250814.csv'
 ECONOMY = '20_USA'
 BASE_YEAR = 2022
 SUBTOTAL_COLUMN = 'subtotal_layout'
@@ -106,7 +106,7 @@ from energy_use_reconciliation import reconcile_energy_use, build_branch_rules_f
 from energy_use_reconciliation_transport import build_transport_esto_energy_totals
 from esto_transport_data import extract_esto_energy_use_for_leap_branches
 import pandas as pd
-export_df = pd.read_excel("../../results/USA_transport_leap_export_Target.xlsx")
+export_df = pd.read_excel("../results/USA_transport_leap_export_Target.xlsx")
 esto_totals = {("15_02_road", "07_petroleum_products", "07_01_motor_gasoline"): 100.0}
 # ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP, UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT
 LEAP_BRANCHES_LIST = [branch for branches in SHORTNAME_TO_LEAP_BRANCHES.values() for branch in branches]

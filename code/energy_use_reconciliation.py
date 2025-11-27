@@ -20,7 +20,7 @@ Example (transport)
 -------------------
 >>> from transport_branch_mappings import ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP
 >>> from transport_measure_catalog import get_leap_branch_to_analysis_type_mapping
->>> export_df = pd.read_excel("../../results/USA_transport_leap_export_Target.xlsx")
+>>> export_df = pd.read_excel("../results/USA_transport_leap_export_Target.xlsx")
 >>> esto_totals = {('15_02_road', '07_petroleum_products', '07_01_motor_gasoline'): 100.0}
 >>> branch_rules = build_branch_rules_from_mapping(
 ...     ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,

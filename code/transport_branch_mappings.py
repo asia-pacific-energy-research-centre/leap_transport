@@ -1,7 +1,7 @@
 #%%
 import pandas as pd
-from basic_mappings import ALL_PATHS_SOURCE, ALL_PATHS_LEAP
-from branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING
+from transport_basic_mappings import ALL_PATHS_SOURCE, ALL_PATHS_LEAP
+from transport_branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING
 SHORTNAME_TO_LEAP_BRANCHES = {
     # Mapping to names used for reference in LEAP
     "Transport type (road)": [
@@ -2514,7 +2514,7 @@ def validate_branch_combinations_across_mappings(max_examples: int = 5):
     * ``LEAP_BRANCH_TO_SOURCE_MAP``,
     * ``ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP`` values,
     * ``SHORTNAME_TO_LEAP_BRANCHES`` values, and
-    * ``ALL_PATHS_LEAP`` generated from ``basic_mappings``.
+    * ``ALL_PATHS_LEAP`` generated from ``transport_basic_mappings``.
 
     Branches listed in ``UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT`` are excluded
     when checking coverage inside ``ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP``

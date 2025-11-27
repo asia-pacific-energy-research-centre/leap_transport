@@ -280,9 +280,8 @@ def validate_all_mappings_with_measures(
 #         LEAP_MEASURE_CONFIG,
 #         UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT
 #     )
-#     from branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING
-    
-#     from basic_mappings import ESTO_TRANSPORT_SECTOR_TUPLES
+#     from transport_branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING
+#     from transport_basic_mappings import ESTO_TRANSPORT_SECTOR_TUPLES
 
 #     results = validate_all_mappings_with_measures(
 #         ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
@@ -412,7 +411,7 @@ def calculate_energy_use_for_intensity_analysis_branch(branch_path, branch_tuple
     
     return energy_use.sum() if energy_use.size > 0 else 0
 
-def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, original_scenario,new_scenario, BASE_YEAR, FINAL_YEAR, export_df, TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx', TRANSPORT_ROOT = r"Demand"):
+def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, original_scenario,new_scenario, BASE_YEAR, FINAL_YEAR, export_df, TRANSPORT_ESTO_BALANCES_PATH = '../data/all transport balances data.xlsx', TRANSPORT_ROOT = r"Demand"):
     """
     Validate that LEAP final energy use for the base year matches ESTO totals.
     this will utilise the ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP to sum up LEAP final energy use by branch, using the msot detailed branch levels and then caculating total energy use for each branch based on what measures are avaialble. There would be two types of calculation: 
@@ -761,7 +760,7 @@ def validate_and_fix_shares_normalise_to_one(df, EXAMPLE_SAMPLE_SIZE=5):
 
 
 
-# def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, original_scenario,new_scenario, BASE_YEAR, FINAL_YEAR, export_df, TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx', TRANSPORT_ROOT = r"Demand"):
+# def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, original_scenario,new_scenario, BASE_YEAR, FINAL_YEAR, export_df, TRANSPORT_ESTO_BALANCES_PATH = '../data/all transport balances data.xlsx', TRANSPORT_ROOT = r"Demand"):
 #     """
 #     Validate that LEAP final energy use for the base year matches ESTO totals.
 #     this will utilise the ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP to sum up LEAP final energy use by branch, using the msot detailed branch levels and then caculating total energy use for each branch based on what measures are avaialble. There would be two types of calculation: 

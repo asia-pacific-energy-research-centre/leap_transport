@@ -473,8 +473,8 @@ def join_and_check_import_structure_matches_export_structure(import_filename, ex
             
             
 def copy_energy_spreadsheet_into_leap_import_file(
-    leap_export_filename='../../results/leap_balances_export_file.xlsx',
-    energy_spreadsheet_filename='../../data/merged_file_energy_ALL_20250814.csv',
+    leap_export_filename='../results/leap_balances_export_file.xlsx',
+    energy_spreadsheet_filename='../data/merged_file_energy_ALL_20250814.csv',
     ECONOMY='20_USA',
     BASE_YEAR=2022,
     SUBTOTAL_COLUMN='subtotal_results',

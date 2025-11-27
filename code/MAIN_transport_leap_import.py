@@ -37,12 +37,12 @@ from transport_preprocessing import (
     calculate_sales,
     normalize_and_calculate_shares)
 from LEAP_excel_io import finalise_export_df, save_export_files,join_and_check_import_structure_matches_export_structure
-from branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING
+from transport_branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING
 from esto_transport_data import (
     extract_other_type_rows_from_esto_and_insert_into_transport_df,
 )
 
-from basic_mappings import (
+from transport_basic_mappings import (
     ESTO_TRANSPORT_SECTOR_TUPLES,
     add_fuel_column,
     EXPECTED_COLS_IN_SOURCE,
@@ -80,12 +80,12 @@ from energy_use_reconciliation_transport import transport_energy_fn, transport_a
 # Modular process functions
 # ------------------------------------------------------------
 
-def prepare_input_data(transport_model_excel_path, economy, scenario, base_year, final_year, TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx', LOAD_CHECKPOINT=False, TRANSPORT_FUELS_DATA_FILE_PATH = '../../data/USA fuels model output.csv'):
+def prepare_input_data(transport_model_excel_path, economy, scenario, base_year, final_year, TRANSPORT_ESTO_BALANCES_PATH = '../data/all transport balances data.xlsx', LOAD_CHECKPOINT=False, TRANSPORT_FUELS_DATA_FILE_PATH = '../data/USA fuels model output.csv'):
     """Load and preprocess transport data for a specific economy."""    
     print(f"\n=== Loading Transport Data for {economy} ===")
     
     # Check for checkpoint file
-    checkpoint_filename = f"../../intermediate_data/transport_data_{economy}_{scenario}_{base_year}_{final_year}.pkl"
+    checkpoint_filename = f"../intermediate_data/transport_data_{economy}_{scenario}_{base_year}_{final_year}.pkl"
     if LOAD_CHECKPOINT and os.path.exists(checkpoint_filename):
         print(f"Loading data from checkpoint: {checkpoint_filename}")
         df = pd.read_pickle(checkpoint_filename)
@@ -122,9 +122,9 @@ def prepare_input_data(transport_model_excel_path, economy, scenario, base_year,
     duplicates = df.duplicated(subset=['Date', 'Economy', 'Scenario', 'Transport Type', 'Medium', 'Vehicle Type', 'Drive', 'Fuel'])
     if duplicates.any():
         breakpoint()
-        #save to ../../data/errors/duplicate_source_rows.csv
-        df[duplicates].to_csv('../../data/errors/duplicate_source_rows.csv', index=False)
-        raise ValueError("Duplicates found in source data after adding new rows based on combinations and proxies; see ../../data/errors/duplicate_source_rows.csv for details.")
+        #save to ../data/errors/duplicate_source_rows.csv
+        df[duplicates].to_csv('../data/errors/duplicate_source_rows.csv', index=False)
+        raise ValueError("Duplicates found in source data after adding new rows based on combinations and proxies; see ../data/errors/duplicate_source_rows.csv for details.")
      
     df = calculate_sales(df)
     df = normalize_and_calculate_shares(df)
@@ -132,7 +132,7 @@ def prepare_input_data(transport_model_excel_path, economy, scenario, base_year,
     df = extract_other_type_rows_from_esto_and_insert_into_transport_df(df, base_year, final_year, economy, scenario, TRANSPORT_ESTO_BALANCES_PATH)
     
     # Save checkpoint file
-    os.makedirs("../../intermediate_data", exist_ok=True)
+    os.makedirs("../intermediate_data", exist_ok=True)
     df.to_pickle(checkpoint_filename)
     print(f"Saved checkpoint: {checkpoint_filename}")
     return df
@@ -361,11 +361,11 @@ def run_transport_reconciliation(
         analysis_type_lookup=analysis_type_lookup,
         root='Demand',
     )
-    # pd.Series(esto_energy_totals).to_pickle('../../data/temp/transport_esto_energy_totals.pkl')
-    # pd.Series(branch_rules).to_pickle('../../data/temp/transport_branch_rules.pkl')
+    # pd.Series(esto_energy_totals).to_pickle('../data/temp/transport_esto_energy_totals.pkl')
+    # pd.Series(branch_rules).to_pickle('../data/temp/transport_branch_rules.pkl')
     # else:
-    # esto_energy_totals = pd.read_pickle('../../data/temp/transport_esto_energy_totals.pkl').to_dict()
-    # branch_rules = pd.read_pickle('../../data/temp/transport_branch_rules.pkl').to_dict()
+    # esto_energy_totals = pd.read_pickle('../data/temp/transport_esto_energy_totals.pkl').to_dict()
+    # branch_rules = pd.read_pickle('../data/temp/transport_branch_rules.pkl').to_dict()
 
     working_df, summary_df = reconcile_energy_use(
         export_df=export_df,
@@ -403,7 +403,7 @@ def run_transport_reconciliation(
         change_msg = "No adjustments required; all scale factors were 1.0."
 
     if report_adjustment_changes:
-        reconciliation_dir = "../../results/reconciliation"
+        reconciliation_dir = "../results/reconciliation"
         recon_archive_dir = os.path.join(reconciliation_dir, "archive")
         os.makedirs(reconciliation_dir, exist_ok=True)
         os.makedirs(recon_archive_dir, exist_ok=True)
@@ -474,10 +474,10 @@ def load_transport_into_leap(
     CHECK_BRANCHES_IN_LEAP_USING_COM=True,
     SET_VARS_IN_LEAP_USING_COM=False,
     AUTO_SET_MISSING_BRANCHES=False,
-    export_filename="../../results/leap_export.xlsx",
-    import_filename="../../data/import_files/leap_import.xlsx",
-    TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx',
-    TRANSPORT_FUELS_DATA_FILE_PATH = '../../data/USA fuels model output.csv',
+    export_filename="../results/leap_export.xlsx",
+    import_filename="../data/import_files/leap_import.xlsx",
+    TRANSPORT_ESTO_BALANCES_PATH = '../data/all transport balances data.xlsx',
+    TRANSPORT_FUELS_DATA_FILE_PATH = '../data/USA fuels model output.csv',
     TRANSPORT_ROOT = r"Demand",
     LOAD_INPUT_CHECKPOINT=False,
     LOAD_HALFWAY_CHECKPOINT=False,
@@ -498,7 +498,7 @@ def load_transport_into_leap(
         EXAMPLE_SAMPLE_SIZE=1000
     )
     
-    df = prepare_input_data(transport_model_excel_path, economy, original_scenario, base_year, final_year, TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx', LOAD_CHECKPOINT=LOAD_INPUT_CHECKPOINT, TRANSPORT_FUELS_DATA_FILE_PATH = TRANSPORT_FUELS_DATA_FILE_PATH)
+    df = prepare_input_data(transport_model_excel_path, economy, original_scenario, base_year, final_year, TRANSPORT_ESTO_BALANCES_PATH = '../data/all transport balances data.xlsx', LOAD_CHECKPOINT=LOAD_INPUT_CHECKPOINT, TRANSPORT_FUELS_DATA_FILE_PATH = TRANSPORT_FUELS_DATA_FILE_PATH)
     
     L = connect_to_leap()
     leap_export_df = create_transport_export_df()
@@ -526,14 +526,14 @@ def load_transport_into_leap(
         continue
     #save temporary export df checkpoint
     if LOAD_HALFWAY_CHECKPOINT:
-        leap_export_df = pd.read_pickle("../../data/export_df_checkpoint.pkl")
+        leap_export_df = pd.read_pickle("../data/export_df_checkpoint.pkl")
     else:
-        leap_export_df.to_pickle("../../data/export_df_checkpoint.pkl")
+        leap_export_df.to_pickle("../data/export_df_checkpoint.pkl")
     
     
     if LOAD_THREEQUART_WAY_CHECKPOINT:
-        leap_export_df = pd.read_pickle("../../data/export_df_checkpoint2.pkl")
-        export_df_for_viewing = pd.read_pickle("../../data/export_df_for_viewing_checkpoint2.pkl")
+        leap_export_df = pd.read_pickle("../data/export_df_checkpoint2.pkl")
+        export_df_for_viewing = pd.read_pickle("../data/export_df_for_viewing_checkpoint2.pkl")
     else:
         #do validation and finalisation
         leap_export_df = validate_and_fix_shares_normalise_to_one(leap_export_df,EXAMPLE_SAMPLE_SIZE=5)
@@ -546,8 +546,8 @@ def load_transport_into_leap(
         
         leap_export_df, export_df_for_viewing = convert_values_to_expressions(leap_export_df)
         
-        leap_export_df.to_pickle("../../data/export_df_checkpoint2.pkl")
-        export_df_for_viewing.to_pickle("../../data/export_df_for_viewing_checkpoint2.pkl")
+        leap_export_df.to_pickle("../data/export_df_checkpoint2.pkl")
+        export_df_for_viewing.to_pickle("../data/export_df_for_viewing_checkpoint2.pkl")
     
     
     if LOAD_EXPORT_DF_CHECKPOINT:
@@ -571,19 +571,19 @@ def load_transport_into_leap(
 # Optional: run directly
 # ------------------------------------------------------------
 
-transport_model_path = r"../../data/USA transport file.xlsx"
+transport_model_path = r"../data/USA transport file.xlsx"
 transport_economy = "20_USA"
 transport_scenario = "Target"
 transport_region = "Region 1"
 transport_base_year = 2022
 transport_final_year = 2060
 transport_model_name = "USA transport"
-transport_export_path = "../../results/USA_transport_leap_export_Target.xlsx"
-transport_import_path = "../../data/import_files/USA_transport_leap_import_Target.xlsx"
-transport_esto_balances_path = '../../data/all transport balances data.xlsx'
-transport_fuels_path = '../../data/USA fuels model output.csv'
+transport_export_path = "../results/USA_transport_leap_export_Target.xlsx"
+transport_import_path = "../data/import_files/USA_transport_leap_import_Target.xlsx"
+transport_esto_balances_path = '../data/all transport balances data.xlsx'
+transport_fuels_path = '../data/USA fuels model output.csv'
 #INPUT CREATION VARS
-RUN_INPUT_CREATION = True
+RUN_INPUT_CREATION = False
 #RECONCILIATION VARS
 RUN_RECONCILIATION = True
 APPLY_ADJUSTMENTS_TO_FUTURE_YEARS = True
@@ -649,7 +649,7 @@ if __name__ == "__main__" and (RUN_INPUT_CREATION or RUN_RECONCILIATION):
 # from energy_use_reconciliation_transport import build_transport_esto_energy_totals
 # from esto_transport_data import extract_esto_energy_use_for_leap_branches
 # import pandas as pd
-# export_df = pd.read_excel("../../results/USA_transport_leap_export_Target.xlsx")
+# export_df = pd.read_excel("../results/USA_transport_leap_export_Target.xlsx")
 # esto_totals = {("15_02_road", "07_petroleum_products", "07_01_motor_gasoline"): 100.0}
 # # ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP, UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT
 # LEAP_BRANCHES_LIST = [branch for branches in SHORTNAME_TO_LEAP_BRANCHES.values() for branch in branches]

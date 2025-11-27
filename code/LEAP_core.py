@@ -18,7 +18,7 @@ from transport_branch_mappings import (
 from transport_measure_metadata import SHORTNAME_TO_ANALYSIS_TYPE
 from transport_measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
 
-from branch_expression_mapping import (
+from transport_branch_expression_mapping import (
     LEAP_BRANCH_TO_EXPRESSION_MAPPING,
     ALL_YEARS,
 )

@@ -8,7 +8,7 @@ they require.
 
 import pandas as pd
 
-from basic_mappings import SOURCE_CSV_TREE
+from transport_basic_mappings import SOURCE_CSV_TREE
 from transport_measure_catalog import (
     get_leap_measure,
     get_source_unit,

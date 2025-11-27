@@ -5,10 +5,10 @@ from typing import Dict, Iterable, Sequence
 
 import pandas as pd
 
-DEFAULT_MERGED_DATA = Path("../../data/merged_file_energy_ALL_20250814.csv")
-DEFAULT_TRANSPORT_BALANCES = Path("../../data/all transport balances data.xlsx")
-DEFAULT_APEC_OUTPUT = Path("../../data/TRANSPORT_all_APPLICABLE_historical_sectors_fuels_9th_outlook.xlsx")
-DEFAULT_NON_APEC_OUTPUT = Path("../../data/TRANSPORT_all_NONAPEC_historical_energy_use.xlsx")
+DEFAULT_MERGED_DATA = Path("../data/merged_file_energy_ALL_20250814.csv")
+DEFAULT_TRANSPORT_BALANCES = Path("../data/all transport balances data.xlsx")
+DEFAULT_APEC_OUTPUT = Path("../data/TRANSPORT_all_APPLICABLE_historical_sectors_fuels_9th_outlook.xlsx")
+DEFAULT_NON_APEC_OUTPUT = Path("../data/TRANSPORT_all_NONAPEC_historical_energy_use.xlsx")
 
 REFERENCE_SCENARIO = "reference"
 APEC_ECONOMY = "00_APEC"

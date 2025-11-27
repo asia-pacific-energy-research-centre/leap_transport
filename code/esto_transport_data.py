@@ -18,7 +18,7 @@ def extract_esto_sector_fuels_for_leap_branches(leap_branch_list):
                 leap_branch_to_esto_sector_fuel[leap_branch].append(esto_sector_fuel)
     return leap_branch_to_esto_sector_fuel
 
-def extract_other_type_rows_from_esto_and_insert_into_transport_df(df, base_year, final_year, economy,scenario, TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx'):
+def extract_other_type_rows_from_esto_and_insert_into_transport_df(df, base_year, final_year, economy,scenario, TRANSPORT_ESTO_BALANCES_PATH = '../data/all transport balances data.xlsx'):
     """Extract 'Other' shortname rows from ESTO and insert them into the transport dataframe."""
     
     #and insert the 'Other' shortname rows. These are those under the Other level 1 and level 2 in SHORTNAME_TO_LEAP_BRANCHES  and are basically rows that arent in this transport dataset because they were modelled separately. However to make it easy to use the same code to load them into LEAP we create rows for them here with activity levels equal to their enertgy use in the ESTO dataset and intensity=1. They will then have energy use = activity level * intensity = activity level = esto energy use. We can access their ESTO energy use from the ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP using extract_esto_sector_fuels_for_leap_branches(leap_branch_list) where leap_branch_list is the list of leap branches for the 'Other' shortnames

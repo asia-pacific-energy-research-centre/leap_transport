@@ -1,7 +1,7 @@
 # Toolkit files:
 - energy_use_reconciliation.py: Reconcile energy use totals against ESTO balances. Designed so that you only need to create functions which calcaulte energy use from a branch, and adjust the inptus accordingly.The rest of the code doesnt need to be changed if you are using this for a sector other than transport. The transport examples for this are in energy_use_reconciliation_transport.py
 - esto_transport_data.py: Functions for reading ESTO transport data files ready for energy use reconciliation.
-- MAIN_other_sectors.py: Brief script used to explore use of the LEAP_core and LEAP_excel_io modules for non-transport sectors. Currently only has a stub for energy use reconciliation.
+- MAIN_other_sectors.py: Brief script used to explore use of the LEAP_core and LEAP_excel_io modules for non-transport sectors. One key utility that this has no matter what sector you're working on is that it can copy/paste the 9th edition balances table into the LEAP key assumptions section for the base year. This makes it easier to double check energy results against the ESTO data, utilise them for formulae and so on.  Currently only has a stub for energy use reconciliation since no adustment/energy-calc fucntions have been built for sectors besides transport.
 - LEAP_core.py: Core LEAP functions for reading/writing LEAP files, and pushing data into LEAP via COM. Hasnt had much of an attempt to be generalized, so transport-specific code is still present.
 - LEAP_excel_io.py: Functions for reading/writing LEAP Excel import/export files. Also has transport-specific code.
 

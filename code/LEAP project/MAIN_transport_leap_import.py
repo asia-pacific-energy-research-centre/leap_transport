@@ -512,6 +512,23 @@ if __name__ == "__main__" and (RUN_INPUT_CREATION or RUN_RECONCILIATION):
             energy_fn=transport_energy_fn,
             adjustment_fn=transport_adjustment_fn,
         )
+        #double check reconcilliation worked by running it again on the output and seeing iff the scale factor is 1.0 everywhere
+        _, summary_df_check = reconcile_energy_use(
+            export_df=working_df,
+            base_year=BASE_YEAR,
+            branch_mapping_rules=branch_rules,
+            esto_energy_totals=esto_energy_totals,
+            energy_fn=transport_energy_fn,
+            adjustment_fn=transport_adjustment_fn,
+        )
+        if summary_df_check["Scale Factor"].apply(lambda x: abs(x - 1.0) < 1e-6).all():
+            print("Reconciliation successful: all scale factors are 1.0")
+        else:
+            breakpoint()
+            raise ValueError("Reconciliation failed: some scale factors are not 1.0: \n" + summary_df_check[summary_df_check["Scale Factor"].apply(lambda x: abs(x - 1.0) >= 1e-6)].to_string())
+        
+        #TODO NEED A STEP TO COMMUNICATE THE VALUES THAT HAVE CHANGED AND BY HOW MUCH. ALSO NEED TO HAVE AN OPTION TO ADJUST THE PROJECTED VALUES BY THE SAME FACTOR RATHER THAN JUST THE BASE YEAR.
+        
 #%%
 
 # from transport_branch_mappings import ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,     UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT, SHORTNAME_TO_LEAP_BRANCHES, ALL_LEAP_BRANCHES_TRANSPORT

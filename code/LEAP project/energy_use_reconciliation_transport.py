@@ -81,7 +81,6 @@ def transport_adjustment_fn(
           * scale its Final Energy Intensity by the same f.
         => leaf-level energy scales by f^2 = scale_factor.
     """
-
     branch_path = build_branch_path(rule["branch_tuple"], root=rule.get("root", "Demand"))
     parts = branch_path.split("\\")
     strategy = rule.get("calculation_strategy")
@@ -146,7 +145,10 @@ def transport_adjustment_fn(
             # energy ∝ A_eff * Intensity
             # so we scale A_eff and Intensity both by f, with f^2 = scale_factor.
             f = scale_factor ** 0.5
-
+            if 'rail' in path_lower:
+                if 'electric' in path_lower:
+                    if 'passenger' in path_lower:
+                        breakpoint()#double check we are getting the number we expect here
             # 1) Adjust activity hierarchy so A_eff(leaf) is multiplied by f,
             #    while other leaves' activities are unchanged and shares normalised.
             _adjust_activity_and_shares_exact(
@@ -158,6 +160,10 @@ def transport_adjustment_fn(
                 leaf_activity_factor=f,
             )
 
+            if 'rail' in path_lower:
+                if 'electric' in path_lower:
+                    if 'passenger' in path_lower:
+                        breakpoint()#double check we are getting the number we expect here
             # 2) Scale Final Energy Intensity at this leaf by f.
             _scale_series_if_present(
                 export_df,
@@ -167,6 +173,10 @@ def transport_adjustment_fn(
                 f,
             )
             
+            if 'rail' in path_lower:
+                if 'electric' in path_lower:
+                    if 'passenger' in path_lower:
+                        breakpoint()#double check we are getting the number we expect here
         elif len(parts) < 4 and ("pipeline" in path_lower or "nonspecified" in path_lower):
             parent_path = "\\".join(parts[:-1])   # total activity
             share1_path = parent_path             # children are the share1 nodes
@@ -206,7 +216,6 @@ def transport_energy_fn(
     combination_fn: Optional[Callable[[List[pd.Series]], pd.Series]] = None,
 ) -> float:
     """Dispatcher for transport-specific energy calculations."""
-    breakpoint()
     strategy = rule.get("calculation_strategy")
     if strategy == "Stock":
         return transport_stock_energy_fn(export_df, base_year, rule, strategies, combination_fn)
@@ -296,6 +305,10 @@ def transport_intensity_energy_fn(
     activity_level = activity_level / activity_scale
 
     energy_use = activity_level * intensity
+    if 'rail' in path_lower:
+        if 'electric' in path_lower:
+            if 'passenger' in path_lower:
+                breakpoint()#double check we are getting the number we expect here
     return float(energy_use)
 
 
@@ -387,11 +400,11 @@ def _adjust_device_stock_and_shares_exact(
     # 2. Mode-level stock shares (direct children of parent_path)
     depth_parent = parent_path.count("\\")
     depth_mode = depth_parent + 1
-
+    
     modes_mask = (
         (df["Variable"] == "Stock Share")
         & df["Branch Path"].str.startswith(parent_path + "\\")
-        & (df["Branch Path"].str.count("\\") == depth_mode)
+        & (df["Branch Path"].str.count(r"\\") == depth_mode)
     )
     if not modes_mask.any():
         return
@@ -405,7 +418,7 @@ def _adjust_device_stock_and_shares_exact(
     #    Stock_device0[(m, j)] = Stock_mode0[m] * (d_mj0 / D_m)
     mode_info: dict[str, dict] = {}
     Stock_device0: dict[tuple[str, str], float] = {}
-
+    
     for m_path, s_m0 in zip(mode_paths, mode_shares):
         mode_depth = m_path.count("\\")
         device_depth = mode_depth + 1
@@ -413,7 +426,7 @@ def _adjust_device_stock_and_shares_exact(
         dev_mask = (
             (df["Variable"] == "Device Share")
             & df["Branch Path"].str.startswith(m_path + "\\")
-            & (df["Branch Path"].str.count("\\") == device_depth)
+            & (df["Branch Path"].str.count(r"\\") == device_depth)
         )
 
         dev_series = df.loc[dev_mask, base_year].astype(float)
@@ -541,7 +554,7 @@ def _adjust_activity_and_shares_exact(
     share1_mask = (
         (df["Variable"] == "Activity Level")
         & df["Branch Path"].str.startswith(parent_path + "\\")
-        & (df["Branch Path"].str.count("\\") == depth_share1)
+        & (df["Branch Path"].str.count(r"\\") == depth_share1)
     )
     if not share1_mask.any():
         return
@@ -563,7 +576,7 @@ def _adjust_activity_and_shares_exact(
         share2_mask = (
             (df["Variable"] == "Activity Level")
             & df["Branch Path"].str.startswith(s1_path + "\\")
-            & (df["Branch Path"].str.count("\\") == depth_share2)
+            & (df["Branch Path"].str.count(r"\\") == depth_share2)
         )
         share2_paths = df.loc[share2_mask, "Branch Path"].tolist()
         share2_vals = df.loc[share2_mask, base_year].astype(float) if share2_mask.any() else pd.Series([], dtype=float)
@@ -718,7 +731,7 @@ def verify_nonroad_intensity_leaf_adjustment(
         s1_mask = (
             (df["Variable"] == "Activity Level")
             & df["Branch Path"].str.startswith(parent_path + "\\")
-            & (df["Branch Path"].str.count("\\") == depth_s1)
+            & (df["Branch Path"].str.count(r"\\") == depth_s1)
         )
         s1_paths = df.loc[s1_mask, "Branch Path"].tolist()
         s1_vals = [get_val(df, p, "Activity Level") for p in s1_paths]
@@ -732,7 +745,7 @@ def verify_nonroad_intensity_leaf_adjustment(
             s2_mask = (
                 (df["Variable"] == "Activity Level")
                 & df["Branch Path"].str.startswith(s1_path + "\\")
-                & (df["Branch Path"].str.count("\\") == depth_s2)
+                & (df["Branch Path"].str.count(r"\\") == depth_s2)
             )
             s2_paths = df.loc[s2_mask, "Branch Path"].tolist()
             s2_vals = [get_val(df, p, "Activity Level") for p in s2_paths]
@@ -930,7 +943,7 @@ def verify_device_stock_adjustment_with_mileage_fe(
     modes_mask = (
         (df_before["Variable"] == "Stock Share")
         & df_before["Branch Path"].str.startswith(parent_path + "\\")
-        & (df_before["Branch Path"].str.count("\\") == depth_mode)
+        & (df_before["Branch Path"].str.count(r"\\") == depth_mode)
     )
     mode_paths = df_before.loc[modes_mask, "Branch Path"].tolist()
 
@@ -956,7 +969,7 @@ def verify_device_stock_adjustment_with_mileage_fe(
             dev_mask = (
                 (df["Variable"] == "Device Share")
                 & df["Branch Path"].str.startswith(m_path + "\\")
-                & (df["Branch Path"].str.count("\\") == depth_dev)
+                & (df["Branch Path"].str.count(r"\\") == depth_dev)
             )
             dev_paths = df.loc[dev_mask, "Branch Path"].tolist()
             dev_shares = [

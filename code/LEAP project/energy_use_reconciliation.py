@@ -169,7 +169,6 @@ def calculate_branch_energy(
     """
 
     if energy_fn:
-        breakpoint()
         return float(energy_fn(export_df, base_year, rule, strategies, combination_fn))
 
     input_vars = rule.get("input_variables_override") or strategies[rule["calculation_strategy"]]
@@ -292,7 +291,6 @@ def reconcile_energy_use(
         if abs(leap_total - esto_total) > tolerance and scale_factor != 1.0:
             for rule in rules:
                 try:
-                    breakpoint()
                     adjust(working_df, base_year, rule, scale_factor, strategy_lookup)
                     adjusted_paths.append(build_branch_path(rule["branch_tuple"], root=rule.get("root", "Demand")))
                 except Exception:

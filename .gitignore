@@ -15,6 +15,7 @@
 *.html
 *.pkl
 *.dll
+*.code-workspace
 !.gitkeep
 
 env_leap/*

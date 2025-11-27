@@ -360,6 +360,93 @@ def reconcile_energy_use(
 
 
 # ---------------------------------------------------------------------------
+# Adjustment reporting helpers
+# ---------------------------------------------------------------------------
+
+def _build_change_table_for_years(
+    original_df: pd.DataFrame,
+    adjusted_df: pd.DataFrame,
+    years: Sequence[int | str],
+    tol: float = 1e-9,
+) -> pd.DataFrame:
+    """Internal: build a long-form table of value changes for the provided years."""
+
+    if not years:
+        return pd.DataFrame(columns=["Branch Path", "Variable", "Year", "Original", "Adjusted", "Abs Change", "Pct Change"])
+
+    meta_cols = [col for col in ("Scenario", "Economy") if col in original_df.columns]
+    base_cols = ["Branch Path", "Variable", *meta_cols]
+    frames: List[pd.DataFrame] = []
+
+    for year_col in years:
+        if year_col not in original_df.columns or year_col not in adjusted_df.columns:
+            continue
+
+        orig_vals = pd.to_numeric(original_df[year_col], errors="coerce")
+        adj_vals = pd.to_numeric(adjusted_df[year_col], errors="coerce")
+        diff = adj_vals - orig_vals
+
+        mask = ~((orig_vals.isna()) & (adj_vals.isna())) & diff.abs().gt(tol)
+        if not mask.any():
+            continue
+
+        pct_change = diff / orig_vals.replace(0, pd.NA)
+
+        frame = pd.DataFrame(
+            {
+                "Branch Path": original_df.loc[mask, "Branch Path"],
+                "Variable": original_df.loc[mask, "Variable"],
+                "Year": year_col,
+                "Original": orig_vals.loc[mask],
+                "Adjusted": adj_vals.loc[mask],
+                "Abs Change": diff.loc[mask],
+                "Pct Change": pct_change.loc[mask],
+            }
+        )
+
+        for meta_col in meta_cols:
+            frame[meta_col] = original_df.loc[mask, meta_col]
+
+        frames.append(frame)
+
+    if not frames:
+        return pd.DataFrame(columns=["Branch Path", "Variable", "Year", "Original", "Adjusted", "Abs Change", "Pct Change", *meta_cols])
+
+    combined = pd.concat(frames, ignore_index=True)
+    combined = combined.sort_values(by="Abs Change", key=lambda s: s.abs(), ascending=False)
+    return combined.reset_index(drop=True)
+
+
+def build_adjustment_change_tables(
+    original_df: pd.DataFrame,
+    adjusted_df: pd.DataFrame,
+    base_year: int | str,
+    include_future_years: bool = False,
+    tol: float = 1e-9,
+) -> Tuple[pd.DataFrame, Optional[pd.DataFrame]]:
+    """
+    Create tables describing how LEAP inputs changed during reconciliation.
+
+    Returns
+    -------
+    base_year_changes: DataFrame with differences for the base_year column.
+    future_year_changes: DataFrame with differences for all columns after base_year
+        when include_future_years is True. Otherwise None.
+    """
+
+    base_changes = _build_change_table_for_years(original_df, adjusted_df, [base_year], tol=tol)
+
+    future_changes = None
+    if include_future_years:
+        future_years = [
+            year for year in get_adjustment_year_columns(adjusted_df, base_year, include_future_years=True) if year != base_year
+        ]
+        future_changes = _build_change_table_for_years(original_df, adjusted_df, future_years, tol=tol)
+
+    return base_changes, future_changes
+
+
+# ---------------------------------------------------------------------------
 # Convenience helper
 # ---------------------------------------------------------------------------
 

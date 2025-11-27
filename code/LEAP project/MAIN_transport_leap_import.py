@@ -7,6 +7,8 @@
 # ============================================================
 
 import pandas as pd
+import shutil
+from datetime import datetime
 
 from LEAP_core import (
     connect_to_leap,
@@ -61,6 +63,7 @@ import pandas as pd
 from energy_use_reconciliation import (
     build_branch_rules_from_mapping,
     reconcile_energy_use,
+    build_adjustment_change_tables,
 )
 from transport_branch_mappings import (
     ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
@@ -316,7 +319,145 @@ def process_single_leap_transport_mapping(
     )
 
     return leap_export_df
-                                                                              
+
+#------------------------------------------------------------
+# Transport Reconciliation
+#------------------------------------------------------------
+
+def run_transport_reconciliation(
+    apply_adjustments_to_future_years,
+    report_adjustment_changes,
+    date_id,
+    transport_esto_balances_path,
+    transport_export_path,
+    economy,
+    base_year,
+    final_year,
+    scenario,
+    model_name,
+    unmappable_branches,
+    analysis_type_lookup,
+    all_leap_branches,
+    esto_to_leap_mapping,
+    set_vars_in_leap_using_com,
+    subtotal_column='subtotal_layout',
+):
+    esto_df = pd.read_excel(transport_esto_balances_path)
+    export_df = pd.read_excel(transport_export_path, header=2, sheet_name='FOR_VIEWING')
+    export_df = export_df[export_df['Scenario'] == 'Current Accounts']
+
+    esto_energy_totals = build_transport_esto_energy_totals(
+        esto_df=esto_df,
+        economy=economy,
+        original_scenario=scenario,
+        base_year=base_year,
+        final_year=final_year,
+        SUBTOTAL_COLUMN=subtotal_column,
+    )
+    branch_rules = build_branch_rules_from_mapping(
+        esto_to_leap_mapping=esto_to_leap_mapping,
+        unmappable_branches=unmappable_branches,
+        all_leap_branches=all_leap_branches,
+        analysis_type_lookup=analysis_type_lookup,
+        root='Demand',
+    )
+    # pd.Series(esto_energy_totals).to_pickle('../../data/temp/transport_esto_energy_totals.pkl')
+    # pd.Series(branch_rules).to_pickle('../../data/temp/transport_branch_rules.pkl')
+    # else:
+    # esto_energy_totals = pd.read_pickle('../../data/temp/transport_esto_energy_totals.pkl').to_dict()
+    # branch_rules = pd.read_pickle('../../data/temp/transport_branch_rules.pkl').to_dict()
+
+    working_df, summary_df = reconcile_energy_use(
+        export_df=export_df,
+        base_year=base_year,
+        branch_mapping_rules=branch_rules,
+        esto_energy_totals=esto_energy_totals,
+        energy_fn=transport_energy_fn,
+        adjustment_fn=transport_adjustment_fn,
+        apply_adjustments_to_future_years=apply_adjustments_to_future_years,
+    )
+    #run again to check that everything is reconciled properly
+    _, summary_df_check = reconcile_energy_use(
+        export_df=working_df,
+        base_year=base_year,
+        branch_mapping_rules=branch_rules,
+        esto_energy_totals=esto_energy_totals,
+        energy_fn=transport_energy_fn,
+        adjustment_fn=transport_adjustment_fn,
+        apply_adjustments_to_future_years=apply_adjustments_to_future_years,
+    )
+    if not summary_df_check['Scale Factor'].apply(lambda x: abs(x - 1.0) < 1e-6).all():
+        breakpoint()
+        failed = summary_df_check[summary_df_check['Scale Factor'].apply(lambda x: abs(x - 1.0) >= 1e-6)]
+        raise ValueError('Reconciliation failed: some scale factors are not 1.0:\n' + failed.to_string())
+
+    # Quick run-down of what changed
+    adjusted_mask = summary_df['Scale Factor'].apply(lambda x: abs(x - 1.0) > 1e-6)
+    adjusted_count = int(adjusted_mask.sum())
+    if adjusted_count:
+        abs_dev = (summary_df.loc[adjusted_mask, 'Scale Factor'] - 1.0).abs()
+        max_dev_pct = float(abs_dev.max() * 100)
+        mean_dev_pct = float(abs_dev.mean() * 100)
+        change_msg = f"Adjusted {adjusted_count} ESTO keys; max scale deviation {max_dev_pct:.2f}% (avg {mean_dev_pct:.2f}%)."
+    else:
+        change_msg = "No adjustments required; all scale factors were 1.0."
+
+    if report_adjustment_changes:
+        reconciliation_dir = "../../results/reconciliation"
+        recon_archive_dir = os.path.join(reconciliation_dir, "archive")
+        os.makedirs(reconciliation_dir, exist_ok=True)
+        os.makedirs(recon_archive_dir, exist_ok=True)
+        base_changes, future_changes = build_adjustment_change_tables(
+            original_df=export_df,
+            adjusted_df=working_df,
+            base_year=base_year,
+            include_future_years=apply_adjustments_to_future_years,
+        )
+        suffix = f"{economy}_{scenario}".replace(" ", "_")
+        base_changes_path = os.path.join(reconciliation_dir, f"transport_adjustment_changes_base_year_{suffix}.csv")
+        if os.path.exists(base_changes_path):
+            base_archive_path = os.path.join(
+                recon_archive_dir, f"transport_adjustment_changes_base_year_{suffix}_{date_id}.csv"
+            )
+            shutil.move(base_changes_path, base_archive_path)
+        base_changes.to_csv(base_changes_path, index=False)
+        print(f"Saved base-year adjustment details to {base_changes_path} ({len(base_changes)} rows).")
+
+        if future_changes is not None and not future_changes.empty:
+            future_changes_path = os.path.join(reconciliation_dir, f"transport_adjustment_changes_future_years_{suffix}.csv")
+            if os.path.exists(future_changes_path):
+                future_archive_path = os.path.join(
+                    recon_archive_dir, f"transport_adjustment_changes_future_years_{suffix}_{date_id}.csv"
+                )
+                shutil.move(future_changes_path, future_archive_path)
+            future_changes.to_csv(future_changes_path, index=False)
+            print(f"Saved future-year adjustment details to {future_changes_path} ({len(future_changes)} rows).")
+        elif future_changes is not None:
+            print("No future-year adjustments detected.")
+
+    leap_export_df, export_df_for_viewing = convert_values_to_expressions(working_df)
+    # Archive existing export before overwriting
+    export_archive_dir = os.path.join(os.path.dirname(transport_export_path), "archive")
+    os.makedirs(export_archive_dir, exist_ok=True)
+    if os.path.exists(transport_export_path):
+        export_base = os.path.splitext(os.path.basename(transport_export_path))
+        archived_export = os.path.join(export_archive_dir, f"{export_base[0]}_{date_id}{export_base[1]}")
+        shutil.move(transport_export_path, archived_export)
+
+    save_export_files(
+        leap_export_df,
+        export_df_for_viewing,
+        transport_export_path,
+        base_year,
+        final_year,
+        model_name=model_name,
+    )
+
+    if set_vars_in_leap_using_com:
+        L = connect_to_leap()
+        write_export_df_to_leap(L, leap_export_df)
+        #TODO NEED A STEP TO COMMUNICATE THE VALUES THAT HAVE CHANGED AND BY HOW MUCH. ALSO NEED TO HAVE AN OPTION TO ADJUST THE PROJECTED VALUES BY THE SAME FACTOR RATHER THAN JUST THE BASE YEAR.
+    print(f"\n=== Transport data reconciliation completed. {change_msg} ===\n")
 # ------------------------------------------------------------
 # Main Loader
 # ------------------------------------------------------------
@@ -419,6 +560,7 @@ def load_transport_into_leap(
         save_export_files(
             leap_export_df, export_df_for_viewing, export_filename, base_year, final_year, model_name
         )
+        
             
     if SET_VARS_IN_LEAP_USING_COM:
         write_export_df_to_leap(L, leap_export_df)
@@ -428,112 +570,77 @@ def load_transport_into_leap(
 # ------------------------------------------------------------
 # Optional: run directly
 # ------------------------------------------------------------
-RUN_INPUT_CREATION = False
+
+transport_model_path = r"../../data/USA transport file.xlsx"
+transport_economy = "20_USA"
+transport_scenario = "Target"
+transport_region = "Region 1"
+transport_base_year = 2022
+transport_final_year = 2060
+transport_model_name = "USA transport"
+transport_export_path = "../../results/USA_transport_leap_export_Target.xlsx"
+transport_import_path = "../../data/import_files/USA_transport_leap_import_Target.xlsx"
+transport_esto_balances_path = '../../data/all transport balances data.xlsx'
+transport_fuels_path = '../../data/USA fuels model output.csv'
+#INPUT CREATION VARS
+RUN_INPUT_CREATION = True
+#RECONCILIATION VARS
 RUN_RECONCILIATION = True
-TEST = True
 APPLY_ADJUSTMENTS_TO_FUTURE_YEARS = True
+REPORT_ADJUSTMENT_CHANGES = True
+DATE_ID = datetime.now().strftime("%Y%m%d")
 if __name__ == "__main__" and (RUN_INPUT_CREATION or RUN_RECONCILIATION):
     pd.options.display.float_format = "{:,.3f}".format
     if RUN_INPUT_CREATION:
         list_all_measures()
+
         load_transport_into_leap(
-            transport_model_excel_path=r"../../data/USA transport file.xlsx",
-            economy="20_USA",
-            original_scenario='Target',
-            new_scenario='Target',
-            region="Region 1",
+            transport_model_excel_path=transport_model_path,
+            economy=transport_economy,
+            original_scenario=transport_scenario,
+            new_scenario=transport_scenario,
+            region=transport_region,
             diagnose_method='all',
-            base_year=2022,
-            final_year=2060,
-            model_name="USA transport",
+            base_year=transport_base_year,
+            final_year=transport_final_year,
+            model_name=transport_model_name,
             CHECK_BRANCHES_IN_LEAP_USING_COM=True,
             SET_VARS_IN_LEAP_USING_COM=False,
             AUTO_SET_MISSING_BRANCHES=False,
-            export_filename="../../results/USA_transport_leap_export_Target.xlsx",
-            import_filename="../../data/import_files/USA_transport_leap_import_Target.xlsx",
-            TRANSPORT_ESTO_BALANCES_PATH = '../../data/all transport balances data.xlsx',
-            TRANSPORT_FUELS_DATA_FILE_PATH = '../../data/USA fuels model output.csv',
-            TRANSPORT_ROOT = r"Demand",
-            #make sure that if one of these is true the earlier ones are true too.  i.e. if LOAD_THREEQUART_WAY_CHECKPOINT is true then LOAD_HALFWAY_CHECKPOINT and LOAD_INPUT_CHECKPOINT must also be true.
+            export_filename=transport_export_path,
+            import_filename=transport_import_path,
+            TRANSPORT_ESTO_BALANCES_PATH=transport_esto_balances_path,
+            TRANSPORT_FUELS_DATA_FILE_PATH=transport_fuels_path,
+            TRANSPORT_ROOT=r"Demand",
             LOAD_INPUT_CHECKPOINT=True,
             LOAD_HALFWAY_CHECKPOINT=False,
             LOAD_THREEQUART_WAY_CHECKPOINT=False,
             LOAD_EXPORT_DF_CHECKPOINT=False,
-            MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE=True
+            MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE=True,
         )
     if RUN_RECONCILIATION:
-        # esto_df and export_df loaded elsewhere
-        TRANSPORT_ESTO_BALANCES_PATH ='../../data/all transport balances data.xlsx'
-        TRANSPORT_EXPORT_PATH = "../../results/USA_transport_leap_export_Target.xlsx"
-        esto_df = pd.read_excel(TRANSPORT_ESTO_BALANCES_PATH)
-        export_df = pd.read_excel(TRANSPORT_EXPORT_PATH, header=2)#skip first two rows which are metadata
-        #filter for only scenario = Current Accounts. Later on we can fill in the values for other scenarios too... or is it a TODO that we need to stop our other scnearios from having base year values in them to avoid this step?
-        #TODO above: check with user if they want to reconcile all scenarios or just current accounts
-        export_df = export_df[export_df['Scenario'] == 'Current Accounts']
-
-        ECONOMY = '20_USA'
-        BASE_YEAR = 2022
-        FINAL_YEAR = 2060
-        SUBTOTAL_COLUMN = 'subtotal_layout'
-        SCENARIO = "reference"
-        if not TEST:
-            #  build ESTO totals including nonspecified
-            esto_energy_totals = build_transport_esto_energy_totals(
-                esto_df=esto_df,
-                economy=ECONOMY,
-                original_scenario=SCENARIO,
-                base_year=BASE_YEAR,
-                final_year=FINAL_YEAR,
-                SUBTOTAL_COLUMN=SUBTOTAL_COLUMN,
-            )
-
-            #  build mapping rules (unchanged)
-            branch_rules = build_branch_rules_from_mapping(
-                esto_to_leap_mapping=ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
-                unmappable_branches=UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT,
-                all_leap_branches=ALL_LEAP_BRANCHES_TRANSPORT,
-                analysis_type_lookup=LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP.get,
-                root="Demand",
-            )
-        
-            #save teh inputs to pickle so we can quickly test the below
-            pd.Series(esto_energy_totals).to_pickle("../../data/temp/transport_esto_energy_totals.pkl")
-            pd.Series(branch_rules).to_pickle("../../data/temp/transport_branch_rules.pkl")
-        else:            
-            esto_energy_totals = pd.read_pickle("../../data/temp/transport_esto_energy_totals.pkl").to_dict()
-            branch_rules = pd.read_pickle("../../data/temp/transport_branch_rules.pkl").to_dict()
-        
-        breakpoint()
-        #  run reconciliation
-        working_df, summary_df = reconcile_energy_use(
-            export_df=export_df,
-            base_year=BASE_YEAR,
-            branch_mapping_rules=branch_rules,
-            esto_energy_totals=esto_energy_totals,
-            energy_fn=transport_energy_fn,
-            adjustment_fn=transport_adjustment_fn,
-            apply_adjustments_to_future_years=APPLY_ADJUSTMENTS_TO_FUTURE_YEARS,
-            apply_adjustments_to_past_years=False,
+        esto_to_leap_mapping=ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP
+        unmappable_branches=UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT
+        all_leap_branches=ALL_LEAP_BRANCHES_TRANSPORT
+        analysis_type_lookup=LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP.get
+        run_transport_reconciliation(
+        apply_adjustments_to_future_years=APPLY_ADJUSTMENTS_TO_FUTURE_YEARS,
+        report_adjustment_changes=REPORT_ADJUSTMENT_CHANGES,
+        date_id=DATE_ID,
+        transport_esto_balances_path=transport_esto_balances_path,
+        transport_export_path=transport_export_path,
+        economy=transport_economy,
+        base_year=transport_base_year,
+        final_year=transport_final_year,
+        scenario=transport_scenario,
+        model_name=transport_model_name,
+        unmappable_branches=unmappable_branches,
+        analysis_type_lookup=analysis_type_lookup,
+        all_leap_branches=all_leap_branches,
+        esto_to_leap_mapping=esto_to_leap_mapping,
+        set_vars_in_leap_using_com=False,
         )
-        #double check reconcilliation worked by running it again on the output and seeing iff the scale factor is 1.0 everywhere
-        _, summary_df_check = reconcile_energy_use(
-            export_df=working_df,
-            base_year=BASE_YEAR,
-            branch_mapping_rules=branch_rules,
-            esto_energy_totals=esto_energy_totals,
-            energy_fn=transport_energy_fn,
-            adjustment_fn=transport_adjustment_fn,
-            apply_adjustments_to_future_years=APPLY_ADJUSTMENTS_TO_FUTURE_YEARS,
-            apply_adjustments_to_past_years=False,
-        )
-        if summary_df_check["Scale Factor"].apply(lambda x: abs(x - 1.0) < 1e-6).all():
-            print("Reconciliation successful: all scale factors are 1.0")
-        else:
-            breakpoint()
-            raise ValueError("Reconciliation failed: some scale factors are not 1.0: \n" + summary_df_check[summary_df_check["Scale Factor"].apply(lambda x: abs(x - 1.0) >= 1e-6)].to_string())
-        
-        #TODO NEED A STEP TO COMMUNICATE THE VALUES THAT HAVE CHANGED AND BY HOW MUCH. ALSO NEED TO HAVE AN OPTION TO ADJUST THE PROJECTED VALUES BY THE SAME FACTOR RATHER THAN JUST THE BASE YEAR.
-        
+    
 #%%
 
 # from transport_branch_mappings import ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,     UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT, SHORTNAME_TO_LEAP_BRANCHES, ALL_LEAP_BRANCHES_TRANSPORT

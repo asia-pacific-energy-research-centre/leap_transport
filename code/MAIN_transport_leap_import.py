@@ -526,14 +526,14 @@ def load_transport_into_leap(
         continue
     #save temporary export df checkpoint
     if LOAD_HALFWAY_CHECKPOINT:
-        leap_export_df = pd.read_pickle("../data/export_df_checkpoint.pkl")
+        leap_export_df = pd.read_pickle("../intermediate_data/export_df_checkpoint.pkl")
     else:
-        leap_export_df.to_pickle("../data/export_df_checkpoint.pkl")
+        leap_export_df.to_pickle("../intermediate_data/export_df_checkpoint.pkl")
     
     
     if LOAD_THREEQUART_WAY_CHECKPOINT:
-        leap_export_df = pd.read_pickle("../data/export_df_checkpoint2.pkl")
-        export_df_for_viewing = pd.read_pickle("../data/export_df_for_viewing_checkpoint2.pkl")
+        leap_export_df = pd.read_pickle("../intermediate_data/export_df_checkpoint2.pkl")
+        export_df_for_viewing = pd.read_pickle("../intermediate_data/export_df_for_viewing_checkpoint2.pkl")
     else:
         #do validation and finalisation
         leap_export_df = validate_and_fix_shares_normalise_to_one(leap_export_df,EXAMPLE_SAMPLE_SIZE=5)
@@ -546,8 +546,8 @@ def load_transport_into_leap(
         
         leap_export_df, export_df_for_viewing = convert_values_to_expressions(leap_export_df)
         
-        leap_export_df.to_pickle("../data/export_df_checkpoint2.pkl")
-        export_df_for_viewing.to_pickle("../data/export_df_for_viewing_checkpoint2.pkl")
+        leap_export_df.to_pickle("../intermediate_data/export_df_checkpoint2.pkl")
+        export_df_for_viewing.to_pickle("../intermediate_data/export_df_for_viewing_checkpoint2.pkl")
     
     
     if LOAD_EXPORT_DF_CHECKPOINT:

@@ -1,30 +1,4 @@
 #%%
-# Constants mapped to LEAP BranchType enumeration values
-# According to LEAP TypeLib: 1 = DemandCategoryBranchType,
-# 4 = DemandTechnologyBranchType, 36 = DemandFuelBranchType
-BRANCH_DEMAND_CATEGORY = 1
-BRANCH_DEMAND_TECHNOLOGY = 4
-BRANCH_DEMAND_FUEL = 36
-BRANCH_KEY_ASSUMPTION_BRANCH = 9#contains number
-BRANCH_KEY_ASSUMPTION_CATEGORY = 10#contains many sub-branches
-# Hypothetical value for key assumptions
-#below are all teh unique values from the leap typelib for branch types
-#  1=DemandCategoryBranchType, 2=TransformationModuleBranchType, 3=TransformationProcessBranchType, 4=DemandTechnologyBranchType, 5=TransformationProcessCategoryType, 6=TransformationOutputCategoryType, 7=TransformationOutputBranchType, 9=KeyAssumptionCategoryType, 10=KeyAssumptionBranchType, 11=ResourceRootType, 12=PrimaryBranchCategoryType, 13=SecondaryBranchCategoryType, 15=ResourceBranchType, 16=ResourceDisagType, 18=StatDiffRootType, 19=StockChangeRootType, 20=StatDiffPrimaryCategoryType, 21= StatDiffSecondaryCategoryType, 22=StockChangePrimaryCategoryType, 23=StockChangeSecondaryCategoryType, 24=StatDiffBranchType, 25=  StockChangeBranchType, 26=NonEnergyCategoryType, 27=NonEnergyBranchType, 30=AuxCategoryType, 31=AuxBranchType, 32=FeedstockCategoryType, 33= FeedstockBranchType, 34=DMDPollutionBranchType, 35=TransformationPollutionBranchType, 36=DemandFuelBranchType, 37=IndicatorCategoryType, 38=IndicatorBranchType, 39=EmissionConstraintBranchType"
-#these can be looked up in config/TypeLib_LEAP_API_full.txt
-# e.g.         
-# [id(0x0000012a), propget, helpstring("Adds a new key assumption branch with name BName and the specified scale and units below branch ParentID.")]
-# HRESULT AddKeyAssumption(
-#                 [in] int ParentID, 
-#                 [in] VARIANT BName, 
-#                 [in] VARIANT Scale, 
-#                 [in] VARIANT KUnit, 
-#                 [out, retval] ILEAPBranch** Value);
-# [id(0x0000012e), propget, helpstring("Adds a new key assumption category branch with name BName below branch ParentID.")]
-# HRESULT AddKeyAssumptionCategory(
-#                 [in] int ParentID, 
-#                 [in] VARIANT BName, 
-#                 [out, retval] ILEAPBranch** Value);
-
 from traitlets import Tuple
 from LEAP_core import (
     fill_branches_from_export_file,

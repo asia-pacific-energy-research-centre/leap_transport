@@ -96,4 +96,43 @@ fill_branches_from_export_file(
 )
 
 #%%
+# Dummy energy reconciliation workflow (turn on by setting run_demo=True)
+run_demo = False
+
+if run_demo:
+    import pandas as pd
+    from energy_use_reconciliation import build_branch_rules_from_mapping, reconcile_energy_use
+
+    # Small example showing how to reconcile ESTO totals with a LEAP export.
+    example_branch_path = f"{ROOT}\\Example branch"
+    demo_export = pd.DataFrame(
+        {
+            "Branch Path": [example_branch_path, example_branch_path],
+            "Variable": ["Activity Level", "Final Energy Intensity"],
+            BASE_YEAR: [1.0, 1.0],
+        }
+    )
+
+    example_mapping = {
+        ("example_sector", "example_fuel"): [("Energy Balances", "Example branch")]
+    }
+    demo_rules = build_branch_rules_from_mapping(
+        example_mapping,
+        unmappable_branches=[],
+        all_leap_branches=[("Energy Balances", "Example branch")],
+        analysis_type_lookup=lambda branch: "Intensity",
+        root="Key Assumptions",
+    )
+
+    demo_esto_totals = {("example_sector", "example_fuel"): 1.1}
+    adjusted_demo_df, demo_summary = reconcile_energy_use(
+        export_df=demo_export,
+        base_year=BASE_YEAR,
+        branch_mapping_rules=demo_rules,
+        esto_energy_totals=demo_esto_totals,
+        apply_adjustments_to_future_years=False,
+    )
+
+    demo_summary.to_csv("../intermediate_data/dummy_energy_reconciliation_summary.csv", index=False)
+    adjusted_demo_df.to_csv("../intermediate_data/dummy_energy_reconciliation_export.csv", index=False)
 

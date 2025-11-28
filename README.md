@@ -9,8 +9,9 @@ Lightweight helpers to prepare data for LEAP, reconcile energy use with ESTO bal
 4. Activate when working: `conda activate ./env_leap`.
 
 ## Where to begin
-- **Non-transport tasks:** `code/MAIN_other_sectors.py` copies 9th edition balances into LEAP key assumptions and is a template for other sectors.
+- **Non-transport tasks:** `code/MAIN_other_sectors.py` copies 9th edition balances into LEAP key assumptions and is a template for other sectors (with a dummy reconciliation cell to show the flow).
 - **Energy reconciliation:** `energy_use_reconciliation.py` aligns sector totals with ESTO; plug in your own branch-specific calculators.
+- **Transport (quick note):** `code/MAIN_transport_leap_import.py` builds transport branches and uses the reconciliation helpers; ignore it unless you need transport-specific updates.
 
 ## Folder map
 - `code/` Python scripts (start with the files above).

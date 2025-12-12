@@ -1,20 +1,24 @@
 from __future__ import annotations
+import sys
+from pathlib import Path
 import pandas as pd
 from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
+# Allow sibling leap_utils package without pip install
+BASE_DIR = Path(__file__).resolve().parent.parent
+UTILS_ROOT = (BASE_DIR / "leap_utilities").resolve()
+UTILS_PKG = UTILS_ROOT / "leap_utils"
+for path in (UTILS_PKG, UTILS_ROOT):
+    if path.exists() and str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
-from energy_use_reconciliation import (
-    LEAP_MEASURE_CONFIG,
+from leap_utils.energy_use_reconciliation import (
     _apply_proportional_adjustment,
     get_adjustment_year_columns,
     build_branch_path,
 )
-from transport_branch_mappings import (
-    ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
-)
-from esto_transport_data import (
-    extract_esto_energy_use_for_leap_branches,
-)
+from branch_mappings import ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP, LEAP_MEASURE_CONFIG
+from esto_data import extract_esto_energy_use_for_leap_branches
 
 
 def _get_scalar(
@@ -1236,8 +1240,6 @@ def build_transport_esto_energy_totals(
             )
 
     return esto_energy_totals
-
-
 
 
 

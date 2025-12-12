@@ -3,10 +3,10 @@
 # ============================================================
 from collections import defaultdict, Counter
 import pandas as pd
-from transport_measure_metadata import SHARE_MEASURES
-from transport_measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
-from transport_branch_mappings import ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP, LEAP_MEASURE_CONFIG, DEFAULT_BRANCH_SHARE_SETTINGS_DICT
-from esto_transport_data import extract_esto_energy_use_for_leap_branches
+from measure_metadata import SHARE_MEASURES
+from measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
+from branch_mappings import ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP, LEAP_MEASURE_CONFIG, DEFAULT_BRANCH_SHARE_SETTINGS_DICT
+from esto_data import extract_esto_energy_use_for_leap_branches
 import numpy as np
 def get_most_detailed_branches(mapping: dict):
     """
@@ -273,15 +273,15 @@ def validate_all_mappings_with_measures(
 #%%
 # Example usage
 # if __name__ == "__main__":
-#     from transport_branch_mappings import (
+#     from branch_mappings import (
 #         ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
 #         LEAP_BRANCH_TO_SOURCE_MAP,
 #         SHORTNAME_TO_LEAP_BRANCHES,
 #         LEAP_MEASURE_CONFIG,
 #         UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT
 #     )
-#     from transport_branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING
-#     from transport_basic_mappings import ESTO_TRANSPORT_SECTOR_TUPLES
+#     from branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING
+#     from basic_mappings import ESTO_TRANSPORT_SECTOR_TUPLES
 
 #     results = validate_all_mappings_with_measures(
 #         ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
@@ -419,6 +419,8 @@ def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, original
     Intensity based: where activity level * intensity -> energy use
     We will iterate over each key in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP, sum up the energy use from each of the LEAP branches mapped to that key, and compare it to the ESTO total for that sector-fuel combination.
     """
+    #filter out current accounts scnario from export_df so we dont double count it when comparing to the esto data
+    export_df = export_df[export_df['Scenario'] != 'Current Accounts']
     esto_energy_use = pd.read_excel(TRANSPORT_ESTO_BALANCES_PATH) 
     #filter for the given economy, scenario and base year
     esto_energy_use_filtered = esto_energy_use[
@@ -641,14 +643,20 @@ def validate_and_fix_shares_normalise_to_one(df, EXAMPLE_SAMPLE_SIZE=5):
                 # Group by parent and calculate sums
                 parent_sums = level_data.groupby('parent_tuple')['Value'].agg(['sum', 'count']).reset_index()
                 parent_sums.columns = ['parent_tuple', 'total_sum', 'child_count']
+
+                # Determine expected target sum: 1.0 for nonspecified parents, else 100.0
+                def get_target_sum(parent_tuple):
+                    return 1.0 if any('nonspecified' in str(part).lower() for part in parent_tuple) else 100.0
+
+                parent_sums['target_sum'] = parent_sums['parent_tuple'].apply(get_target_sum)
                 
-                # Find parents where sum != 100.0 (within tolerance)
-                problematic_parents = parent_sums[abs(parent_sums['total_sum'] - 100.0) > tol]
+                # Find parents where sum != target (within tolerance)
+                problematic_parents = parent_sums[abs(parent_sums['total_sum'] - parent_sums['target_sum']) > tol]
                 
                 if not problematic_parents.empty:
                     # Merge back to get children needing normalization
                     normalization_data = level_data.merge(
-                        problematic_parents[['parent_tuple', 'total_sum']], 
+                        problematic_parents[['parent_tuple', 'total_sum', 'target_sum']], 
                         on='parent_tuple', 
                         how='inner'
                     )
@@ -664,20 +672,20 @@ def validate_and_fix_shares_normalise_to_one(df, EXAMPLE_SAMPLE_SIZE=5):
                             splits = DEFAULT_BRANCH_SHARE_SETTINGS_DICT[measure_branch_tuple]
                             split = splits.get(row['branch_tuple'][-1], 0)
                             
+                        target = row.get('target_sum', 100.0)
+
                         if row['total_sum'] == 0.0 and row['child_count'] == 1:
-                            return 100.0
+                            return target
                         elif row['total_sum'] == 0.0 and SPLIT_EQUALLY:
                             if row['child_count'] > 0:
-                                # breakpoint()#is there a chance this is sometimes returning the wrong value?e.g. 50 for a set of >2 children?
-                                return 100.0 / row['child_count']
+                                return target / row['child_count']
                             else:
                                 breakpoint()#not sure what situation this would be
                                 raise ValueError("Child count is zero while total sum is zero.")
                         elif row['total_sum'] == 0.0 and not SPLIT_EQUALLY:
-                            return split
+                            return split * (target / 100.0)
                         else:
-                            # breakpoint()#is there a chance this is sometimes returning the wrong value?e.g. 50 for a set of >2 children?
-                            return (row['Value'] / row['total_sum']) * 100.0
+                            return (row['Value'] / row['total_sum']) * target
                     
                     # Add child count info
                     normalization_data = normalization_data.merge(
@@ -711,6 +719,7 @@ def validate_and_fix_shares_normalise_to_one(df, EXAMPLE_SAMPLE_SIZE=5):
                             'parent': parent_tuple,
                             'year': date,
                             'total_share': parent_info['total_sum'],
+                            'target_share': parent_info.get('target_sum', 100.0),
                             'children': [(c, o, n) for c, o, n in children_info],
                             'Measure': measure
                         })
@@ -721,6 +730,7 @@ def validate_and_fix_shares_normalise_to_one(df, EXAMPLE_SAMPLE_SIZE=5):
             for issue in issues_found[:EXAMPLE_SAMPLE_SIZE]:
                 parent_str = ' -> '.join(issue['parent']) if issue['parent'] else 'Root'
                 total = issue.get('total_share', 0.0)
+                target = issue.get('target_share', 100.0)
                 year = issue.get('year', 'Unknown')
                 print(f"   • Parent: {parent_str}, Year: {year}, Original Total: {total:.3f}")
                 for child, original, normalized in issue['children'][:3]:
@@ -728,9 +738,9 @@ def validate_and_fix_shares_normalise_to_one(df, EXAMPLE_SAMPLE_SIZE=5):
                     print(f"     - {child_str}: {original:.3f} → {normalized:.3f}")
                 #double check that the normalization worked
                 normalized_total = sum(n for _, _, n in issue['children'])
-                if abs(normalized_total - 100.0) > tol:
+                if abs(normalized_total - target) > tol:
                     breakpoint()
-                    print(f"     ❌ Normalization failed! New total: {normalized_total:.3f}")
+                    print(f"     ❌ Normalization failed! New total: {normalized_total:.3f} (target {target:.3f})")
                 else:
                     pass
         else:

@@ -8,13 +8,13 @@ they require.
 
 import pandas as pd
 
-from transport_basic_mappings import SOURCE_CSV_TREE
-from transport_measure_catalog import (
+from basic_mappings import SOURCE_CSV_TREE
+from measure_catalog import (
     get_leap_measure,
     get_source_unit,
     get_weight_priority,
 )
-from transport_measure_metadata import (
+from measure_metadata import (
     AGGREGATION_BASE_MEASURES,
     AGGREGATION_RULES,
     CALCULATED_MEASURES,
@@ -456,6 +456,10 @@ def process_measures_for_leap(
     drive: str,
     fuel: str,
     src_tuple: tuple,
+    *,
+    leap_tuple: tuple | None = None,
+    passenger_sales_result: dict | None = None,
+    freight_sales_result: dict | None = None,
 ) -> dict:
     """
     Applies all scaling and nonlinear conversions (e.g. Efficiency → Intensity/Fuel Economy)
@@ -481,8 +485,44 @@ def process_measures_for_leap(
         # if drive == 'bev' and leap_measure == 'Stock Share':
         #     breakpoint()  # investigate why 1000 is occuring#why is the stock share ended up as >1
         
-        df_out = df.copy()
         print('Recording measure:', leap_measure)
+
+        # Optional override: use passenger sales model totals for top-level passenger road sales
+        if (
+            leap_measure == "Sales"
+            and passenger_sales_result is not None
+            and leap_tuple == ("Passenger road",)
+        ):
+            # breakpoint()
+            passenger_total_sales = passenger_sales_result.get("passenger_total_sales")
+            if passenger_total_sales is not None:
+                sales_series = pd.Series(passenger_total_sales).astype(float)
+                scaled_sales = apply_scaling(sales_series, "Sales", shortname)
+                processed[leap_measure] = (
+                    scaled_sales.rename(leap_measure)
+                    .rename_axis("Date")
+                    .reset_index()
+                )
+                continue
+
+        # Optional override: use freight sales model totals for top-level freight road sales
+        if (
+            leap_measure == "Sales"
+            and freight_sales_result is not None
+            and leap_tuple == ("Freight road",)
+        ):
+            freight_total_sales = freight_sales_result.get("freight_total_sales")
+            if freight_total_sales is not None:
+                sales_series = pd.Series(freight_total_sales).astype(float)
+                scaled_sales = apply_scaling(sales_series, "Sales", shortname)
+                processed[leap_measure] = (
+                    scaled_sales.rename(leap_measure)
+                    .rename_axis("Date")
+                    .reset_index()
+                )
+                continue
+
+        df_out = df.copy()
         src = meta["source_mapping"]
         if src in CALCULATED_MEASURES:
             try:

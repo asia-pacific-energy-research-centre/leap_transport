@@ -1,23 +1,23 @@
 """Transport measure helper facade.
 
 The transport measure utilities have been split into focused modules:
-- :mod:`transport_measure_catalog` for static metadata lookups
-- :mod:`transport_measure_processing` for scaling/aggregation routines
-- :mod:`transport_preprocessing` for source data adjustments prior to LEAP
+- :mod:`measure_catalog` for static metadata lookups
+- :mod:`measure_processing` for scaling/aggregation routines
+- :mod:`preprocessing` for source data adjustments prior to LEAP
 
 This module keeps backward compatibility by re-exporting the most-used
 functions so existing notebooks and scripts can continue importing from
-``transport_measures`` while new code can opt into the narrower modules.
+``measures`` while new code can opt into the narrower modules.
 """
 
-from transport_measure_catalog import (
+from measure_catalog import (
     LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP,
     get_leap_measure,
     get_source_unit,
     get_weight_priority,
     list_all_measures,
 )
-from transport_measure_processing import (
+from measure_processing import (
     aggregate_measures,
     aggregate_weighted,
     apply_scaling,
@@ -26,7 +26,7 @@ from transport_measure_processing import (
     get_source_categories,
     process_measures_for_leap,
 )
-from transport_preprocessing import (
+from preprocessing import (
     allocate_fuel_alternatives_energy_and_activity,
     calculate_sales,
 )

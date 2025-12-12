@@ -14,11 +14,13 @@ from datetime import datetime
 
 # Allow sibling leap_utilities package without pip install
 BASE_DIR = Path(__file__).resolve().parent.parent
-UTILS_PATH = (BASE_DIR / "leap_utilities").resolve()
-if UTILS_PATH.exists() and str(UTILS_PATH) not in sys.path:
-    sys.path.insert(0, str(UTILS_PATH))
+UTILS_ROOT = (BASE_DIR / "leap_utilities").resolve()
+UTILS_PKG = UTILS_ROOT / "leap_utils"
+for path in (UTILS_PKG, UTILS_ROOT):
+    if path.exists() and str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
-from leap_utilities.leap_core import (
+from leap_utils.leap_core import (
     connect_to_leap,
     diagnose_measures_in_leap_branch,
     ensure_branch_exists,
@@ -29,7 +31,7 @@ from leap_utilities.leap_core import (
     build_expression_from_mapping,
     define_value_based_on_src_tuple
 )
-from transport_branch_mappings import (
+from branch_mappings import (
     ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
     LEAP_BRANCH_TO_SOURCE_MAP,
     SHORTNAME_TO_LEAP_BRANCHES,
@@ -38,30 +40,30 @@ from transport_branch_mappings import (
     create_new_source_rows_based_on_combinations,
     create_new_source_rows_based_on_proxies_with_no_activity,
 )
-from transport_measure_catalog import list_all_measures
-from transport_measure_processing import process_measures_for_leap
-from transport_preprocessing import (
+from measure_catalog import list_all_measures, LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
+from measure_processing import process_measures_for_leap
+from preprocessing import (
     allocate_fuel_alternatives_energy_and_activity,
     calculate_sales,
     normalize_and_calculate_shares)
-from leap_utilities.leap_excel_io import finalise_export_df, save_export_files, join_and_check_import_structure_matches_export_structure, separate_current_accounts_from_scenario
-from transport_branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING
-from esto_transport_data import (
+from leap_utils.leap_excel_io import finalise_export_df, save_export_files, join_and_check_import_structure_matches_export_structure, separate_current_accounts_from_scenario
+from branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING
+from esto_data import (
     extract_other_type_rows_from_esto_and_insert_into_transport_df,
 )
 
-from transport_basic_mappings import (
+from basic_mappings import (
     ESTO_TRANSPORT_SECTOR_TUPLES,
     add_fuel_column,
     EXPECTED_COLS_IN_SOURCE,
 )
 
-from transport_mappings_validation import (
+from mappings_validation import (
     validate_all_mappings_with_measures,
     validate_and_fix_shares_normalise_to_one,
     validate_final_energy_use_for_base_year_equals_esto_totals,
 )
-from transport_sales_curve_estimate import (
+from sales_curve_estimate import (
     load_survival_and_vintage_profiles,
     estimate_passenger_sales_from_dataframe,
     estimate_freight_sales_from_dataframe,
@@ -73,20 +75,20 @@ import os
 
 # imports and data loading
 import pandas as pd
-from leap_utilities.energy_use_reconciliation import (
+from leap_utils.energy_use_reconciliation import (
     build_branch_rules_from_mapping,
     reconcile_energy_use,
     build_adjustment_change_tables,
 )
-from transport_branch_mappings import (
+from branch_mappings import (
     ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
     UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT,
     ALL_LEAP_BRANCHES_TRANSPORT,
 )
 
-from transport_measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
+from measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
 
-from energy_use_reconciliation_transport import transport_energy_fn, transport_adjustment_fn, build_transport_esto_energy_totals
+from energy_use_reconciliation_road import transport_energy_fn, transport_adjustment_fn, build_transport_esto_energy_totals
 
 
 # ------------------------------------------------------------
@@ -840,11 +842,11 @@ if __name__ == "__main__" and (RUN_INPUT_CREATION or RUN_RECONCILIATION):
     
 #%%
 
-# from transport_branch_mappings import ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,     UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT, SHORTNAME_TO_LEAP_BRANCHES, ALL_LEAP_BRANCHES_TRANSPORT
-# from transport_measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
+# from branch_mappings import ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,     UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT, SHORTNAME_TO_LEAP_BRANCHES, ALL_LEAP_BRANCHES_TRANSPORT
+# from measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
 # from energy_use_reconciliation import reconcile_energy_use, build_branch_rules_from_mapping
-# from energy_use_reconciliation_transport import build_transport_esto_energy_totals
-# from esto_transport_data import extract_esto_energy_use_for_leap_branches
+# from energy_use_reconciliation_road import build_transport_esto_energy_totals
+# from esto_data import extract_esto_energy_use_for_leap_branches
 # import pandas as pd
 # export_df = pd.read_excel("../results/USA_transport_leap_export_Target.xlsx")
 # esto_totals = {("15_02_road", "07_petroleum_products", "07_01_motor_gasoline"): 100.0}

@@ -5,8 +5,8 @@ so other packages can work with LEAP names, units, and weighting rules
 without pulling in the heavier processing helpers.
 """
 
-from transport_branch_mappings import LEAP_MEASURE_CONFIG, SHORTNAME_TO_LEAP_BRANCHES
-from transport_measure_metadata import (
+from branch_mappings import LEAP_MEASURE_CONFIG, SHORTNAME_TO_LEAP_BRANCHES
+from measure_metadata import (
     DEFAULT_WEIGHT_PRIORITY,
     SHORTNAME_TO_ANALYSIS_TYPE,
     SOURCE_MEASURE_TO_UNIT,

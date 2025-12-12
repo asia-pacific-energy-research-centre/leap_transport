@@ -1,33 +1,30 @@
-# LEAP utilities toolkit
+# LEAP transport toolkit
 
-Lightweight helpers to prepare data for LEAP, reconcile energy use with ESTO balances, and keep results tidy. Designed for busy researchers—minimal setup, clear entry points, and short runs.
+Transport-only pipeline for building LEAP import/export files, applying transport measures, and reconciling ESTO balances. Generic helpers now live in the separate `leap_utilities` repo; this project holds the transport mappings, measures, and workflows.
 
-## Quick start
-1. Windows + Anaconda/Miniconda.
-2. In an Anaconda Prompt, `cd` to this folder.
-3. Create the environment: `conda env create --prefix ./env_leap --file ./config/env_leap.yml`.
-4. Activate when working: `conda activate ./env_leap`.
+## Setup
+- Windows with LEAP desktop (COM needs LEAP open).
+- Clone this repo and have `../leap_utilities` available; install the helpers into the environment with `pip install -e ../leap_utilities` if not already on `PYTHONPATH`.
+- Create the environment from the repo root: `conda env create --prefix ./env_leap --file ./config/env_leap.yml`; activate via `conda activate ./env_leap`.
 
-## Where to begin
-- **Non-transport tasks:** `code/MAIN_other_sectors.py` copies 9th edition balances into LEAP key assumptions and is a template for other sectors (with a dummy reconciliation cell to show the flow).
-- **Energy reconciliation:** `energy_use_reconciliation.py` aligns sector totals with ESTO; plug in your own branch-specific calculators.
-- **Transport (quick note):** `code/MAIN_transport_leap_import.py` builds transport branches and uses the reconciliation helpers; ignore it unless you need transport-specific updates.
+## Run the transport import
+- Edit the config block at the bottom of `code/MAIN_leap_import.py` to point to your transport model, ESTO balances, fuel outputs, lifecycle profiles, and desired export/import filenames.
+- Toggle runtime flags in the same block:
+  - `RUN_INPUT_CREATION` builds LEAP export/import files and can write values to LEAP via COM.
+  - `RUN_PASSENGER_SALES` / `RUN_FREIGHT_SALES` generate sales curves from survival/vintage profiles.
+  - `RUN_RECONCILIATION` runs ESTO vs LEAP checks/adjustments after export creation.
+- Run from the repo root so relative paths resolve: `python code/MAIN_leap_import.py`.
+- Outputs land in `results/` (export workbook, passenger/freight sales CSVs) with checkpoints in `intermediate_data/`; import-structure files sit in `data/import_files/`.
 
-## Folder map
-- `code/` Python scripts (start with the files above).
-- `config/` Conda environment and LEAP type library.
-- `data/` Input sources (ESTO balances, model files).
-- `intermediate_data/` Checkpoints created during runs.
-- `results/` Finished LEAP import/export files and reconciliation reports.
-- `plotting_output/` Charts produced by optional plotting steps.
+## Key files
+- `code/MAIN_leap_import.py`: orchestrates preprocessing, mapping, export creation, optional COM writes, and reconciliation.
+- `code/branch_mappings.py`, `branch_expression_mapping.py`, `basic_mappings.py`: mapping tables between the transport model, ESTO sectors/fuels, and LEAP branches/expressions.
+- `code/measure_*` and `code/measure_processing.py`: transport measure catalog and processing logic.
+- `code/energy_use_reconciliation_road.py`: transport-specific reconciliation strategies and adjustments.
+- `code/sales_curve_estimate.py`: builds passenger/freight sales curves from lifecycle profiles.
+- `config/env_leap.yml`: conda env; `config/TypeLib_LEAP_API_full.txt`: LEAP COM type library.
 
-## Coding style at a glance
-- Scripts are split into `#%%` cells for quick interactive runs (VS Code/Jupyter).
-- Functions first, orchestration later: utilities and data loaders sit near the top; `MAIN_*` blocks call them in order.
-- Prefer small, single-purpose functions over classes; keep inputs/outputs explicit.
-- Breakpoints are sprinkled in so you can step through cells when debugging.
-
-## Tips
-- Open LEAP before pushing values via COM.
-- Run commands from this folder so `./config/env_leap.yml` is found.
-- Large data files are ignored by Git; keep source data in `data/`.
+## Notes
+- Keep LEAP open when using COM; set `CHECK_BRANCHES_IN_LEAP_USING_COM` and `SET_VARS_IN_LEAP_USING_COM` in `code/MAIN_leap_import.py` to control COM usage.
+- Large data files stay under `data/` and are ignored by Git; exports and checkpoints live in `results/` and `intermediate_data/`.
+- Shared COM/reconciliation utilities are maintained in `../leap_utilities` (installed as the `leap_utils` package).

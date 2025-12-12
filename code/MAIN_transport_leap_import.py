@@ -6,11 +6,19 @@
 # Depends on LEAP_core.py and mapping/config modules.
 # ============================================================
 
+import sys
+from pathlib import Path
 import pandas as pd
 import shutil
 from datetime import datetime
 
-from LEAP_core import (
+# Allow sibling leap_utilities package without pip install
+BASE_DIR = Path(__file__).resolve().parent.parent
+UTILS_PATH = (BASE_DIR / "leap_utilities").resolve()
+if UTILS_PATH.exists() and str(UTILS_PATH) not in sys.path:
+    sys.path.insert(0, str(UTILS_PATH))
+
+from leap_utilities.leap_core import (
     connect_to_leap,
     diagnose_measures_in_leap_branch,
     ensure_branch_exists,
@@ -36,7 +44,7 @@ from transport_preprocessing import (
     allocate_fuel_alternatives_energy_and_activity,
     calculate_sales,
     normalize_and_calculate_shares)
-from LEAP_excel_io import finalise_export_df, save_export_files,join_and_check_import_structure_matches_export_structure
+from leap_utilities.leap_excel_io import finalise_export_df, save_export_files, join_and_check_import_structure_matches_export_structure, separate_current_accounts_from_scenario
 from transport_branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING
 from esto_transport_data import (
     extract_other_type_rows_from_esto_and_insert_into_transport_df,
@@ -53,6 +61,11 @@ from transport_mappings_validation import (
     validate_and_fix_shares_normalise_to_one,
     validate_final_energy_use_for_base_year_equals_esto_totals,
 )
+from transport_sales_curve_estimate import (
+    load_survival_and_vintage_profiles,
+    estimate_passenger_sales_from_dataframe,
+    estimate_freight_sales_from_dataframe,
+)
 import os
 
 ##########
@@ -60,7 +73,7 @@ import os
 
 # imports and data loading
 import pandas as pd
-from energy_use_reconciliation import (
+from leap_utilities.energy_use_reconciliation import (
     build_branch_rules_from_mapping,
     reconcile_energy_use,
     build_adjustment_change_tables,
@@ -138,6 +151,98 @@ def prepare_input_data(transport_model_excel_path, economy, scenario, base_year,
     return df
 
 
+def run_passenger_sales_workflow(
+    df: pd.DataFrame,
+    economy: str,
+    scenario: str,
+    base_year: int,
+    final_year: int,
+    survival_path: str = "../data/lifecycle_profiles/vehicle_survival_modified.xlsx",
+    vintage_path: str = "../data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
+    esto_energy_path: str = '../data/all transport balances data.xlsx',
+    output_path: str | None = None,
+    plot: bool = False,
+    **kwargs,
+) -> dict:
+    """
+    Run passenger sales estimation using survival/vintage lifecycle profiles.
+
+    Returns the result dict from estimate_passenger_sales_from_dataframe and
+    writes sales_table to CSV if output_path is provided.
+    """
+    survival_curves, vintage_profiles = load_survival_and_vintage_profiles(
+        survival_path=survival_path,
+        vintage_path=vintage_path,
+        vehicle_keys=("LPV", "MC", "Bus"),
+    )
+    result = estimate_passenger_sales_from_dataframe(
+        df=df,
+        survival_curves=survival_curves,
+        vintage_profiles=vintage_profiles,
+        economy=economy,
+        scenario=scenario,
+        base_year=base_year,
+        final_year=final_year,
+        plot=plot,
+        esto_energy_path=esto_energy_path,
+        **kwargs,
+    )
+
+    sales_table = result.get("sales_table")
+    if output_path and sales_table is not None:
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        sales_table.to_csv(output_path, index=False)
+        print(f"[INFO] Saved passenger sales table to {output_path}")
+
+    return result
+
+
+def run_freight_sales_workflow(
+    df: pd.DataFrame,
+    economy: str,
+    scenario: str,
+    base_year: int,
+    final_year: int,
+    survival_path: str = "../data/lifecycle_profiles/vehicle_survival_modified.xlsx",
+    vintage_path: str = "../data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
+    esto_energy_path: str = '../data/all transport balances data.xlsx',
+    output_path: str | None = None,
+    plot: bool = False,
+    **kwargs,
+) -> dict:
+    """
+    Run freight sales estimation using survival/vintage lifecycle profiles.
+
+    Returns the result dict from estimate_freight_sales_from_dataframe and
+    writes sales_table to CSV if output_path is provided.
+    """
+    survival_curves, vintage_profiles = load_survival_and_vintage_profiles(
+        survival_path=survival_path,
+        vintage_path=vintage_path,
+        vehicle_keys=("Trucks", "LCVs"),
+    )
+    result = estimate_freight_sales_from_dataframe(
+        df=df,
+        survival_curves=survival_curves,
+        vintage_profiles=vintage_profiles,
+        economy=economy,
+        scenario=scenario,
+        base_year=base_year,
+        final_year=final_year,
+        plot=plot,
+        esto_energy_path=esto_energy_path,
+        **kwargs,
+    )
+
+    sales_table = result.get("sales_table")
+    if output_path and sales_table is not None:
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        sales_table.to_csv(output_path, index=False)
+        print(f"[INFO] Saved freight sales table to {output_path}")
+
+    return result
+
+
 def process_transport_branch_mapping(leap_tuple, src_tuple, TRANSPORT_ROOT=r"Demand"):
     """Construct LEAP branch path and identify column groupings."""
     ttype = medium = vtype = drive = fuel = None
@@ -169,13 +274,27 @@ def process_transport_branch_mapping(leap_tuple, src_tuple, TRANSPORT_ROOT=r"Dem
 
 def write_measures_to_transport_export_df_for_current_branch(
     df_copy, leap_tuple, src_tuple, branch_path, filtered_measure_config,
-    shortname, source_cols_for_grouping, leap_export_df
+    shortname, source_cols_for_grouping, leap_export_df,
+    passenger_sales_result=None,
+    freight_sales_result=None,
 ):
     """Process measures for a branch and write them into LEAP."""
     ttype, medium, vtype, drive, fuel = tuple(list(src_tuple) + [None] * (5 - len(src_tuple)))[:5]
     
     processed_measures = process_measures_for_leap(
-        df_copy, filtered_measure_config, shortname, source_cols_for_grouping, ttype, medium, vtype, drive, fuel, src_tuple
+        df_copy,
+        filtered_measure_config,
+        shortname,
+        source_cols_for_grouping,
+        ttype,
+        medium,
+        vtype,
+        drive,
+        fuel,
+        src_tuple,
+        leap_tuple=leap_tuple,
+        passenger_sales_result=passenger_sales_result,
+        freight_sales_result=freight_sales_result,
     )
     
     for measure, df_m in processed_measures.items():
@@ -247,20 +366,31 @@ def convert_values_to_expressions(leap_export_df):
 def write_export_df_to_leap(
     L, leap_export_df
     ):
-    print("\n=== Setting variables in LEAP via COM interface ===")
+    print("\n=== Setting variables in LEAP via COM interface. Make sure not to use the LEAP window while this is running or it might cause problems! ===")
     total_written = 0
-    total_missing_variables = 0
-    for idx, row in leap_export_df.iterrows():
-        branch_path = row['Branch Path']
-        measure = row['Variable']
-        expr = row['Expression']
+    
+    for scenario in leap_export_df['Scenario'].unique():
         
-        success = safe_set_variable(L.Branch(branch_path), measure, expr, branch_path)
-        if success:
-            total_written += 1
-        else:
-            total_missing_variables += 1
-    print(f"\n=== Finished setting variables in LEAP. Total written: {total_written}, Missing variables: {total_missing_variables} ===\n")
+        try:
+            L.ActiveScenario = scenario #set the active scenario in LEAP
+        except Exception as e:
+            breakpoint()
+            raise RuntimeError(f"[ERROR] Failed to set active scenario to '{scenario}' in LEAP: {e}")
+        rows = leap_export_df[leap_export_df['Scenario'] == scenario]
+            
+        total_missing_variables = 0
+        for idx, row in rows.iterrows():
+            branch_path = row['Branch Path']
+            measure = row['Variable']
+            expr = row['Expression']
+            unit = row['Units']
+            
+            success = safe_set_variable(L, L.Branch(branch_path), measure, expr, unit_name=unit, context=branch_path)
+            if success:
+                total_written += 1
+            else:
+                total_missing_variables += 1
+        print(f"\n=== Finished setting variables in LEAP for scenario '{scenario}'. Total written: {total_written}, Missing variables: {total_missing_variables} ===\n")
 
 def process_single_leap_transport_mapping(
     *,
@@ -276,7 +406,9 @@ def process_single_leap_transport_mapping(
     leap_export_df,
     TRANSPORT_ROOT,
     CHECK_BRANCHES_IN_LEAP_USING_COM,
-    AUTO_SET_MISSING_BRANCHES
+    AUTO_SET_MISSING_BRANCHES,
+    passenger_sales_result=None,
+    freight_sales_result=None,
 ):
     """Process one (leap_tuple, src_tuple) mapping and return updated state.
     Returns updated leap_export_df.
@@ -315,7 +447,9 @@ def process_single_leap_transport_mapping(
         filtered_measure_config,
         shortname,
         source_cols_for_grouping,
-        leap_export_df
+        leap_export_df,
+        passenger_sales_result=passenger_sales_result,
+        freight_sales_result=freight_sales_result,
     )
 
     return leap_export_df
@@ -483,7 +617,14 @@ def load_transport_into_leap(
     LOAD_HALFWAY_CHECKPOINT=False,
     LOAD_THREEQUART_WAY_CHECKPOINT=False,
     LOAD_EXPORT_DF_CHECKPOINT=False,
-    MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE=False
+    MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE=False,
+    RUN_PASSENGER_SALES=False,
+    RUN_FREIGHT_SALES=False,
+    SURVIVAL_PROFILE_PATH="../data/lifecycle_profiles/vehicle_survival_modified.xlsx",
+    VINTAGE_PROFILE_PATH="../data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
+    PASSENGER_SALES_OUTPUT=None,
+    FREIGHT_SALES_OUTPUT=None,
+    PASSENGER_PLOT=False,
 ):
     """Main orchestrator for LEAP transport data loading."""
     
@@ -499,6 +640,38 @@ def load_transport_into_leap(
     )
     
     df = prepare_input_data(transport_model_excel_path, economy, original_scenario, base_year, final_year, TRANSPORT_ESTO_BALANCES_PATH = '../data/all transport balances data.xlsx', LOAD_CHECKPOINT=LOAD_INPUT_CHECKPOINT, TRANSPORT_FUELS_DATA_FILE_PATH = TRANSPORT_FUELS_DATA_FILE_PATH)
+    
+    passenger_sales_result = None
+    freight_sales_result = None
+    if RUN_PASSENGER_SALES:
+        passenger_output = PASSENGER_SALES_OUTPUT or f"../results/passenger_sales_{economy}_{original_scenario}.csv"
+        # breakpoint()
+        passenger_sales_result = run_passenger_sales_workflow(
+            df=df,
+            economy=economy,
+            scenario=original_scenario,
+            base_year=base_year,
+            final_year=final_year,
+            survival_path=SURVIVAL_PROFILE_PATH,
+            vintage_path=VINTAGE_PROFILE_PATH,
+            esto_energy_path=TRANSPORT_ESTO_BALANCES_PATH,
+            output_path=passenger_output,
+            plot=PASSENGER_PLOT,
+        )
+    if RUN_FREIGHT_SALES:
+        freight_output = FREIGHT_SALES_OUTPUT or f"../results/freight_sales_{economy}_{original_scenario}.csv"
+        freight_sales_result = run_freight_sales_workflow(
+            df=df,
+            economy=economy,
+            scenario=original_scenario,
+            base_year=base_year,
+            final_year=final_year,
+            survival_path=SURVIVAL_PROFILE_PATH,
+            vintage_path=VINTAGE_PROFILE_PATH,
+            esto_energy_path=TRANSPORT_ESTO_BALANCES_PATH,
+            output_path=freight_output,
+            plot=False,
+        )
     
     L = connect_to_leap()
     leap_export_df = create_transport_export_df()
@@ -521,7 +694,9 @@ def load_transport_into_leap(
             leap_export_df=leap_export_df,
             TRANSPORT_ROOT=TRANSPORT_ROOT,
             CHECK_BRANCHES_IN_LEAP_USING_COM=CHECK_BRANCHES_IN_LEAP_USING_COM,
-            AUTO_SET_MISSING_BRANCHES=AUTO_SET_MISSING_BRANCHES
+            AUTO_SET_MISSING_BRANCHES=AUTO_SET_MISSING_BRANCHES,
+            passenger_sales_result=passenger_sales_result,
+            freight_sales_result=freight_sales_result,
         )
         continue
     #save temporary export df checkpoint
@@ -530,7 +705,6 @@ def load_transport_into_leap(
     else:
         leap_export_df.to_pickle("../intermediate_data/export_df_checkpoint.pkl")
     
-    
     if LOAD_THREEQUART_WAY_CHECKPOINT:
         leap_export_df = pd.read_pickle("../intermediate_data/export_df_checkpoint2.pkl")
         export_df_for_viewing = pd.read_pickle("../intermediate_data/export_df_for_viewing_checkpoint2.pkl")
@@ -538,8 +712,11 @@ def load_transport_into_leap(
         #do validation and finalisation
         leap_export_df = validate_and_fix_shares_normalise_to_one(leap_export_df,EXAMPLE_SAMPLE_SIZE=5)
         
+        #create current accounts scenario
+        leap_export_df = separate_current_accounts_from_scenario(leap_export_df, base_year=base_year, scenario=new_scenario)
+        
         leap_export_df = finalise_export_df(
-            leap_export_df, scenario=new_scenario, region=region, base_year=2022, final_year=2060
+            leap_export_df, scenario=new_scenario, region=region, base_year=base_year, final_year=final_year
         )
         validate_final_energy_use_for_base_year_equals_esto_totals(economy, original_scenario,new_scenario, base_year, final_year, leap_export_df, TRANSPORT_ESTO_BALANCES_PATH, TRANSPORT_ROOT)
         print("\n=== Transport data successfully filled into LEAP. ===\n")
@@ -551,17 +728,22 @@ def load_transport_into_leap(
     
     
     if LOAD_EXPORT_DF_CHECKPOINT:
-        leap_export_df = pd.read_excel(export_filename, sheet_name='LEAP')
+        # breakpoint()
+        leap_export_df = pd.read_excel(export_filename, sheet_name='LEAP', header=2)
         print(f"Loaded leap_export_df from checkpoint: {export_filename}")
     else:
+        # def create_current_accounts_scenario(export_df):
+        #     export_df_current = export_df.copy()
+        #     export_df_current['Scenario'] = 'Current Accounts'
+        #     return export_df_current
+        #todo need to change the expressions for rows in scneario current accounts os they dont include any values except the base year
         if MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE:
-            leap_export_df, export_df_for_viewing = join_and_check_import_structure_matches_export_structure(import_filename, leap_export_df, export_df_for_viewing, STRICT_CHECKS=False)
+            leap_export_df, export_df_for_viewing = join_and_check_import_structure_matches_export_structure(import_filename, leap_export_df, export_df_for_viewing, scenario=new_scenario, region=region, STRICT_CHECKS=False)
         
         save_export_files(
             leap_export_df, export_df_for_viewing, export_filename, base_year, final_year, model_name
         )
-        
-            
+    
     if SET_VARS_IN_LEAP_USING_COM:
         write_export_df_to_leap(L, leap_export_df)
     print("\n=== Transport data loading process completed. ===\n")
@@ -582,10 +764,16 @@ transport_export_path = "../results/USA_transport_leap_export_Target.xlsx"
 transport_import_path = "../data/import_files/USA_transport_leap_import_Target.xlsx"
 transport_esto_balances_path = '../data/all transport balances data.xlsx'
 transport_fuels_path = '../data/USA fuels model output.csv'
+survival_profile_path = "../data/lifecycle_profiles/vehicle_survival_modified.xlsx"
+vintage_profile_path = "../data/lifecycle_profiles/vintage_modelled_from_survival.xlsx"
+passenger_sales_output = "../results/passenger_sales_USA_Target.csv"
+freight_sales_output = "../results/freight_sales_USA_Target.csv"
 #INPUT CREATION VARS
-RUN_INPUT_CREATION = False
+RUN_INPUT_CREATION = True
+RUN_PASSENGER_SALES = True
+RUN_FREIGHT_SALES = True
 #RECONCILIATION VARS
-RUN_RECONCILIATION = True
+RUN_RECONCILIATION = False#this will need to have curret accounts made for it.
 APPLY_ADJUSTMENTS_TO_FUTURE_YEARS = True
 REPORT_ADJUSTMENT_CHANGES = True
 DATE_ID = datetime.now().strftime("%Y%m%d")
@@ -605,18 +793,27 @@ if __name__ == "__main__" and (RUN_INPUT_CREATION or RUN_RECONCILIATION):
             final_year=transport_final_year,
             model_name=transport_model_name,
             CHECK_BRANCHES_IN_LEAP_USING_COM=True,
-            SET_VARS_IN_LEAP_USING_COM=False,
+            SET_VARS_IN_LEAP_USING_COM=True,
             AUTO_SET_MISSING_BRANCHES=False,
             export_filename=transport_export_path,
             import_filename=transport_import_path,
             TRANSPORT_ESTO_BALANCES_PATH=transport_esto_balances_path,
             TRANSPORT_FUELS_DATA_FILE_PATH=transport_fuels_path,
             TRANSPORT_ROOT=r"Demand",
-            LOAD_INPUT_CHECKPOINT=True,
+            #checkpoint/loading options
+            LOAD_INPUT_CHECKPOINT=False,
             LOAD_HALFWAY_CHECKPOINT=False,
             LOAD_THREEQUART_WAY_CHECKPOINT=False,
             LOAD_EXPORT_DF_CHECKPOINT=False,
             MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE=True,
+            #related to passenger sales calculation
+            RUN_PASSENGER_SALES=RUN_PASSENGER_SALES,
+            RUN_FREIGHT_SALES=RUN_FREIGHT_SALES,
+            SURVIVAL_PROFILE_PATH=survival_profile_path,
+            VINTAGE_PROFILE_PATH=vintage_profile_path,
+            PASSENGER_SALES_OUTPUT=passenger_sales_output,
+            FREIGHT_SALES_OUTPUT=freight_sales_output,
+            PASSENGER_PLOT=False,
         )
     if RUN_RECONCILIATION:
         esto_to_leap_mapping=ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP
@@ -638,7 +835,7 @@ if __name__ == "__main__" and (RUN_INPUT_CREATION or RUN_RECONCILIATION):
         analysis_type_lookup=analysis_type_lookup,
         all_leap_branches=all_leap_branches,
         esto_to_leap_mapping=esto_to_leap_mapping,
-        set_vars_in_leap_using_com=False,
+        set_vars_in_leap_using_com=True,
         )
     
 #%%

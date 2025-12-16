@@ -211,6 +211,10 @@ def load_vintage_profile(path: str | os.PathLike[str]) -> pd.Series:
     Load a vintage profile and normalise so it sums to 1.0.
     """
     series = _read_profile_excel(path)
+    if not series.empty:
+        # Enforce zero stock in the first vintage year before normalising
+        first_year = series.index.min()
+        series.loc[first_year] = 0.0
     total = series.sum()
     if total > 0:
         series = series / total
@@ -1035,6 +1039,7 @@ def estimate_passenger_sales_from_dataframe(
     result["energy_use_passenger"] = energy_use_passenger
 
     result = convert_result_to_dataframe(result)
+    
     return result
 
 

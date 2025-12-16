@@ -481,7 +481,14 @@ def build_vintage_from_survival_excel(
                 f"[{lo:.4f}, {hi:.4f}]."
             )
 
-    # Ensure exact sum of 100
+    # Enforce zero stock in the first vintage year, then renormalise to 100
+    if not vintage_profile:
+        raise ValueError("Derived vintage profile is empty; cannot save vintage lifecycle profile.")
+    vintage_profile = apply_lifecycle_type_rules(
+        vintage_profile,
+        lifecycle_type="vintage",
+        base_year=min(vintage_profile.keys()),
+    )
     vintage_profile = renormalize_to_100(vintage_profile)
     v_sum, v_ok = check_sum_100(vintage_profile)
     print(f"Steady-state vintage profile sum: {v_sum:.6f}, OK={v_ok}")

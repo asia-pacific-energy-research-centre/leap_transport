@@ -47,7 +47,7 @@ from preprocessing import (
     calculate_sales,
     normalize_and_calculate_shares)
 from leap_utils.leap_excel_io import finalise_export_df, save_export_files, join_and_check_import_structure_matches_export_structure, separate_current_accounts_from_scenario
-from branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING
+from branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING, ALL_YEARS
 from esto_data import (
     extract_other_type_rows_from_esto_and_insert_into_transport_df,
 )
@@ -89,13 +89,14 @@ from branch_mappings import (
 from measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
 
 from energy_use_reconciliation_road import transport_energy_fn, transport_adjustment_fn, build_transport_esto_energy_totals
+from transport_economy_config import load_transport_run_config
 
 
 # ------------------------------------------------------------
 # Modular process functions
 # ------------------------------------------------------------
 
-def prepare_input_data(transport_model_excel_path, economy, scenario, base_year, final_year, TRANSPORT_ESTO_BALANCES_PATH = '../data/all transport balances data.xlsx', LOAD_CHECKPOINT=False, TRANSPORT_FUELS_DATA_FILE_PATH = '../data/USA fuels model output.csv'):
+def prepare_input_data(transport_model_excel_path, economy, scenario, base_year, final_year, TRANSPORT_ESTO_BALANCES_PATH = '../data/all transport balances data.xlsx', LOAD_CHECKPOINT=False, TRANSPORT_FUELS_DATA_FILE_PATH = None):
     """Load and preprocess transport data for a specific economy."""    
     print(f"\n=== Loading Transport Data for {economy} ===")
     
@@ -105,8 +106,10 @@ def prepare_input_data(transport_model_excel_path, economy, scenario, base_year,
         print(f"Loading data from checkpoint: {checkpoint_filename}")
         df = pd.read_pickle(checkpoint_filename)
         return df
-    
-    df = pd.read_excel(transport_model_excel_path)
+    if transport_model_excel_path.endswith('.csv'):
+        df = pd.read_csv(transport_model_excel_path)
+    else:
+        df = pd.read_excel(transport_model_excel_path)
     df = df[(df["Economy"] == economy) & (df["Scenario"] == scenario)]
     df = df[(df["Date"] >= base_year) & (df["Date"] <= final_year)]
     #check EXPECTED_COLS_IN_SOURCE are all in df
@@ -172,6 +175,7 @@ def run_passenger_sales_workflow(
     Returns the result dict from estimate_passenger_sales_from_dataframe and
     writes sales_table to CSV if output_path is provided.
     """
+    
     survival_curves, vintage_profiles = load_survival_and_vintage_profiles(
         survival_path=survival_path,
         vintage_path=vintage_path,
@@ -353,7 +357,11 @@ def convert_values_to_expressions(leap_export_df):
         )
         
         expr, method = build_expression_from_mapping(
-            tuple(branch_path.split('\\')[2:]), mini_df, measure
+            tuple(branch_path.split('\\')[2:]),
+            mini_df,
+            measure,
+            mapping=LEAP_BRANCH_TO_EXPRESSION_MAPPING,
+            all_years=ALL_YEARS,
         )
         
         if not expr:
@@ -620,13 +628,13 @@ def load_transport_into_leap(
     LOAD_THREEQUART_WAY_CHECKPOINT=False,
     LOAD_EXPORT_DF_CHECKPOINT=False,
     MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE=False,
-    RUN_PASSENGER_SALES=False,
-    RUN_FREIGHT_SALES=False,
+    RUN_PASSENGER_SALES=True,
+    RUN_FREIGHT_SALES=True,
     SURVIVAL_PROFILE_PATH="../data/lifecycle_profiles/vehicle_survival_modified.xlsx",
     VINTAGE_PROFILE_PATH="../data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
     PASSENGER_SALES_OUTPUT=None,
     FREIGHT_SALES_OUTPUT=None,
-    PASSENGER_PLOT=False,
+    PASSENGER_PLOT=True,
 ):
     """Main orchestrator for LEAP transport data loading."""
     
@@ -755,21 +763,9 @@ def load_transport_into_leap(
 # Optional: run directly
 # ------------------------------------------------------------
 
-transport_model_path = r"../data/USA transport file.xlsx"
-transport_economy = "20_USA"
-transport_scenario = "Target"
-transport_region = "Region 1"
-transport_base_year = 2022
-transport_final_year = 2060
-transport_model_name = "USA transport"
-transport_export_path = "../results/USA_transport_leap_export_Target.xlsx"
-transport_import_path = "../data/import_files/USA_transport_leap_import_Target.xlsx"
-transport_esto_balances_path = '../data/all transport balances data.xlsx'
-transport_fuels_path = '../data/USA fuels model output.csv'
-survival_profile_path = "../data/lifecycle_profiles/vehicle_survival_modified.xlsx"
-vintage_profile_path = "../data/lifecycle_profiles/vintage_modelled_from_survival.xlsx"
-passenger_sales_output = "../results/passenger_sales_USA_Target.csv"
-freight_sales_output = "../results/freight_sales_USA_Target.csv"
+# Select economy config by code (e.g. "12_NZ", "20_USA")
+
+transport_economy, transport_scenario, transport_cfg = load_transport_run_config("12_NZ",'Reference')
 #INPUT CREATION VARS
 RUN_INPUT_CREATION = True
 RUN_PASSENGER_SALES = True
@@ -785,22 +781,22 @@ if __name__ == "__main__" and (RUN_INPUT_CREATION or RUN_RECONCILIATION):
         list_all_measures()
 
         load_transport_into_leap(
-            transport_model_excel_path=transport_model_path,
+            transport_model_excel_path=transport_cfg.transport_model_path,
             economy=transport_economy,
             original_scenario=transport_scenario,
             new_scenario=transport_scenario,
-            region=transport_region,
+            region=transport_cfg.transport_region,
             diagnose_method='all',
-            base_year=transport_base_year,
-            final_year=transport_final_year,
-            model_name=transport_model_name,
+            base_year=transport_cfg.transport_base_year,
+            final_year=transport_cfg.transport_final_year,
+            model_name=transport_cfg.transport_model_name,
             CHECK_BRANCHES_IN_LEAP_USING_COM=True,
             SET_VARS_IN_LEAP_USING_COM=True,
             AUTO_SET_MISSING_BRANCHES=False,
-            export_filename=transport_export_path,
-            import_filename=transport_import_path,
-            TRANSPORT_ESTO_BALANCES_PATH=transport_esto_balances_path,
-            TRANSPORT_FUELS_DATA_FILE_PATH=transport_fuels_path,
+            export_filename=transport_cfg.transport_export_path,
+            import_filename=transport_cfg.transport_import_path,
+            TRANSPORT_ESTO_BALANCES_PATH=transport_cfg.transport_esto_balances_path,
+            TRANSPORT_FUELS_DATA_FILE_PATH=transport_cfg.transport_fuels_path,
             TRANSPORT_ROOT=r"Demand",
             #checkpoint/loading options
             LOAD_INPUT_CHECKPOINT=False,
@@ -811,11 +807,11 @@ if __name__ == "__main__" and (RUN_INPUT_CREATION or RUN_RECONCILIATION):
             #related to passenger sales calculation
             RUN_PASSENGER_SALES=RUN_PASSENGER_SALES,
             RUN_FREIGHT_SALES=RUN_FREIGHT_SALES,
-            SURVIVAL_PROFILE_PATH=survival_profile_path,
-            VINTAGE_PROFILE_PATH=vintage_profile_path,
-            PASSENGER_SALES_OUTPUT=passenger_sales_output,
-            FREIGHT_SALES_OUTPUT=freight_sales_output,
-            PASSENGER_PLOT=False,
+            SURVIVAL_PROFILE_PATH=transport_cfg.survival_profile_path,
+            VINTAGE_PROFILE_PATH=transport_cfg.vintage_profile_path,
+            PASSENGER_SALES_OUTPUT=transport_cfg.passenger_sales_output,
+            FREIGHT_SALES_OUTPUT=transport_cfg.freight_sales_output,
+            PASSENGER_PLOT=True,
         )
     if RUN_RECONCILIATION:
         esto_to_leap_mapping=ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP
@@ -826,13 +822,13 @@ if __name__ == "__main__" and (RUN_INPUT_CREATION or RUN_RECONCILIATION):
         apply_adjustments_to_future_years=APPLY_ADJUSTMENTS_TO_FUTURE_YEARS,
         report_adjustment_changes=REPORT_ADJUSTMENT_CHANGES,
         date_id=DATE_ID,
-        transport_esto_balances_path=transport_esto_balances_path,
-        transport_export_path=transport_export_path,
+        transport_esto_balances_path=transport_cfg.transport_esto_balances_path,
+        transport_export_path=transport_cfg.transport_export_path,
         economy=transport_economy,
-        base_year=transport_base_year,
-        final_year=transport_final_year,
+        base_year=transport_cfg.transport_base_year,
+        final_year=transport_cfg.transport_final_year,
         scenario=transport_scenario,
-        model_name=transport_model_name,
+        model_name=transport_cfg.transport_model_name,
         unmappable_branches=unmappable_branches,
         analysis_type_lookup=analysis_type_lookup,
         all_leap_branches=all_leap_branches,
@@ -860,3 +856,4 @@ if __name__ == "__main__" and (RUN_INPUT_CREATION or RUN_RECONCILIATION):
 # #     analysis_type_lookup=LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP.get,
 # #     root="Demand",
 # # )
+#%%

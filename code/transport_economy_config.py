@@ -4,74 +4,63 @@ Configuration for transport LEAP runs, keyed by economy code.
 Use `get_transport_run_config("<economy>")` to fetch all file paths and
 defaults for that economy in one place.
 """
+
 DEFAULT_TRANSPORT_ECONOMY = "12_NZ"
 DEFAULT_TRANSPORT_SCENARIO = "Target"
-# Mapping of economy code -> config values used by MAIN_leap_import.py
-TRANSPORT_ECONOMY_CONFIGS = {
-    "12_NZ": {
-        'Target':{
-            "transport_model_path": "../data/12_NZ_NON_ROAD_DETAILED_model_output20250226 regular.csv",
-            "transport_region": "New Zealand",
-            "transport_base_year": 2022,
-            "transport_final_year": 2060,
-            "transport_model_name": "NZ transport",
-            "transport_export_path": "../results/NZ_transport_leap_export_Target.xlsx",
-            "transport_import_path": "../data/import_files/DEFAULT_transport_leap_import_Target.xlsx",
-            "transport_esto_balances_path": "../data/all transport balances data.xlsx",
-            "transport_fuels_path": "../data/12_NZ_NON_ROAD_DETAILED_model_output20250226 fuels.csv",
-            "survival_profile_path": "../data/lifecycle_profiles/vehicle_survival_modified.xlsx",
-            "vintage_profile_path": "../data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
-            "passenger_sales_output": "../results/passenger_sales_NZ_Target.csv",
-            "freight_sales_output": "../results/freight_sales_NZ_Target.csv"},
-        'Reference': {
-            "transport_model_path": "../data/12_NZ_NON_ROAD_DETAILED_model_output20250226 regular.csv",
-            "transport_region": "New Zealand",
-            "transport_base_year": 2022,
-            "transport_final_year": 2060,
-            "transport_model_name": "NZ transport",
-            "transport_export_path": "../results/NZ_transport_leap_export_Target.xlsx",
-            "transport_import_path": "../data/import_files/DEFAULT_transport_leap_import_Target.xlsx",
-            "transport_esto_balances_path": "../data/all transport balances data.xlsx",
-            "transport_fuels_path": "../data/12_NZ_NON_ROAD_DETAILED_model_output20250226 fuels.csv",
-            "survival_profile_path": "../data/lifecycle_profiles/vehicle_survival_modified.xlsx",
-            "vintage_profile_path": "../data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
-            "passenger_sales_output": "../results/passenger_sales_NZ_Reference.csv",
-            "freight_sales_output": "../results/freight_sales_NZ_Reference.csv",
-        }  
-    },
-    "20_USA": {
-        'Target':{
-            "transport_model_path": "../data/USA transport file.xlsx",
-            "transport_region": "United States of America",
-            "transport_base_year": 2022,
-            "transport_final_year": 2060,
-            "transport_model_name": "USA transport",
-            "transport_export_path": "../results/USA_transport_leap_export_Target.xlsx",
-            "transport_import_path": "../data/import_files/DEFAULT_transport_leap_import_Target.xlsx",
-            "transport_esto_balances_path": "../data/all transport balances data.xlsx",
-            "transport_fuels_path": "../data/USA fuels model output.csv",
-            "survival_profile_path": "../data/lifecycle_profiles/vehicle_survival_modified.xlsx",
-            "vintage_profile_path": "../data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
-            "passenger_sales_output": "../results/passenger_sales_USA_Target.csv",
-            "freight_sales_output": "../results/freight_sales_USA_Target.csv",
-        },
-        'Reference': {
-            "transport_model_path": "../data/USA transport file.xlsx",
-            "transport_region": "United States of America",
-            "transport_base_year": 2022,
-            "transport_final_year": 2060,
-            "transport_model_name": "USA transport",
-            "transport_export_path": "../results/USA_transport_leap_export_Reference.xlsx",
-            "transport_import_path": "../data/import_files/DEFAULT_transport_leap_import_Reference.xlsx",
-            "transport_esto_balances_path": "../data/all transport balances data.xlsx",
-            "transport_fuels_path": "../data/USA fuels model output.csv",
-            "survival_profile_path": "../data/lifecycle_profiles/vehicle_survival_modified.xlsx",
-            "vintage_profile_path": "../data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
-            "passenger_sales_output": "../results/passenger_sales_USA_Reference.csv",
-            "freight_sales_output": "../results/freight_sales_USA_Reference.csv",
-        }  
-    },
+
+COMMON_CONFIG = {
+    "transport_import_path": "data/import_files/DEFAULT_transport_leap_import_TGT_REF_CA.xlsx",
+    # Pre-trump merged energy data (higher variability); swap to 20251106 files when needed.
+    "transport_esto_balances_path": "data/merged_file_energy_ALL_20250814_pretrump.csv",
+    "survival_profile_path": "data/lifecycle_profiles/vehicle_survival_modified.xlsx",
+    "vintage_profile_path": "data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
+    "transport_final_year": 2060,
 }
+
+# Economy metadata for 9th-edition transport runs.
+# NOTE: Region strings must match LEAP region names used by your model.
+ECONOMY_METADATA = {
+    "01_AUS": {"region": "Australia", "short": "AUS", "base_year": 2022, "file": "01_AUS_NON_ROAD_DETAILED_model_output20250226.csv"},
+    "02_BD": {"region": "Brunei Darussalam", "short": "BD", "base_year": 2022, "file": "02_BD_NON_ROAD_DETAILED_model_output20250123.csv"},
+    "03_CDA": {"region": "Canada", "short": "CDA", "base_year": 2022, "file": "03_CDA_NON_ROAD_DETAILED_model_output20250225.csv"},
+    "04_CHL": {"region": "Chile", "short": "CHL", "base_year": 2022, "file": "04_CHL_NON_ROAD_DETAILED_model_output20250226.csv"},
+    "05_PRC": {"region": "People's Republic of China", "short": "PRC", "base_year": 2022, "file": "05_PRC_NON_ROAD_DETAILED_model_output20250225.csv"},
+    "06_HKC": {"region": "Hong Kong, China", "short": "HKC", "base_year": 2022, "file": "06_HKC_NON_ROAD_DETAILED_model_output20250225.csv"},
+    "07_INA": {"region": "Indonesia", "short": "INA", "base_year": 2022, "file": "07_INA_NON_ROAD_DETAILED_model_output20250123.csv"},
+    "08_JPN": {"region": "Japan", "short": "JPN", "base_year": 2022, "file": "08_JPN_NON_ROAD_DETAILED_model_output20250415.csv"},
+    "09_ROK": {"region": "Republic of Korea", "short": "ROK", "base_year": 2022, "file": "09_ROK_NON_ROAD_DETAILED_model_output20250123.csv"},
+    "10_MAS": {"region": "Malaysia", "short": "MAS", "base_year": 2022, "file": "10_MAS_NON_ROAD_DETAILED_model_output20250226.csv"},
+    "11_MEX": {"region": "Mexico", "short": "MEX", "base_year": 2022, "file": "11_MEX_NON_ROAD_DETAILED_model_output20250225.csv"},
+    "12_NZ": {"region": "New Zealand", "short": "NZ", "base_year": 2022, "file": "12_NZ_NON_ROAD_DETAILED_model_output20250226.csv"},
+    "13_PNG": {"region": "Papua New Guinea", "short": "PNG", "base_year": 2022, "file": "13_PNG_NON_ROAD_DETAILED_model_output20250421.csv"},
+    "14_PE": {"region": "Peru", "short": "PE", "base_year": 2022, "file": "14_PE_NON_ROAD_DETAILED_model_output20250417.csv"},
+    "15_PHL": {"region": "Philippines", "short": "PHL", "base_year": 2022, "file": "15_PHL_NON_ROAD_DETAILED_model_output20250226.csv"},
+    "16_RUS": {"region": "Russia", "short": "RUS", "base_year": 2021, "file": "16_RUS_NON_ROAD_DETAILED_model_output20250331.csv"},
+    "17_SGP": {"region": "Singapore", "short": "SGP", "base_year": 2022, "file": "17_SGP_NON_ROAD_DETAILED_model_output20250227.csv"},
+    "18_CT": {"region": "Chinese Taipei", "short": "CT", "base_year": 2022, "file": "18_CT_NON_ROAD_DETAILED_model_output20250123.csv"},
+    "19_THA": {"region": "Thailand", "short": "THA", "base_year": 2022, "file": "19_THA_NON_ROAD_DETAILED_model_output20250226.csv"},
+    "20_USA": {"region": "United States of America", "short": "USA", "base_year": 2022, "file": "20_USA_NON_ROAD_DETAILED_model_output20250225.csv"},
+    "21_VN": {"region": "Viet Nam", "short": "VN", "base_year": 2022, "file": "21_VN_NON_ROAD_DETAILED_model_output20250226.csv"},
+}
+
+
+# Mapping of economy code -> scenario -> config values used by MAIN_leap_import.py
+TRANSPORT_ECONOMY_CONFIGS = {}
+for economy_code, meta in ECONOMY_METADATA.items():
+    scenario_cfg = {}
+    for scenario in ("Target", "Reference"):
+        scenario_cfg[scenario] = {
+            **COMMON_CONFIG,
+            "transport_model_path": f"data/transport_data_9th/model_output_detailed_2/{meta['file']}",
+            "transport_region": meta["region"],
+            "transport_base_year": meta["base_year"],
+            "transport_model_name": f"{meta['short']} transport",
+            "transport_export_path": f"results/{economy_code}_transport_leap_export_{scenario}.xlsx",
+            "transport_fuels_path": f"data/transport_data_9th/model_output_with_fuels/{meta['file']}",
+            "passenger_sales_output": f"results/passenger_sales_{economy_code}_{scenario}.csv",
+            "freight_sales_output": f"results/freight_sales_{economy_code}_{scenario}.csv",
+        }
+    TRANSPORT_ECONOMY_CONFIGS[economy_code] = scenario_cfg
 
 
 def get_transport_run_config(economy: str, scenario: str) -> dict:
@@ -82,6 +71,16 @@ def get_transport_run_config(economy: str, scenario: str) -> dict:
         raise KeyError(
             f"Transport economy '{economy}' with scenario '{scenario}' is not configured. Add it to TRANSPORT_ECONOMY_CONFIGS."
         ) from exc
+
+
+def list_transport_run_configs(scenario: str | None = None) -> list[tuple[str, str]]:
+    """Return sorted (economy, scenario) pairs available in TRANSPORT_ECONOMY_CONFIGS."""
+    selected_scenario = scenario or DEFAULT_TRANSPORT_SCENARIO
+    configs = []
+    for economy in sorted(TRANSPORT_ECONOMY_CONFIGS):
+        if selected_scenario in TRANSPORT_ECONOMY_CONFIGS[economy]:
+            configs.append((economy, selected_scenario))
+    return configs
 
 
 def load_transport_run_config(economy: str | None = None, scenario: str | None = None) -> tuple[str, str, object]:
@@ -101,14 +100,21 @@ def load_transport_run_config(economy: str | None = None, scenario: str | None =
         A tuple of (economy_code, scenario_code, SimpleNamespace), where the namespace
         exposes configuration fields with attribute-style access rather than dictionary
         indexing for improved readability and autocomplete support.
- 
+
     Return (economy_code, config) for the requested economy (defaulting to DEFAULT_TRANSPORT_ECONOMY).
 
     Config is a SimpleNamespace for convenient attribute access, e.g. cfg.transport_model_path.
     """
     from types import SimpleNamespace
+    from path_utils import resolve_str
 
     selected_economy = economy or DEFAULT_TRANSPORT_ECONOMY
     selected_scenario = scenario or DEFAULT_TRANSPORT_SCENARIO
     cfg = get_transport_run_config(selected_economy, selected_scenario)
+    cfg = {
+        key: resolve_str(value)
+        if isinstance(value, str) and (key.endswith("_path") or key.endswith("_output"))
+        else value
+        for key, value in cfg.items()
+    }
     return selected_economy, selected_scenario, SimpleNamespace(**cfg)

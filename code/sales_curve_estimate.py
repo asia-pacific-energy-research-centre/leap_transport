@@ -3,6 +3,9 @@ import os
 from pathlib import Path
 import numpy as np
 import pandas as pd
+
+from merged_energy_io import load_transport_energy_dataset
+from path_utils import resolve_str
 from lifecycle_profile_editor import (
     build_vintage_from_survival_excel,
     load_lifecycle_profile_excel,
@@ -258,11 +261,19 @@ def extract_energy_use_from_esto(
     Filters for the given economy, scenario, and sector, then sums across rows
     for each year column.
     """
-    df = pd.read_excel(esto_path, sheet_name=sheet_name)
+    esto_path = resolve_str(esto_path)
+    if esto_path is None:
+        raise ValueError("esto_path cannot be None.")
+
+    df = load_transport_energy_dataset(
+        esto_path,
+        economy=economy,
+        sector=sector,
+        sheet_name=sheet_name,
+    )
     mask = (
         (df["economy"] == economy)
         & (df["scenarios"] == scenario.lower())
-        & (df["sectors"] == sector)
         & ((df["sub1sectors"] == sub1sector) if sub1sector is not None else True)
     ) 
     df = df.loc[mask]
@@ -271,17 +282,40 @@ def extract_energy_use_from_esto(
     df = df.loc[:, ~column_labels.str.contains(r"^Unnamed", na=False)]
     #also, we need to split it by <=base year and >base year then drop subtotals depending onwhat years we have:
     #first make the year cols numeric
-    year_cols = [col for col in df.columns if isinstance(col, (int, float)) or (isinstance(col, str) and col.isdigit())]
+    year_cols = sorted([col for col in df.columns if isinstance(col, int) and base_year <= col <= final_year])
+    if not year_cols:
+        raise ValueError(f"No year columns found between {base_year} and {final_year}.")
     others = [col for col in df.columns if col not in year_cols]
-    historical = df[others + [col for col in year_cols if col <= base_year]].loc[df['subtotal_layout']!=True]
-    future = df[others + [col for col in year_cols if col > base_year]].loc[df['subtotal_results']!=True]
-    df = pd.merge(
-        historical,
-        future,
-        on=others,
-        how="outer",
-        suffixes=("", ""),
-    ).fillna(0.0)
+    merge_keys = [col for col in others if col not in {"subtotal_layout", "subtotal_results"}]
+    historical_cols = [col for col in year_cols if col <= base_year]
+    future_cols = [col for col in year_cols if col > base_year]
+
+    frames = []
+    if historical_cols:
+        if "subtotal_layout" in df.columns:
+            historical = df.loc[df["subtotal_layout"] != True, merge_keys + historical_cols]
+        else:
+            historical = df[merge_keys + historical_cols]
+        frames.append(historical)
+    if future_cols:
+        if "subtotal_results" in df.columns:
+            future = df.loc[df["subtotal_results"] != True, merge_keys + future_cols]
+        else:
+            future = df[merge_keys + future_cols]
+        frames.append(future)
+    if len(frames) == 2:
+        df = pd.merge(
+            frames[0],
+            frames[1],
+            on=merge_keys,
+            how="outer",
+            suffixes=("", ""),
+        ).fillna(0.0)
+    elif len(frames) == 1:
+        df = frames[0]
+    else:
+        df = df[merge_keys + year_cols]
+
     energy = (
         df[year_cols]
         .sum(axis=0, min_count=1)
@@ -394,7 +428,7 @@ def _prepare_vehicle_share_dataframe(
             s = pd.Series(float(share_val), index=years, dtype=float)
         share_df[v] = s
 
-    share_df = share_df.fillna(method="ffill").fillna(method="bfill").fillna(0.0)
+    share_df = share_df.ffill().bfill().fillna(0.0)
     share_df = share_df.reindex(columns=list(weights.keys()), fill_value=0.0)
 
     row_sums = share_df.sum(axis=1)
@@ -1636,10 +1670,10 @@ def _convert_cumulative_survival_to_annual(survival: pd.Series) -> pd.Series:
 
 def run_example_with_real_data(
     *,
-    source_path: str | os.PathLike = "../data/USA transport file.xlsx",
-    survival_path: str | os.PathLike = "../data/lifecycle_profiles/vehicle_survival_modified.xlsx",
-    vintage_path: str | os.PathLike = "../data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
-    esto_path: str | os.PathLike | None = "../data/all transport balances data.xlsx",
+    source_path: str | os.PathLike = "data/USA transport file.xlsx",
+    survival_path: str | os.PathLike = "data/lifecycle_profiles/vehicle_survival_modified.xlsx",
+    vintage_path: str | os.PathLike = "data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
+    esto_path: str | os.PathLike | None = "data/merged_file_energy_ALL_20250814_pretrump.csv",
     economy: str = "20_USA",
     scenario: str = "Target",
     base_year: int = 2022,
@@ -1664,6 +1698,11 @@ def run_example_with_real_data(
     inputs are missing or invalid.
     """
     source_reader_kwargs = source_reader_kwargs or {}
+    source_path = resolve_str(source_path)
+    survival_path = resolve_str(survival_path)
+    vintage_path = resolve_str(vintage_path)
+    if esto_path is not None:
+        esto_path = resolve_str(esto_path)
     # Validate file existence early for clearer errors
     for p, label in [
         (source_path, "source_path"),

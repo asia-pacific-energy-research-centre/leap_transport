@@ -14,12 +14,22 @@ from datetime import datetime
 
 # Allow sibling leap_utilities package without pip install
 BASE_DIR = Path(__file__).resolve().parent.parent
-UTILS_ROOT = (BASE_DIR / "leap_utilities").resolve()
-UTILS_PKG = UTILS_ROOT / "leap_utils"
-for path in (UTILS_PKG, UTILS_ROOT):
+UTILS_ROOT_CANDIDATES = [
+    (BASE_DIR / "leap_utilities").resolve(),
+    (BASE_DIR.parent / "leap_utilities").resolve(),
+]
+
+paths_to_add = [BASE_DIR]
+for utils_root in UTILS_ROOT_CANDIDATES:
+    utils_pkg = utils_root / "leap_utils"
+    if utils_pkg.exists():
+        paths_to_add.extend([utils_pkg, utils_root])
+
+for path in paths_to_add:
     if path.exists() and str(path) not in sys.path:
         sys.path.insert(0, str(path))
-
+#%%
+from path_utils import resolve_str
 from leap_utils.leap_core import (
     connect_to_leap,
     diagnose_measures_in_leap_branch,
@@ -41,6 +51,7 @@ from branch_mappings import (
     create_new_source_rows_based_on_proxies_with_no_activity,
 )
 from measure_catalog import list_all_measures, LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
+from measure_metadata import SOURCE_WEIGHT_PRIORITY
 from measure_processing import process_measures_for_leap
 from preprocessing import (
     allocate_fuel_alternatives_energy_and_activity,
@@ -89,25 +100,32 @@ from branch_mappings import (
 from measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
 
 from energy_use_reconciliation_road import transport_energy_fn, transport_adjustment_fn, build_transport_esto_energy_totals
-from transport_economy_config import load_transport_run_config
+from merged_energy_io import load_transport_energy_dataset
+from transport_economy_config import load_transport_run_config, list_transport_run_configs
 
-
+#%%
 # ------------------------------------------------------------
 # Modular process functions
 # ------------------------------------------------------------
 
-def prepare_input_data(transport_model_excel_path, economy, scenario, base_year, final_year, TRANSPORT_ESTO_BALANCES_PATH = '../data/all transport balances data.xlsx', LOAD_CHECKPOINT=False, TRANSPORT_FUELS_DATA_FILE_PATH = None):
+def prepare_input_data(transport_model_excel_path, economy, scenario, base_year, final_year, TRANSPORT_ESTO_BALANCES_PATH = 'data/merged_file_energy_ALL_20250814_pretrump.csv', LOAD_CHECKPOINT=False, TRANSPORT_FUELS_DATA_FILE_PATH = None):
     """Load and preprocess transport data for a specific economy."""    
     print(f"\n=== Loading Transport Data for {economy} ===")
+    transport_model_excel_path = resolve_str(transport_model_excel_path)
+    TRANSPORT_ESTO_BALANCES_PATH = resolve_str(TRANSPORT_ESTO_BALANCES_PATH)
+    if TRANSPORT_FUELS_DATA_FILE_PATH is not None:
+        TRANSPORT_FUELS_DATA_FILE_PATH = resolve_str(TRANSPORT_FUELS_DATA_FILE_PATH)
     
     # Check for checkpoint file
-    checkpoint_filename = f"../intermediate_data/transport_data_{economy}_{scenario}_{base_year}_{final_year}.pkl"
+    checkpoint_filename = resolve_str(
+        f"intermediate_data/transport_data_{economy}_{scenario}_{base_year}_{final_year}.pkl"
+    )
     if LOAD_CHECKPOINT and os.path.exists(checkpoint_filename):
         print(f"Loading data from checkpoint: {checkpoint_filename}")
         df = pd.read_pickle(checkpoint_filename)
         return df
     if transport_model_excel_path.endswith('.csv'):
-        df = pd.read_csv(transport_model_excel_path)
+        df = pd.read_csv(transport_model_excel_path, low_memory=False)
     else:
         df = pd.read_excel(transport_model_excel_path)
     df = df[(df["Economy"] == economy) & (df["Scenario"] == scenario)]
@@ -127,22 +145,25 @@ def prepare_input_data(transport_model_excel_path, economy, scenario, base_year,
     
     new_rows1 = create_new_source_rows_based_on_combinations(df)
     df = pd.concat([df, new_rows1], ignore_index=True)
-    new_rows2 = create_new_source_rows_based_on_proxies_with_no_activity(df)
+    new_rows2 = create_new_source_rows_based_on_proxies_with_no_activity(df, strict_missing=False)
     df = pd.concat([df, new_rows2], ignore_index=True)
     if new_rows1.empty:
         breakpoint()
         raise ValueError("No new source rows were created from combinations; check the mapping and source data just in case.")
     if new_rows2.empty:
-        breakpoint()
-        raise ValueError("No new source rows were created from proxies; check the mapping and source data just in case.")
+        print("[WARN] No proxy-based source rows were created for this run.")
     
     #check for duplicates
     duplicates = df.duplicated(subset=['Date', 'Economy', 'Scenario', 'Transport Type', 'Medium', 'Vehicle Type', 'Drive', 'Fuel'])
     if duplicates.any():
         breakpoint()
-        #save to ../data/errors/duplicate_source_rows.csv
-        df[duplicates].to_csv('../data/errors/duplicate_source_rows.csv', index=False)
-        raise ValueError("Duplicates found in source data after adding new rows based on combinations and proxies; see ../data/errors/duplicate_source_rows.csv for details.")
+        errors_path = resolve_str("data/errors/duplicate_source_rows.csv")
+        os.makedirs(Path(errors_path).parent, exist_ok=True)
+        df[duplicates].to_csv(errors_path, index=False)
+        raise ValueError(
+            "Duplicates found in source data after adding new rows based on combinations and proxies; "
+            f"see {errors_path} for details."
+        )
      
     df = calculate_sales(df)
     df = normalize_and_calculate_shares(df)
@@ -150,10 +171,199 @@ def prepare_input_data(transport_model_excel_path, economy, scenario, base_year,
     df = extract_other_type_rows_from_esto_and_insert_into_transport_df(df, base_year, final_year, economy, scenario, TRANSPORT_ESTO_BALANCES_PATH)
     
     # Save checkpoint file
-    os.makedirs("../intermediate_data", exist_ok=True)
+    os.makedirs(Path(checkpoint_filename).parent, exist_ok=True)
     df.to_pickle(checkpoint_filename)
     print(f"Saved checkpoint: {checkpoint_filename}")
     return df
+
+
+def _first_non_null(series: pd.Series):
+    non_null = series.dropna()
+    if non_null.empty:
+        return pd.NA
+    return non_null.iloc[0]
+
+
+def _aggregate_weighted_column(
+    df: pd.DataFrame,
+    group_cols: list[str],
+    value_col: str,
+    weight_candidates: list[str | None],
+) -> pd.DataFrame:
+    value_series = pd.to_numeric(df[value_col], errors="coerce")
+
+    selected_weight = None
+    for candidate in weight_candidates:
+        if candidate and candidate in df.columns:
+            selected_weight = candidate
+            break
+
+    if selected_weight is None:
+        return (
+            df.assign(_value=value_series)
+            .groupby(group_cols, dropna=False)["_value"]
+            .mean()
+            .reset_index(name=value_col)
+        )
+
+    tmp = df[group_cols].copy()
+    tmp["_value"] = value_series
+    tmp["_weight"] = pd.to_numeric(df[selected_weight], errors="coerce").fillna(0.0)
+    tmp["_weighted"] = tmp["_value"].fillna(0.0) * tmp["_weight"]
+
+    grouped = (
+        tmp.groupby(group_cols, dropna=False)
+        .agg(
+            weighted_sum=("_weighted", "sum"),
+            weight_sum=("_weight", "sum"),
+            mean_value=("_value", "mean"),
+        )
+        .reset_index()
+    )
+
+    weighted = grouped["weighted_sum"] / grouped["weight_sum"].replace(0, pd.NA)
+    grouped[value_col] = weighted.fillna(grouped["mean_value"])
+    return grouped[group_cols + [value_col]]
+
+
+def aggregate_economies_to_apec(
+    source_df: pd.DataFrame,
+    *,
+    scenario: str,
+    economy_code: str = "00_APEC",
+) -> pd.DataFrame:
+    """Aggregate preprocessed economy-level transport inputs into a single 00_APEC input dataframe."""
+    df = source_df[source_df["Scenario"].astype(str).str.lower() == scenario.lower()].copy()
+    if df.empty:
+        raise ValueError(f"No rows found while aggregating economies for scenario '{scenario}'.")
+
+    group_cols = ["Date", "Scenario", "Transport Type", "Medium", "Vehicle Type", "Drive", "Fuel"]
+    grouped_index = (
+        df.groupby(group_cols, dropna=False)
+        .size()
+        .reset_index(name="_rows")
+        .drop(columns="_rows")
+    )
+
+    non_group_cols = [col for col in df.columns if col not in group_cols + ["Economy"]]
+
+    sum_cols = [
+        "Energy",
+        "Stocks",
+        "Activity",
+        "Travel_km",
+        "Gdp",
+        "Population",
+        "Stocks_old",
+        "Surplus_stocks",
+        "Stock_turnover",
+        "New_stocks_needed",
+        "Sales",
+    ]
+    sum_cols = [col for col in sum_cols if col in non_group_cols]
+
+    weighted_cols = {
+        "Efficiency": SOURCE_WEIGHT_PRIORITY.get("Efficiency", ["Activity", "Stocks", None]),
+        "Mileage": SOURCE_WEIGHT_PRIORITY.get("Mileage", ["Stocks", "Activity", None]),
+        "Intensity": SOURCE_WEIGHT_PRIORITY.get("Intensity", ["Activity", "Stocks", None]),
+        "Occupancy_or_load": ["Activity", "Stocks", None],
+        "New_vehicle_efficiency": ["New_stocks_needed", "Stocks", "Activity", None],
+        "Turnover_rate": ["Stocks", "Activity", None],
+        "Activity_per_Stock": ["Stocks", "Activity", None],
+        "Average_age": ["Stocks", None],
+        "Activity_efficiency_improvement": ["Activity", None],
+        "Non_road_intensity_improvement": ["Activity", None],
+        "Activity_growth": ["Activity", None],
+        "Gdp_per_capita": ["Population", None],
+        "Stocks_per_thousand_capita": ["Population", "Stocks", None],
+        "Vehicle_sales_share": ["Sales", "Stocks", None],
+    }
+    weighted_cols = {col: weights for col, weights in weighted_cols.items() if col in non_group_cols}
+
+    derived_cols_to_recalculate = {"Sales", "Vehicle_sales_share", "Stock Share"}
+    first_cols = [
+        col
+        for col in non_group_cols
+        if col not in set(sum_cols) and col not in set(weighted_cols) and col not in derived_cols_to_recalculate
+    ]
+
+    aggregated = grouped_index.copy()
+    if sum_cols:
+        aggregated = aggregated.merge(
+            df.groupby(group_cols, dropna=False)[sum_cols].sum(min_count=1).reset_index(),
+            on=group_cols,
+            how="left",
+        )
+
+    for col, weights in weighted_cols.items():
+        weighted_df = _aggregate_weighted_column(df, group_cols, col, weights)
+        aggregated = aggregated.merge(weighted_df, on=group_cols, how="left")
+
+    if first_cols:
+        first_df = (
+            df.groupby(group_cols, dropna=False)[first_cols]
+            .agg(_first_non_null)
+            .reset_index()
+        )
+        aggregated = aggregated.merge(first_df, on=group_cols, how="left")
+
+    aggregated["Economy"] = economy_code
+
+    if "Stocks" in aggregated.columns:
+        aggregated = calculate_sales(aggregated)
+    if "Scenario" in aggregated.columns and "Date" in aggregated.columns:
+        aggregated = normalize_and_calculate_shares(aggregated)
+
+    duplicates = aggregated.duplicated(subset=["Date", "Economy", "Scenario", "Transport Type", "Medium", "Vehicle Type", "Drive", "Fuel"])
+    if duplicates.any():
+        raise ValueError("Duplicates detected after 00_APEC aggregation.")
+
+    ordered_cols = [col for col in source_df.columns if col in aggregated.columns]
+    extra_cols = [col for col in aggregated.columns if col not in ordered_cols]
+    return aggregated[ordered_cols + extra_cols].reset_index(drop=True)
+
+
+def prepare_apec_input_data(
+    *,
+    scenario: str,
+    base_year: int,
+    final_year: int,
+    load_checkpoint: bool,
+) -> pd.DataFrame:
+    """Build (or load) a synthetic 00_APEC input dataframe by aggregating all configured economies."""
+    checkpoint_filename = resolve_str(
+        f"intermediate_data/transport_data_00_APEC_{scenario}_{base_year}_{final_year}.pkl"
+    )
+    if load_checkpoint and checkpoint_filename and os.path.exists(checkpoint_filename):
+        print(f"Loading APEC data from checkpoint: {checkpoint_filename}")
+        return pd.read_pickle(checkpoint_filename)
+
+    economy_frames = []
+    for economy_code, economy_scenario in list_transport_run_configs(scenario):
+        _, _, cfg = load_transport_run_config(economy_code, economy_scenario)
+        economy_base_year = min(base_year, cfg.transport_base_year)
+        economy_final_year = max(final_year, cfg.transport_base_year)
+        df_i = prepare_input_data(
+            transport_model_excel_path=cfg.transport_model_path,
+            economy=economy_code,
+            scenario=economy_scenario,
+            base_year=economy_base_year,
+            final_year=economy_final_year,
+            TRANSPORT_ESTO_BALANCES_PATH=cfg.transport_esto_balances_path,
+            LOAD_CHECKPOINT=load_checkpoint,
+            TRANSPORT_FUELS_DATA_FILE_PATH=cfg.transport_fuels_path,
+        )
+        economy_frames.append(df_i)
+
+    combined = pd.concat(economy_frames, ignore_index=True)
+    combined = combined[(combined["Date"] >= base_year) & (combined["Date"] <= final_year)].copy()
+    apec_df = aggregate_economies_to_apec(combined, scenario=scenario, economy_code="00_APEC")
+
+    if checkpoint_filename:
+        os.makedirs(Path(checkpoint_filename).parent, exist_ok=True)
+        apec_df.to_pickle(checkpoint_filename)
+        print(f"Saved APEC checkpoint: {checkpoint_filename}")
+    return apec_df
 
 
 def run_passenger_sales_workflow(
@@ -162,9 +372,9 @@ def run_passenger_sales_workflow(
     scenario: str,
     base_year: int,
     final_year: int,
-    survival_path: str = "../data/lifecycle_profiles/vehicle_survival_modified.xlsx",
-    vintage_path: str = "../data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
-    esto_energy_path: str = '../data/all transport balances data.xlsx',
+    survival_path: str = "data/lifecycle_profiles/vehicle_survival_modified.xlsx",
+    vintage_path: str = "data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
+    esto_energy_path: str = "data/merged_file_energy_ALL_20250814_pretrump.csv",
     output_path: str | None = None,
     plot: bool = False,
     **kwargs,
@@ -176,6 +386,12 @@ def run_passenger_sales_workflow(
     writes sales_table to CSV if output_path is provided.
     """
     
+    survival_path = resolve_str(survival_path)
+    vintage_path = resolve_str(vintage_path)
+    esto_energy_path = resolve_str(esto_energy_path)
+    if output_path:
+        output_path = resolve_str(output_path)
+
     survival_curves, vintage_profiles = load_survival_and_vintage_profiles(
         survival_path=survival_path,
         vintage_path=vintage_path,
@@ -209,9 +425,9 @@ def run_freight_sales_workflow(
     scenario: str,
     base_year: int,
     final_year: int,
-    survival_path: str = "../data/lifecycle_profiles/vehicle_survival_modified.xlsx",
-    vintage_path: str = "../data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
-    esto_energy_path: str = '../data/all transport balances data.xlsx',
+    survival_path: str = "data/lifecycle_profiles/vehicle_survival_modified.xlsx",
+    vintage_path: str = "data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
+    esto_energy_path: str = "data/merged_file_energy_ALL_20250814_pretrump.csv",
     output_path: str | None = None,
     plot: bool = False,
     **kwargs,
@@ -222,6 +438,12 @@ def run_freight_sales_workflow(
     Returns the result dict from estimate_freight_sales_from_dataframe and
     writes sales_table to CSV if output_path is provided.
     """
+    survival_path = resolve_str(survival_path)
+    vintage_path = resolve_str(vintage_path)
+    esto_energy_path = resolve_str(esto_energy_path)
+    if output_path:
+        output_path = resolve_str(output_path)
+
     survival_curves, vintage_profiles = load_survival_and_vintage_profiles(
         survival_path=survival_path,
         vintage_path=vintage_path,
@@ -486,7 +708,10 @@ def run_transport_reconciliation(
     set_vars_in_leap_using_com,
     subtotal_column='subtotal_layout',
 ):
-    esto_df = pd.read_excel(transport_esto_balances_path)
+    esto_df = load_transport_energy_dataset(
+        transport_esto_balances_path,
+        economy=economy,
+    )
     export_df = pd.read_excel(transport_export_path, header=2, sheet_name='FOR_VIEWING')
     export_df = export_df[export_df['Scenario'] == 'Current Accounts']
 
@@ -547,7 +772,7 @@ def run_transport_reconciliation(
         change_msg = "No adjustments required; all scale factors were 1.0."
 
     if report_adjustment_changes:
-        reconciliation_dir = "../results/reconciliation"
+        reconciliation_dir = resolve_str("results/reconciliation")
         recon_archive_dir = os.path.join(reconciliation_dir, "archive")
         os.makedirs(reconciliation_dir, exist_ok=True)
         os.makedirs(recon_archive_dir, exist_ok=True)
@@ -618,25 +843,37 @@ def load_transport_into_leap(
     CHECK_BRANCHES_IN_LEAP_USING_COM=True,
     SET_VARS_IN_LEAP_USING_COM=False,
     AUTO_SET_MISSING_BRANCHES=False,
-    export_filename="../results/leap_export.xlsx",
-    import_filename="../data/import_files/leap_import.xlsx",
-    TRANSPORT_ESTO_BALANCES_PATH = '../data/all transport balances data.xlsx',
-    TRANSPORT_FUELS_DATA_FILE_PATH = '../data/USA fuels model output.csv',
+    export_filename="results/leap_export.xlsx",
+    import_filename="data/import_files/leap_import.xlsx",
+    TRANSPORT_ESTO_BALANCES_PATH = 'data/merged_file_energy_ALL_20250814_pretrump.csv',
+    TRANSPORT_FUELS_DATA_FILE_PATH = 'data/USA fuels model output.csv',
     TRANSPORT_ROOT = r"Demand",
     LOAD_INPUT_CHECKPOINT=False,
     LOAD_HALFWAY_CHECKPOINT=False,
     LOAD_THREEQUART_WAY_CHECKPOINT=False,
     LOAD_EXPORT_DF_CHECKPOINT=False,
+    CHECKPOINT_TAG=None,
     MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE=False,
     RUN_PASSENGER_SALES=True,
     RUN_FREIGHT_SALES=True,
-    SURVIVAL_PROFILE_PATH="../data/lifecycle_profiles/vehicle_survival_modified.xlsx",
-    VINTAGE_PROFILE_PATH="../data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
+    SURVIVAL_PROFILE_PATH="data/lifecycle_profiles/vehicle_survival_modified.xlsx",
+    VINTAGE_PROFILE_PATH="data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
     PASSENGER_SALES_OUTPUT=None,
     FREIGHT_SALES_OUTPUT=None,
     PASSENGER_PLOT=True,
+    PREPARED_INPUT_DF: pd.DataFrame | None = None,
 ):
     """Main orchestrator for LEAP transport data loading."""
+    export_filename = resolve_str(export_filename)
+    import_filename = resolve_str(import_filename)
+    TRANSPORT_ESTO_BALANCES_PATH = resolve_str(TRANSPORT_ESTO_BALANCES_PATH)
+    TRANSPORT_FUELS_DATA_FILE_PATH = resolve_str(TRANSPORT_FUELS_DATA_FILE_PATH)
+    SURVIVAL_PROFILE_PATH = resolve_str(SURVIVAL_PROFILE_PATH)
+    VINTAGE_PROFILE_PATH = resolve_str(VINTAGE_PROFILE_PATH)
+    checkpoint_tag = (CHECKPOINT_TAG or f"{economy}_{original_scenario}").replace(" ", "_")
+    halfway_checkpoint_path = resolve_str(f"intermediate_data/export_df_checkpoint_{checkpoint_tag}.pkl")
+    three_quarter_checkpoint_path = resolve_str(f"intermediate_data/export_df_checkpoint2_{checkpoint_tag}.pkl")
+    viewing_checkpoint_path = resolve_str(f"intermediate_data/export_df_for_viewing_checkpoint2_{checkpoint_tag}.pkl")
     
     mappings_validation = validate_all_mappings_with_measures(
         ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
@@ -649,12 +886,24 @@ def load_transport_into_leap(
         EXAMPLE_SAMPLE_SIZE=1000
     )
     
-    df = prepare_input_data(transport_model_excel_path, economy, original_scenario, base_year, final_year, TRANSPORT_ESTO_BALANCES_PATH = '../data/all transport balances data.xlsx', LOAD_CHECKPOINT=LOAD_INPUT_CHECKPOINT, TRANSPORT_FUELS_DATA_FILE_PATH = TRANSPORT_FUELS_DATA_FILE_PATH)
+    if PREPARED_INPUT_DF is not None:
+        df = PREPARED_INPUT_DF.copy()
+    else:
+        df = prepare_input_data(
+            transport_model_excel_path,
+            economy,
+            original_scenario,
+            base_year,
+            final_year,
+            TRANSPORT_ESTO_BALANCES_PATH=TRANSPORT_ESTO_BALANCES_PATH,
+            LOAD_CHECKPOINT=LOAD_INPUT_CHECKPOINT,
+            TRANSPORT_FUELS_DATA_FILE_PATH=TRANSPORT_FUELS_DATA_FILE_PATH,
+        )
     
     passenger_sales_result = None
     freight_sales_result = None
     if RUN_PASSENGER_SALES:
-        passenger_output = PASSENGER_SALES_OUTPUT or f"../results/passenger_sales_{economy}_{original_scenario}.csv"
+        passenger_output = PASSENGER_SALES_OUTPUT or f"results/passenger_sales_{economy}_{original_scenario}.csv"
         # breakpoint()
         passenger_sales_result = run_passenger_sales_workflow(
             df=df,
@@ -669,7 +918,7 @@ def load_transport_into_leap(
             plot=PASSENGER_PLOT,
         )
     if RUN_FREIGHT_SALES:
-        freight_output = FREIGHT_SALES_OUTPUT or f"../results/freight_sales_{economy}_{original_scenario}.csv"
+        freight_output = FREIGHT_SALES_OUTPUT or f"results/freight_sales_{economy}_{original_scenario}.csv"
         freight_sales_result = run_freight_sales_workflow(
             df=df,
             economy=economy,
@@ -683,7 +932,8 @@ def load_transport_into_leap(
             plot=False,
         )
     
-    L = connect_to_leap()
+    require_leap_connection = CHECK_BRANCHES_IN_LEAP_USING_COM or SET_VARS_IN_LEAP_USING_COM
+    L = connect_to_leap() if require_leap_connection else None
     leap_export_df = create_transport_export_df()
     
     first_branch_diagnosed = False
@@ -711,13 +961,13 @@ def load_transport_into_leap(
         continue
     #save temporary export df checkpoint
     if LOAD_HALFWAY_CHECKPOINT:
-        leap_export_df = pd.read_pickle("../intermediate_data/export_df_checkpoint.pkl")
+        leap_export_df = pd.read_pickle(halfway_checkpoint_path)
     else:
-        leap_export_df.to_pickle("../intermediate_data/export_df_checkpoint.pkl")
+        leap_export_df.to_pickle(halfway_checkpoint_path)
     
     if LOAD_THREEQUART_WAY_CHECKPOINT:
-        leap_export_df = pd.read_pickle("../intermediate_data/export_df_checkpoint2.pkl")
-        export_df_for_viewing = pd.read_pickle("../intermediate_data/export_df_for_viewing_checkpoint2.pkl")
+        leap_export_df = pd.read_pickle(three_quarter_checkpoint_path)
+        export_df_for_viewing = pd.read_pickle(viewing_checkpoint_path)
     else:
         #do validation and finalisation
         leap_export_df = validate_and_fix_shares_normalise_to_one(leap_export_df,EXAMPLE_SAMPLE_SIZE=5)
@@ -733,8 +983,8 @@ def load_transport_into_leap(
         
         leap_export_df, export_df_for_viewing = convert_values_to_expressions(leap_export_df)
         
-        leap_export_df.to_pickle("../intermediate_data/export_df_checkpoint2.pkl")
-        export_df_for_viewing.to_pickle("../intermediate_data/export_df_for_viewing_checkpoint2.pkl")
+        leap_export_df.to_pickle(three_quarter_checkpoint_path)
+        export_df_for_viewing.to_pickle(viewing_checkpoint_path)
     
     
     if LOAD_EXPORT_DF_CHECKPOINT:
@@ -755,6 +1005,8 @@ def load_transport_into_leap(
         )
     
     if SET_VARS_IN_LEAP_USING_COM:
+        if L is None:
+            L = connect_to_leap()
         write_export_df_to_leap(L, leap_export_df)
     print("\n=== Transport data loading process completed. ===\n")
 
@@ -763,78 +1015,282 @@ def load_transport_into_leap(
 # Optional: run directly
 # ------------------------------------------------------------
 
-# Select economy config by code (e.g. "12_NZ", "20_USA")
+# Select economy config by code (e.g. "12_NZ", "20_USA") or "all".
+TRANSPORT_ECONOMY_SELECTION = "all"
+TRANSPORT_SCENARIO_SELECTION = "Reference"
+# Applies only when TRANSPORT_ECONOMY_SELECTION == "all" (ignored otherwise):
+# "separate" -> run each configured economy independently (01_AUS ... 21_VN).
+# "apec"     -> run one synthetic 00_APEC case (aggregated from all configured economies).
+# "both"     -> run all separate economies first, then run synthetic 00_APEC.
+# Note: combined passenger/freight CSVs are built from the "separate" runs only.
+ALL_RUN_MODE = "apec"
+APEC_REGION = "APEC"
+APEC_BASE_YEAR = 2022
+APEC_FINAL_YEAR = 2060
 
-transport_economy, transport_scenario, transport_cfg = load_transport_run_config("12_NZ",'Reference')
-#INPUT CREATION VARS
+# INPUT CREATION VARS
 RUN_INPUT_CREATION = True
 RUN_PASSENGER_SALES = True
 RUN_FREIGHT_SALES = True
-#RECONCILIATION VARS
-RUN_RECONCILIATION = False#this will need to have curret accounts made for it.
+PASSENGER_PLOT = False
+
+# RECONCILIATION VARS
+RUN_RECONCILIATION = True
 APPLY_ADJUSTMENTS_TO_FUTURE_YEARS = True
 REPORT_ADJUSTMENT_CHANGES = True
+
+# COM / validation flags
+CHECK_BRANCHES_IN_LEAP_USING_COM = False
+SET_VARS_IN_LEAP_USING_COM = False
+AUTO_SET_MISSING_BRANCHES = False
+
+# Checkpoint/loading options
+LOAD_INPUT_CHECKPOINT = False
+LOAD_HALFWAY_CHECKPOINT = False
+LOAD_THREEQUART_WAY_CHECKPOINT = False
+LOAD_EXPORT_DF_CHECKPOINT = False
+MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE = False
+
 DATE_ID = datetime.now().strftime("%Y%m%d")
+
+
+def resolve_transport_run_mode(transport_economy_selection: str, all_run_mode: str):
+    """Return normalized all-run settings and execution flags."""
+    is_all_mode = transport_economy_selection.strip().lower() == "all"
+    normalized_all_mode = all_run_mode.strip().lower()
+    valid_all_modes = {"separate", "apec", "both"}
+    if is_all_mode and normalized_all_mode not in valid_all_modes:
+        raise ValueError(f"Invalid ALL_RUN_MODE '{all_run_mode}'. Use one of {sorted(valid_all_modes)}.")
+
+    run_separate = (not is_all_mode) or (normalized_all_mode in {"separate", "both"})
+    run_apec = is_all_mode and (normalized_all_mode in {"apec", "both"})
+    return is_all_mode, normalized_all_mode, run_separate, run_apec
+
+
+def aggregate_batch_sales_outputs(run_records, scenario, date_id):
+    """Concatenate per-economy sales CSVs into single files for quick cross-economy analysis."""
+    passenger_frames = []
+    freight_frames = []
+    for record in run_records:
+        if record.get("status") != "success":
+            continue
+        passenger_path = record.get("passenger_sales_output")
+        freight_path = record.get("freight_sales_output")
+        economy = record["economy"]
+        if passenger_path and os.path.exists(passenger_path):
+            passenger_df = pd.read_csv(passenger_path)
+            passenger_df["Economy"] = economy
+            passenger_df["Scenario"] = scenario
+            passenger_frames.append(passenger_df)
+        if freight_path and os.path.exists(freight_path):
+            freight_df = pd.read_csv(freight_path)
+            freight_df["Economy"] = economy
+            freight_df["Scenario"] = scenario
+            freight_frames.append(freight_df)
+
+    os.makedirs(resolve_str("results"), exist_ok=True)
+    if passenger_frames:
+        passenger_all = pd.concat(passenger_frames, ignore_index=True)
+        passenger_all_path = resolve_str(f"results/passenger_sales_ALL_{scenario}_{date_id}.csv")
+        passenger_all.to_csv(passenger_all_path, index=False)
+        print(f"[INFO] Wrote combined passenger sales: {passenger_all_path}")
+    if freight_frames:
+        freight_all = pd.concat(freight_frames, ignore_index=True)
+        freight_all_path = resolve_str(f"results/freight_sales_ALL_{scenario}_{date_id}.csv")
+        freight_all.to_csv(freight_all_path, index=False)
+        print(f"[INFO] Wrote combined freight sales: {freight_all_path}")
+
+
+def build_apec_run_config(scenario: str):
+    """Build runtime config for synthetic 00_APEC runs."""
+    from types import SimpleNamespace
+
+    seed_targets = list_transport_run_configs(scenario)
+    if not seed_targets:
+        raise ValueError(f"No configured economies found for scenario '{scenario}'.")
+    seed_economy, seed_scenario = seed_targets[0]
+    _, _, seed_cfg = load_transport_run_config(seed_economy, seed_scenario)
+
+    all_balances_path = Path(seed_cfg.transport_esto_balances_path)
+    apec_balances_path = all_balances_path
+    if "_ALL_" in all_balances_path.name:
+        candidate = all_balances_path.with_name(all_balances_path.name.replace("_ALL_", "_00_APEC_"))
+        if candidate.exists():
+            apec_balances_path = candidate
+        else:
+            print(f"[WARN] Expected 00_APEC balances file not found, using ALL file: {candidate}")
+
+    return SimpleNamespace(
+        transport_model_path=seed_cfg.transport_model_path,
+        transport_region=APEC_REGION,
+        transport_base_year=APEC_BASE_YEAR,
+        transport_final_year=APEC_FINAL_YEAR,
+        transport_model_name="APEC transport",
+        transport_export_path=resolve_str(f"results/00_APEC_transport_leap_export_{scenario}.xlsx"),
+        transport_import_path=seed_cfg.transport_import_path,
+        transport_esto_balances_path=str(apec_balances_path),
+        transport_fuels_path=seed_cfg.transport_fuels_path,
+        survival_profile_path=seed_cfg.survival_profile_path,
+        vintage_profile_path=seed_cfg.vintage_profile_path,
+        passenger_sales_output=resolve_str(f"results/passenger_sales_00_APEC_{scenario}.csv"),
+        freight_sales_output=resolve_str(f"results/freight_sales_00_APEC_{scenario}.csv"),
+    )
+
+
+def run_configured_transport_workflow(
+    *,
+    transport_economy: str,
+    transport_scenario: str,
+    transport_cfg,
+    run_type: str,
+    prepared_input_df: pd.DataFrame | None = None,
+):
+    """Run input creation + optional reconciliation for one configured workflow target."""
+    print(f"\n=== Running {run_type} workflow for {transport_economy} | scenario {transport_scenario} ===")
+    record = {
+        "economy": transport_economy,
+        "scenario": transport_scenario,
+        "run_type": run_type,
+        "transport_export_path": transport_cfg.transport_export_path,
+        "passenger_sales_output": transport_cfg.passenger_sales_output,
+        "freight_sales_output": transport_cfg.freight_sales_output,
+        "status": "success",
+        "error": "",
+    }
+
+    try:
+        if RUN_INPUT_CREATION:
+            load_transport_into_leap(
+                transport_model_excel_path=transport_cfg.transport_model_path,
+                economy=transport_economy,
+                original_scenario=transport_scenario,
+                new_scenario=transport_scenario,
+                region=transport_cfg.transport_region,
+                diagnose_method='all',
+                base_year=transport_cfg.transport_base_year,
+                final_year=transport_cfg.transport_final_year,
+                model_name=transport_cfg.transport_model_name,
+                CHECK_BRANCHES_IN_LEAP_USING_COM=CHECK_BRANCHES_IN_LEAP_USING_COM,
+                SET_VARS_IN_LEAP_USING_COM=SET_VARS_IN_LEAP_USING_COM,
+                AUTO_SET_MISSING_BRANCHES=AUTO_SET_MISSING_BRANCHES,
+                export_filename=transport_cfg.transport_export_path,
+                import_filename=transport_cfg.transport_import_path,
+                TRANSPORT_ESTO_BALANCES_PATH=transport_cfg.transport_esto_balances_path,
+                TRANSPORT_FUELS_DATA_FILE_PATH=transport_cfg.transport_fuels_path,
+                TRANSPORT_ROOT=r"Demand",
+                LOAD_INPUT_CHECKPOINT=LOAD_INPUT_CHECKPOINT,
+                LOAD_HALFWAY_CHECKPOINT=LOAD_HALFWAY_CHECKPOINT,
+                LOAD_THREEQUART_WAY_CHECKPOINT=LOAD_THREEQUART_WAY_CHECKPOINT,
+                LOAD_EXPORT_DF_CHECKPOINT=LOAD_EXPORT_DF_CHECKPOINT,
+                CHECKPOINT_TAG=f"{transport_economy}_{transport_scenario}",
+                MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE=MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE,
+                RUN_PASSENGER_SALES=RUN_PASSENGER_SALES,
+                RUN_FREIGHT_SALES=RUN_FREIGHT_SALES,
+                SURVIVAL_PROFILE_PATH=transport_cfg.survival_profile_path,
+                VINTAGE_PROFILE_PATH=transport_cfg.vintage_profile_path,
+                PASSENGER_SALES_OUTPUT=transport_cfg.passenger_sales_output,
+                FREIGHT_SALES_OUTPUT=transport_cfg.freight_sales_output,
+                PASSENGER_PLOT=PASSENGER_PLOT,
+                PREPARED_INPUT_DF=prepared_input_df,
+            )
+
+        if RUN_RECONCILIATION:
+            run_transport_reconciliation(
+                apply_adjustments_to_future_years=APPLY_ADJUSTMENTS_TO_FUTURE_YEARS,
+                report_adjustment_changes=REPORT_ADJUSTMENT_CHANGES,
+                date_id=DATE_ID,
+                transport_esto_balances_path=transport_cfg.transport_esto_balances_path,
+                transport_export_path=transport_cfg.transport_export_path,
+                economy=transport_economy,
+                base_year=transport_cfg.transport_base_year,
+                final_year=transport_cfg.transport_final_year,
+                scenario=transport_scenario,
+                model_name=transport_cfg.transport_model_name,
+                unmappable_branches=UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT,
+                analysis_type_lookup=LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP.get,
+                all_leap_branches=ALL_LEAP_BRANCHES_TRANSPORT,
+                esto_to_leap_mapping=ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+                set_vars_in_leap_using_com=SET_VARS_IN_LEAP_USING_COM,
+            )
+    except Exception as exc:
+        record["status"] = "failed"
+        record["error"] = str(exc)
+        print(f"[ERROR] {transport_economy} failed: {exc}")
+
+    return record
+
+
 if __name__ == "__main__" and (RUN_INPUT_CREATION or RUN_RECONCILIATION):
     pd.options.display.float_format = "{:,.3f}".format
-    if RUN_INPUT_CREATION:
-        list_all_measures()
+    list_all_measures()
+    is_all_mode, all_mode, run_separate, run_apec = resolve_transport_run_mode(
+        TRANSPORT_ECONOMY_SELECTION,
+        ALL_RUN_MODE,
+    )
 
-        load_transport_into_leap(
-            transport_model_excel_path=transport_cfg.transport_model_path,
-            economy=transport_economy,
-            original_scenario=transport_scenario,
-            new_scenario=transport_scenario,
-            region=transport_cfg.transport_region,
-            diagnose_method='all',
-            base_year=transport_cfg.transport_base_year,
-            final_year=transport_cfg.transport_final_year,
-            model_name=transport_cfg.transport_model_name,
-            CHECK_BRANCHES_IN_LEAP_USING_COM=True,
-            SET_VARS_IN_LEAP_USING_COM=True,
-            AUTO_SET_MISSING_BRANCHES=False,
-            export_filename=transport_cfg.transport_export_path,
-            import_filename=transport_cfg.transport_import_path,
-            TRANSPORT_ESTO_BALANCES_PATH=transport_cfg.transport_esto_balances_path,
-            TRANSPORT_FUELS_DATA_FILE_PATH=transport_cfg.transport_fuels_path,
-            TRANSPORT_ROOT=r"Demand",
-            #checkpoint/loading options
-            LOAD_INPUT_CHECKPOINT=False,
-            LOAD_HALFWAY_CHECKPOINT=False,
-            LOAD_THREEQUART_WAY_CHECKPOINT=False,
-            LOAD_EXPORT_DF_CHECKPOINT=False,
-            MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE=True,
-            #related to passenger sales calculation
-            RUN_PASSENGER_SALES=RUN_PASSENGER_SALES,
-            RUN_FREIGHT_SALES=RUN_FREIGHT_SALES,
-            SURVIVAL_PROFILE_PATH=transport_cfg.survival_profile_path,
-            VINTAGE_PROFILE_PATH=transport_cfg.vintage_profile_path,
-            PASSENGER_SALES_OUTPUT=transport_cfg.passenger_sales_output,
-            FREIGHT_SALES_OUTPUT=transport_cfg.freight_sales_output,
-            PASSENGER_PLOT=True,
+    if is_all_mode:
+        print(
+            f"[INFO] all-mode plan | scenario={TRANSPORT_SCENARIO_SELECTION} | "
+            f"mode={all_mode} | run_separate={run_separate} | run_apec={run_apec}"
         )
-    if RUN_RECONCILIATION:
-        esto_to_leap_mapping=ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP
-        unmappable_branches=UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT
-        all_leap_branches=ALL_LEAP_BRANCHES_TRANSPORT
-        analysis_type_lookup=LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP.get
-        run_transport_reconciliation(
-        apply_adjustments_to_future_years=APPLY_ADJUSTMENTS_TO_FUTURE_YEARS,
-        report_adjustment_changes=REPORT_ADJUSTMENT_CHANGES,
-        date_id=DATE_ID,
-        transport_esto_balances_path=transport_cfg.transport_esto_balances_path,
-        transport_export_path=transport_cfg.transport_export_path,
-        economy=transport_economy,
-        base_year=transport_cfg.transport_base_year,
-        final_year=transport_cfg.transport_final_year,
-        scenario=transport_scenario,
-        model_name=transport_cfg.transport_model_name,
-        unmappable_branches=unmappable_branches,
-        analysis_type_lookup=analysis_type_lookup,
-        all_leap_branches=all_leap_branches,
-        esto_to_leap_mapping=esto_to_leap_mapping,
-        set_vars_in_leap_using_com=True,
+    else:
+        print(
+            f"[INFO] single-economy plan | economy={TRANSPORT_ECONOMY_SELECTION} | "
+            f"scenario={TRANSPORT_SCENARIO_SELECTION}"
         )
+        if ALL_RUN_MODE.strip():
+            print(f"[INFO] ALL_RUN_MODE='{ALL_RUN_MODE}' is ignored when TRANSPORT_ECONOMY_SELECTION != 'all'.")
+
+    if is_all_mode and SET_VARS_IN_LEAP_USING_COM:
+        print("[WARN] 'all' mode with COM writes enabled will update LEAP for multiple runs.")
+
+    run_records = []
+
+    if run_separate:
+        run_targets = (
+            list_transport_run_configs(TRANSPORT_SCENARIO_SELECTION)
+            if is_all_mode
+            else [(TRANSPORT_ECONOMY_SELECTION, TRANSPORT_SCENARIO_SELECTION)]
+        )
+        for transport_economy, transport_scenario in run_targets:
+            _, _, transport_cfg = load_transport_run_config(transport_economy, transport_scenario)
+            record = run_configured_transport_workflow(
+                transport_economy=transport_economy,
+                transport_scenario=transport_scenario,
+                transport_cfg=transport_cfg,
+                run_type="separate",
+            )
+            run_records.append(record)
+
+    if run_apec:
+        apec_cfg = build_apec_run_config(TRANSPORT_SCENARIO_SELECTION)
+        apec_input_df = None
+        if RUN_INPUT_CREATION:
+            apec_input_df = prepare_apec_input_data(
+                scenario=TRANSPORT_SCENARIO_SELECTION,
+                base_year=APEC_BASE_YEAR,
+                final_year=APEC_FINAL_YEAR,
+                load_checkpoint=LOAD_INPUT_CHECKPOINT,
+            )
+        apec_record = run_configured_transport_workflow(
+            transport_economy="00_APEC",
+            transport_scenario=TRANSPORT_SCENARIO_SELECTION,
+            transport_cfg=apec_cfg,
+            run_type="apec",
+            prepared_input_df=apec_input_df,
+        )
+        run_records.append(apec_record)
+
+    if is_all_mode:
+        summary_path = resolve_str(
+            f"results/transport_all_run_summary_{TRANSPORT_SCENARIO_SELECTION}_{all_mode}_{DATE_ID}.csv"
+        )
+        pd.DataFrame(run_records).to_csv(summary_path, index=False)
+        print(f"[INFO] Wrote run summary: {summary_path}")
+
+        separate_records = [record for record in run_records if record.get("run_type") == "separate"]
+        if separate_records:
+            aggregate_batch_sales_outputs(separate_records, TRANSPORT_SCENARIO_SELECTION, DATE_ID)
     
 #%%
 

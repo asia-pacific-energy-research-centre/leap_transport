@@ -281,6 +281,7 @@ def filter_source_dataframe_by_categories(df, columns, categories):
         3: "Drive",
         4: "Fuel"
     }
+    
     filter_cols = [category_to_column[i] for i in range(len(columns))]
     for col, cat in zip(filter_cols, categories):
         if cat is not None:
@@ -418,8 +419,7 @@ def aggregate_measures(df_out, src, source_cols_for_grouping, ttype, medium, vty
         category_hierarchy,
     )
     if len(df_filtered) == 0:
-        breakpoint()
-        raise ValueError(f"[ERROR] No data remaining after aggregation for source measure: {src}. Check filtering criteria.")
+        return pd.DataFrame(columns=source_cols_for_grouping + [src])
     
     df_filtered = df_filtered[source_cols_for_grouping + [src]].copy()
     #drop duplicates if any remain after aggregation
@@ -468,6 +468,7 @@ def process_measures_for_leap(
         filter_source_dataframe_by_categories(df, columns, categories)
 
     """
+    
     processed = {}
     print(f"Processing measures for LEAP branch: {shortname}")
     # Apply scaling
@@ -537,6 +538,8 @@ def process_measures_for_leap(
             continue
         
         df_out = aggregate_measures(df_out, src, source_cols_for_grouping, ttype, medium, vtype, drive, fuel)
+        if df_out.empty:
+            continue
         
         # if source_cols_for_grouping == ['Date', 'Transport Type', 'Medium', 'Vehicle Type', 'Drive'] and drive == 'erev' and vtype == 'ht':
         #     breakpoint()#checking why erev heavy trucks are getting wrong aggregation

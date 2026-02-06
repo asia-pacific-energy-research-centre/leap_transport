@@ -8,8 +8,12 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Optional
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except ModuleNotFoundError:  # optional dependency for plotting utilities only
+    plt = None
 import pandas as pd
+from path_utils import resolve_str
 
 
 #%% CORE IO FUNCTIONS (load/save LEAP-style lifecycle profile)
@@ -176,6 +180,10 @@ def plot_profile(profile: dict, title: str, ylabel: str):
     """
     Quick line plot for any {age: value} profile.
     """
+    if plt is None:
+        raise ModuleNotFoundError(
+            "matplotlib is required for plotting. Install it or avoid calling plot_profile()."
+        )
     ages = sorted(profile.keys())
     vals = [profile[a] for a in ages]
     plt.figure()
@@ -281,15 +289,16 @@ def apply_lifecycle_type_rules(profile: dict, lifecycle_type: str, base_year: Op
 def main(
     lifecycle_type="vintage",
     base_year=None,
-    original_path="../data/lifecycle_profiles/vintage_original.xlsx",
-    new_path="../data/lifecycle_profiles/vintage_modified.xlsx",
+    original_path="data/lifecycle_profiles/vintage_original.xlsx",
+    new_path="data/lifecycle_profiles/vintage_modified.xlsx",
     scale_age_band_age_min=5,
     scale_age_band_age_max=12,
     scale_age_band_factor=0.95,
     smoothing_dict: Optional[dict[int, int]] = None,
     auto_open=False,
 ):
-    new_path = Path(new_path).resolve()
+    original_path = resolve_str(original_path)
+    new_path = resolve_str(new_path)
     area, profile_name, profile_original = load_lifecycle_profile_excel(original_path)
     lifecycle_type_norm = (lifecycle_type or "").lower().strip().replace(" ", "_").replace("-", "_")
     requires_sum_100 = lifecycle_type_norm == "vintage"
@@ -825,8 +834,8 @@ if __name__ == "__main__":
     # main(
     #     lifecycle_type="vintage",
     #     base_year=None,
-    #     original_path="../data/lifecycle_profiles/vintage_original.xlsx",
-    #     new_path="../data/lifecycle_profiles/vintage_modified.xlsx",
+    #     original_path="./data/lifecycle_profiles/vintage_original.xlsx",
+    #     new_path="./data/lifecycle_profiles/vintage_modified.xlsx",
     #     scale_age_band_age_min=4,
     #     scale_age_band_age_max=15,
     #     scale_age_band_factor=0.5,
@@ -836,8 +845,8 @@ if __name__ == "__main__":
     main(
         lifecycle_type="vehicle_survival",
         base_year=None,
-        original_path="../data/lifecycle_profiles/vehicle_survival_original.xlsx",
-        new_path="../data/lifecycle_profiles/vehicle_survival_modified.xlsx",
+        original_path="data/lifecycle_profiles/vehicle_survival_original.xlsx",
+        new_path="data/lifecycle_profiles/vehicle_survival_modified.xlsx",
         scale_age_band_age_min=4,
         scale_age_band_age_max=15,
         scale_age_band_factor=1,
@@ -853,8 +862,8 @@ if __name__ == "__main__":
     # This expects you’ve already produced e.g. vehicle_survival_modified.xlsx
     # with your existing main() call.
 
-    survival_excel = "../data/lifecycle_profiles/vehicle_survival_modified.xlsx"
-    vintage_excel  = "../data/lifecycle_profiles/vintage_modelled_from_survival.xlsx"
+    survival_excel = resolve_str("data/lifecycle_profiles/vehicle_survival_modified.xlsx")
+    vintage_excel  = resolve_str("data/lifecycle_profiles/vintage_modelled_from_survival.xlsx")
 
     saved_path, const_sales = build_vintage_from_survival_excel(
         survival_excel_path=survival_excel,

@@ -1079,11 +1079,12 @@ def check_LEAP_BRANCH_TO_SOURCE_MAP_for_missing_proxies_and_combinations(LEAP_BR
             if key not in all_source_values:
                 raise ValueError(f"Key {key} from {dict_name} is not present in LEAP_BRANCH_TO_SOURCE_MAP values.")
            
-def create_new_source_rows_based_on_proxies_with_no_activity(source_df):
+def create_new_source_rows_based_on_proxies_with_no_activity(source_df, strict_missing=False):
     #todo since we dont handle biofuels and other mixed fuels in the soruce df we should handle them differently too.. pehraps by inserting the energy use from the esto dataset?
     #we need to occasionally create new sets of source rows based on proxy mappings, e.g. rail hydrogen maps to rail electricity in LEAP. we want to keep the same effiicnecy but not the same activity/stocks and so on. So we will create these new rows using the existing rows as a base and just changing the fuel/drive type as needed.
     #this will be used within prepare_input_data()
     new_df_rows = pd.DataFrame()  # Initialize an empty DataFrame to hold new 
+    missing_proxy_sources = []
     for new_src_tuple, src_tuple in PROXIED_SOURCE_ROWS_WITH_NO_ACTIVITY.items():
         source_cols = ["Transport Type", "Medium", "Vehicle Type", "Drive", "Fuel"][:len(src_tuple)]
         # Build a boolean mask across all source columns, then take a copy to avoid SettingWithCopyWarning
@@ -1092,8 +1093,10 @@ def create_new_source_rows_based_on_proxies_with_no_activity(source_df):
             mask &= source_df[col] == src_tuple[i]
         matching_rows = source_df.loc[mask].copy()
         if len(matching_rows) == 0:
-            breakpoint()
-            raise ValueError(f"No matching rows found in source_df for source tuple: {src_tuple}")
+            missing_proxy_sources.append(src_tuple)
+            if strict_missing:
+                raise ValueError(f"No matching rows found in source_df for source tuple: {src_tuple}")
+            continue
         # set up a copy to modify. we will set its cols to the new source tuple values and copy over the value cols where needed, otherwise set to 0
         for i, col in enumerate(source_cols):
             matching_rows.loc[:, col] = new_src_tuple[i]
@@ -1134,6 +1137,13 @@ def create_new_source_rows_based_on_proxies_with_no_activity(source_df):
             if col in matching_rows.columns:
                 matching_rows.loc[:, col] = 0
         new_df_rows = pd.concat([new_df_rows, matching_rows], ignore_index=True)
+    if missing_proxy_sources and not strict_missing:
+        missing_display = ", ".join(map(str, missing_proxy_sources[:5]))
+        suffix = " ..." if len(missing_proxy_sources) > 5 else ""
+        print(
+            "[INFO] Skipped proxy source rows with no matching data: "
+            f"{len(missing_proxy_sources)} missing tuples ({missing_display}{suffix})"
+        )
     return new_df_rows
 
 def create_new_source_rows_based_on_combinations(source_df):

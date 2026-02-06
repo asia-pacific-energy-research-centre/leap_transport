@@ -7,6 +7,11 @@ from measure_metadata import SHARE_MEASURES
 from measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
 from branch_mappings import ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP, LEAP_MEASURE_CONFIG, DEFAULT_BRANCH_SHARE_SETTINGS_DICT
 from esto_data import extract_esto_energy_use_for_leap_branches
+from merged_energy_io import (
+    apply_relevant_subtotal_filters,
+    filter_energy_for_economy_scenario,
+    load_transport_energy_dataset,
+)
 import numpy as np
 def get_most_detailed_branches(mapping: dict):
     """
@@ -411,7 +416,10 @@ def calculate_energy_use_for_intensity_analysis_branch(branch_path, branch_tuple
     
     return energy_use.sum() if energy_use.size > 0 else 0
 
-def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, original_scenario,new_scenario, BASE_YEAR, FINAL_YEAR, export_df, TRANSPORT_ESTO_BALANCES_PATH = '../data/all transport balances data.xlsx', TRANSPORT_ROOT = r"Demand"):
+from path_utils import resolve_str
+
+
+def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, original_scenario,new_scenario, BASE_YEAR, FINAL_YEAR, export_df, TRANSPORT_ESTO_BALANCES_PATH = 'data/merged_file_energy_ALL_20250814_pretrump.csv', TRANSPORT_ROOT = r"Demand"):
     """
     Validate that LEAP final energy use for the base year matches ESTO totals.
     this will utilise the ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP to sum up LEAP final energy use by branch, using the msot detailed branch levels and then caculating total energy use for each branch based on what measures are avaialble. There would be two types of calculation: 
@@ -421,13 +429,29 @@ def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, original
     """
     #filter out current accounts scnario from export_df so we dont double count it when comparing to the esto data
     export_df = export_df[export_df['Scenario'] != 'Current Accounts']
-    esto_energy_use = pd.read_excel(TRANSPORT_ESTO_BALANCES_PATH) 
-    #filter for the given economy, scenario and base year
-    esto_energy_use_filtered = esto_energy_use[
-        (esto_energy_use['economy'] == ECONOMY) &
-        (esto_energy_use['scenarios'] == original_scenario.lower()) &
-        (esto_energy_use['subtotal_layout'] == False)
-    ][['sectors', 'sub1sectors', 'sub2sectors', 'sub3sectors', 'sub4sectors', 'fuels', 'subfuels', BASE_YEAR]]
+    esto_energy_use = load_transport_energy_dataset(
+        resolve_str(TRANSPORT_ESTO_BALANCES_PATH),
+        economy=ECONOMY,
+    )
+    esto_energy_use = filter_energy_for_economy_scenario(
+        esto_energy_use,
+        economy=ECONOMY,
+        scenario=original_scenario,
+    )
+    esto_energy_use_filtered = apply_relevant_subtotal_filters(
+        esto_energy_use,
+        base_year=BASE_YEAR,
+        final_year=FINAL_YEAR,
+    )
+    esto_energy_use_filtered = esto_energy_use_filtered[
+        ['sectors', 'sub1sectors', 'sub2sectors', 'sub3sectors', 'sub4sectors', 'fuels', 'subfuels', BASE_YEAR]
+    ].copy()
+    group_cols = ['sectors', 'sub1sectors', 'sub2sectors', 'sub3sectors', 'sub4sectors', 'fuels', 'subfuels']
+    if esto_energy_use_filtered.duplicated(subset=group_cols).any():
+        esto_energy_use_filtered = (
+            esto_energy_use_filtered.groupby(group_cols, as_index=False)[BASE_YEAR]
+            .sum(min_count=1)
+        )
     leap_energy_use_totals = {}
     esto_energy_totals = {}
     stats_collector = pd.DataFrame()

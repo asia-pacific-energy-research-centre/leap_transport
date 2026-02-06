@@ -4,11 +4,12 @@ from pathlib import Path
 from typing import Dict, Iterable, Sequence
 
 import pandas as pd
+from path_utils import ROOT_DIR, resolve_path
 
-DEFAULT_MERGED_DATA = Path("../data/merged_file_energy_ALL_20250814.csv")
-DEFAULT_TRANSPORT_BALANCES = Path("../data/all transport balances data.xlsx")
-DEFAULT_APEC_OUTPUT = Path("../data/TRANSPORT_all_APPLICABLE_historical_sectors_fuels_9th_outlook.xlsx")
-DEFAULT_NON_APEC_OUTPUT = Path("../data/TRANSPORT_all_NONAPEC_historical_energy_use.xlsx")
+DEFAULT_MERGED_DATA = ROOT_DIR / "data/merged_file_energy_ALL_20250814_pretrump.csv"
+DEFAULT_TRANSPORT_BALANCES = ROOT_DIR / "data/merged_file_energy_00_APEC_20250814_pretrump.csv"
+DEFAULT_APEC_OUTPUT = ROOT_DIR / "data/TRANSPORT_all_APPLICABLE_historical_sectors_fuels_9th_outlook.xlsx"
+DEFAULT_NON_APEC_OUTPUT = ROOT_DIR / "data/TRANSPORT_all_NONAPEC_historical_energy_use.xlsx"
 
 REFERENCE_SCENARIO = "reference"
 APEC_ECONOMY = "00_APEC"
@@ -60,7 +61,7 @@ def export_apec_historical_sector_fuels(
         ]
     ].drop_duplicates()
 
-    output_path = Path(output_path)
+    output_path = resolve_path(output_path)
     unique_rows.to_excel(output_path, index=False)
     return unique_rows
 
@@ -91,7 +92,7 @@ def export_non_apec_historical_energy_use(
     else:
         export_df = pd.DataFrame(columns=merged_energy.columns)
 
-    output_path = Path(output_path)
+    output_path = resolve_path(output_path)
     export_df.to_excel(output_path, index=False)
     return export_df
 
@@ -105,8 +106,8 @@ def main(
     base_year: int = 2021,
 ) -> None:
     """Generate both APEC-wide and non-APEC historical exports using the default datasets."""
-    merged_energy = pd.read_csv(merged_data_path)
-    transport_balances = pd.read_excel(transport_balances_path)
+    merged_energy = pd.read_csv(resolve_path(merged_data_path))
+    transport_balances = pd.read_csv(resolve_path(transport_balances_path))
 
     export_apec_historical_sector_fuels(transport_balances, base_year, apec_output_path)
     export_non_apec_historical_energy_use(

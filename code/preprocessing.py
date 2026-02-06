@@ -77,6 +77,9 @@ def allocate_fuel_alternatives_energy_and_activity(df, economy, scenario, TRANSP
     fossilfuel_df = src_by_fuel[src_by_fuel['Mapped_Fuel'].isin(biofuel_fuel_map.values())].copy()
     #pivot the biofuel df to have fuels as columns
     biofuel_pivot = biofuel_df.pivot(index=['Economy', 'Scenario','Date', 'Transport Type', 'Vehicle Type', 'Drive', 'Medium'], columns='Mapped_Fuel', values='Energy').reset_index()
+    for biofuel in biofuel_fuel_map.keys():
+        if biofuel not in biofuel_pivot.columns:
+            biofuel_pivot[biofuel] = 0.0
     #merge the fossil fuel df with the biofuel pivot to get the amount of biofuels used
     merged_df = pd.merge(fossilfuel_df, biofuel_pivot, on=['Economy', 'Scenario','Date', 'Transport Type', 'Vehicle Type', 'Drive', 'Medium'], suffixes=('_fossil', '_bio'))
     

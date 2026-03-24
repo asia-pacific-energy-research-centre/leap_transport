@@ -161,9 +161,11 @@ Outputs:
 
 Top-level stage gates (bottom of `code/MAIN_leap_import.py`):
 
+- `RUN_PROFILE` (`input_only`, `reconcile_only`, `full`)
+- `SALES_MODE` (`none`, `passenger`, `freight`, `both`)
+Derived:
+
 - `RUN_INPUT_CREATION`
-- `RUN_PASSENGER_SALES`
-- `RUN_FREIGHT_SALES`
 - `RUN_RECONCILIATION`
 
 COM integration gates:
@@ -174,10 +176,8 @@ COM integration gates:
 
 Checkpoint gates:
 
-- `LOAD_INPUT_CHECKPOINT`
-- `LOAD_HALFWAY_CHECKPOINT`
-- `LOAD_THREEQUART_WAY_CHECKPOINT`
-- `LOAD_EXPORT_DF_CHECKPOINT`
+- `INPUT_DATA_SOURCE` (`raw`, `checkpoint`)
+- `CHECKPOINT_LOAD_STAGE` (`none`, `halfway`, `three_quarter`, `export`)
 
 Reconciliation behavior:
 

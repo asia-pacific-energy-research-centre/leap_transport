@@ -1,6 +1,6 @@
 # Troubleshooting
 
-## `ModuleNotFoundError: leap_utils`
+## `ModuleNotFoundError: leap_utils`, `ModuleNotFoundError: code.*`, or `ModuleNotFoundError: codebase.*`
 
 Cause:
 

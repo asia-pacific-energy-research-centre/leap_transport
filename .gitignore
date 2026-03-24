@@ -7,6 +7,7 @@
 **/exploration
 #######################################
 # original_preparation_code/*
+*.svg
 *.png
 *.7z
 *.zip

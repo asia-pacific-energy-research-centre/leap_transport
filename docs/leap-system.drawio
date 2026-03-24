@@ -4,8 +4,11 @@
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
-                <mxCell id="2" value="Inputs\n- transport model\n- fuels\n- ESTO\n- lifecycle" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
-                    <mxGeometry x="360" y="490" width="220" height="140" as="geometry"/>
+                <mxCell id="2" value="Input data to Python workflow\n- model output files\n- fuel detail\n- merged energy (ESTO)\n- lifecycle profiles" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+                    <mxGeometry x="330" y="490" width="250" height="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="30" value="Transport model\n(core demand/stock/energy logic)\nrelatively simple" style="rounded=1;whiteSpace=wrap;html=1;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="1" vertex="1">
+                    <mxGeometry x="20" y="505" width="270" height="110" as="geometry"/>
                 </mxCell>
                 <mxCell id="3" value="Configuration\n- transport_economy_config\n- path_utils" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
                     <mxGeometry x="350" y="70" width="220" height="120" as="geometry"/>
@@ -16,8 +19,8 @@
                 <mxCell id="5" value="Transform engine\n- preprocessing\n- measure_processing\n- sales_curve_estimate\n- esto_data" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="1" vertex="1">
                     <mxGeometry x="320" y="260" width="280" height="140" as="geometry"/>
                 </mxCell>
-                <mxCell id="6" value="Orchestrator\nMAIN_leap_import.py" style="rounded=1;whiteSpace=wrap;html=1;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="1" vertex="1">
-                    <mxGeometry x="660" y="230" width="220" height="120" as="geometry"/>
+                <mxCell id="6" value="Orchestrator\n- transport_workflow.py\n- transport_workflow_pipeline.py\n(MAIN_leap_import.py wrapper)" style="rounded=1;whiteSpace=wrap;html=1;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="1" vertex="1">
+                    <mxGeometry x="640" y="220" width="290" height="130" as="geometry"/>
                 </mxCell>
                 <mxCell id="7" value="Validation + Reconciliation\n- mappings_validation\n- energy_use_reconciliation_road" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" parent="1" vertex="1">
                     <mxGeometry x="990" y="60" width="300" height="120" as="geometry"/>
@@ -50,6 +53,9 @@
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
                 <mxCell id="27" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=block;" parent="1" source="7" target="9" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="31" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" parent="1" source="30" target="2" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
             </root>

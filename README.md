@@ -29,7 +29,9 @@ The transport pipeline still depends on legacy 9th-edition shaped data. This cod
 
 ## Repository map
 
-- `code/MAIN_leap_import.py`: main entry point and orchestration.
+- `code/transport_workflow.py`: main entry point (run settings + orchestration call).
+- `code/transport_workflow_pipeline.py`: transport workflow implementation (processing, export, reconciliation).
+- `code/MAIN_leap_import.py`: backward-compatible wrapper to the new workflow entry point.
 - `code/transport_economy_config.py`: economy/scenario-specific file paths and defaults.
 - `code/branch_mappings.py`: branch tuple definitions and measure config.
 - `code/measure_processing.py`: measure preparation logic per branch.
@@ -47,7 +49,7 @@ The transport pipeline still depends on legacy 9th-edition shaped data. This cod
 - Windows machine with LEAP desktop installed.
 - LEAP model available locally.
 - Conda available.
-- Access to shared helper package `leap_utils` (usually from the separate `leap_utilities` repo).
+- Access to shared helper package from the separate `leap_utilities` repo (`leap_utils` legacy path or `codebase` renamed path).
 
 ### 2) Environment
 
@@ -58,7 +60,7 @@ conda env create --prefix ./env_leap --file ./config/env_leap.yml
 conda activate ./env_leap
 ```
 
-If `leap_utils` is not already importable:
+If helper modules are not already importable:
 
 ```bash
 pip install -e ../leap_utilities
@@ -66,7 +68,7 @@ pip install -e ../leap_utilities
 
 ## Running the pipeline
 
-The script is configured at the bottom of `code/MAIN_leap_import.py`.
+The script is configured in `code/transport_workflow.py`.
 
 ### Common run modes
 
@@ -77,7 +79,7 @@ The script is configured at the bottom of `code/MAIN_leap_import.py`.
 Run from repo root:
 
 ```bash
-python code/MAIN_leap_import.py
+python code/transport_workflow.py
 ```
 
 ## Recommended first run (safe)

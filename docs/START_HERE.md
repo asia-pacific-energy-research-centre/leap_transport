@@ -9,7 +9,7 @@ The pipeline has two major stages:
 1. `Input creation`: transform transport model data into LEAP export/import files.
 2. `Reconciliation`: align LEAP base-year energy with ESTO totals.
 
-Both are controlled by flags at the bottom of `code/MAIN_leap_import.py`.
+Both are controlled by flags in `code/transport_workflow.py`.
 
 ## 2) Prepare your environment
 
@@ -20,7 +20,7 @@ conda env create --prefix ./env_leap --file ./config/env_leap.yml
 conda activate ./env_leap
 ```
 
-Install helper utilities if needed:
+Install helper utilities if needed (works for both the legacy `leap_utils` folder and renamed `codebase` folder in that repo):
 
 ```bash
 pip install -e ../leap_utilities
@@ -28,27 +28,27 @@ pip install -e ../leap_utilities
 
 ## 3) Pick economy and scenario
 
-Open `code/MAIN_leap_import.py` and locate:
+Open `code/transport_workflow.py` and set:
 
 ```python
-transport_economy, transport_scenario, transport_cfg = load_transport_run_config("20_USA", 'Reference')
+TRANSPORT_ECONOMY_SELECTION = "20_USA"
+TRANSPORT_SCENARIO_SELECTION = "Reference"
 ```
 
-Change this to your target economy/scenario that exists in `code/transport_economy_config.py`.
+Ensure the selected economy/scenario exists in `code/transport_economy_config.py`.
 
 ## 4) Do a safe dry run first
 
-Set these flags in `code/MAIN_leap_import.py`:
+Set these flags in `code/transport_workflow.py`:
 
-- `RUN_INPUT_CREATION = True`
-- `RUN_RECONCILIATION = False`
-- In the `load_transport_into_leap(...)` call, set `CHECK_BRANCHES_IN_LEAP_USING_COM=False`.
-- In the `load_transport_into_leap(...)` call, set `SET_VARS_IN_LEAP_USING_COM=False`.
+- `RUN_PROFILE = "input_only"`
+- `CHECK_BRANCHES_IN_LEAP_USING_COM = False`
+- `SET_VARS_IN_LEAP_USING_COM = False`
 
 Then run:
 
 ```bash
-python code/MAIN_leap_import.py
+python code/transport_workflow.py
 ```
 
 Check that a workbook appears in `results/`.
@@ -57,7 +57,7 @@ Check that a workbook appears in `results/`.
 
 After dry run succeeds:
 
-- Enable `RUN_RECONCILIATION = True`.
+- Switch to `RUN_PROFILE = "full"`.
 - Enable COM checks/writes only when LEAP is open and model path is confirmed.
 
 Use `docs/RUNBOOK.md` for full operating steps.

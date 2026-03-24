@@ -22,21 +22,24 @@ Each economy+scenario defines:
 - Lifecycle profiles.
 - Output workbook paths.
 
-At bottom of `code/MAIN_leap_import.py`, choose config with:
+In `code/transport_workflow.py`, choose run target with:
 
 ```python
-transport_economy, transport_scenario, transport_cfg = load_transport_run_config("20_USA", 'Reference')
+TRANSPORT_ECONOMY_SELECTION = "20_USA"
+TRANSPORT_SCENARIO_SELECTION = "Reference"
 ```
 
 ## 3) Main run flags
 
-Edit flags near the bottom of `code/MAIN_leap_import.py`.
+Edit flags in `code/transport_workflow.py`.
 
 Top-level stage flags:
 
+- `RUN_PROFILE` (`input_only`, `reconcile_only`, `full`)
+- `SALES_MODE` (`none`, `passenger`, `freight`, `both`)
+Derived:
+
 - `RUN_INPUT_CREATION`
-- `RUN_PASSENGER_SALES`
-- `RUN_FREIGHT_SALES`
 - `RUN_RECONCILIATION`
 
 Reconciliation behavior:
@@ -52,23 +55,24 @@ COM behavior (inside `load_transport_into_leap(...)` and reconciliation call):
 
 ## 4) Checkpoints and reruns
 
-`load_transport_into_leap(...)` includes checkpoint toggles:
+Input data source (preprocessed dataframe):
 
-- `LOAD_INPUT_CHECKPOINT`
-- `LOAD_HALFWAY_CHECKPOINT`
-- `LOAD_THREEQUART_WAY_CHECKPOINT`
-- `LOAD_EXPORT_DF_CHECKPOINT`
+- `INPUT_DATA_SOURCE` (`raw`, `checkpoint`)
+
+`load_transport_into_leap(...)` includes a single export checkpoint resume stage:
+
+- `CHECKPOINT_LOAD_STAGE` (`none`, `halfway`, `three_quarter`, `export`)
 
 Checkpoint files are written to `intermediate_data/`.
 
-Use these only for debugging or long reruns. For clean production runs, prefer all `False` unless intentional.
+Use these only for debugging or long reruns. For clean production runs, prefer `CHECKPOINT_LOAD_STAGE = "none"` unless intentional.
 
 ## 5) Execute
 
 Run from repo root:
 
 ```bash
-python code/MAIN_leap_import.py
+python code/transport_workflow.py
 ```
 
 ## 6) Validate output
@@ -108,7 +112,7 @@ If COM writes were enabled:
 
 1. Add economy/scenario entry in `code/transport_economy_config.py`.
 2. Ensure all referenced files exist.
-3. Set `load_transport_run_config("<new_code>", "<scenario>")` in `code/MAIN_leap_import.py`.
+3. Set `TRANSPORT_ECONOMY_SELECTION` and `TRANSPORT_SCENARIO_SELECTION` in `code/transport_workflow.py`.
 4. Run safe dry run first.
 5. Run full profile once dry run passes.
 

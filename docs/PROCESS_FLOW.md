@@ -2,9 +2,50 @@
 
 This document explains what the transport pipeline does from start to finish, in simple terms.
 
+## System view: transport model vs Python prep pipeline
+
+Editable diagram source: `docs/leap-system.drawio`
+
+Use this view to explain scope:
+
+1. The **transport model** is one upstream component that produces core outputs.
+2. The **Python system** then does a larger set of preparation, mapping, validation, and export steps so LEAP can consume those outputs safely.
+
+```mermaid
+flowchart LR
+    TM[Transport model<br/>core projections] --> IN
+    FD[Fuel detail file] --> IN
+    ME[Merged energy file] --> IN
+    LP[Lifecycle profiles] --> IN
+
+    IN[Input datasets for Python workflow]
+
+    subgraph PY[Python preparation and loading workflow]
+        CFG[Configuration + paths]
+        MAP[Static mappings + metadata]
+        ENG[Transform engine<br/>fuel splits, proxies, sales, shares]
+        ORCH[Orchestration<br/>transport_workflow.py + transport_workflow_pipeline.py]
+        VAL[Validation + reconciliation]
+        OUT[Outputs<br/>LEAP workbooks, CSV reports, checkpoints, diagnostics]
+
+        CFG --> ORCH
+        MAP --> ORCH
+        ENG --> ORCH
+        ORCH --> VAL
+        VAL --> OUT
+    end
+
+    IN --> ENG
+    ORCH -.optional COM write.-> COM[LEAP desktop model]
+    VAL -.optional COM write.-> COM
+```
+
+The key message for documentation readers: the transport model logic is relatively compact, while most operational complexity sits in the Python preparation and quality-control pipeline.
+
 ## 1) What this script is trying to do
 
-`code/MAIN_leap_import.py` converts transport model outputs into LEAP-ready expressions and workbooks.
+`code/transport_workflow.py` is the run entrypoint, and delegates to
+`code/transport_workflow_pipeline.py` to convert transport model outputs into LEAP-ready expressions and workbooks.
 
 It can run:
 
@@ -35,7 +76,7 @@ Shared:
 
 ## 3) Runtime selection and modes
 
-At the bottom of `code/MAIN_leap_import.py`:
+At the top of `code/transport_workflow.py`:
 
 1. `TRANSPORT_ECONOMY_SELECTION`
 2. `TRANSPORT_SCENARIO_SELECTION`
@@ -90,6 +131,32 @@ This avoids invalid results from averaging percentages or averaging already-aggr
 5. Converts yearly values to LEAP expressions.
 6. Saves export workbook(s).
 7. Optionally writes expressions directly to LEAP through COM.
+
+### Template alignment gate (important)
+
+If `MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE=True`, there is a strict alignment step against the template file:
+
+`data/import_files/DEFAULT_transport_leap_import_TGT_REF_CA.xlsx` (sheet: `Export`)
+
+What this means:
+
+1. The generated export is merged with the template structure using:
+   `Branch Path + Variable + Scenario + Region`.
+2. Rows that do **not** exist in the template are removed from the final LEAP import output.
+3. This is why a valid model branch can still disappear from the final workbook if naming does not match exactly.
+
+The script now prints a clear summary for this step:
+
+1. How many unique rows were kept vs dropped.
+2. Top dropped branch paths.
+3. Example dropped rows.
+
+And writes full dropped-row reports to `results/`, for example:
+
+1. `results/template_alignment_dropped_<run_tag>_leap_sheet.csv`
+2. `results/template_alignment_dropped_<run_tag>_for_viewing_sheet.csv`
+
+If a fuel/branch is missing in output, check these CSVs first to confirm whether template mismatch is the cause.
 
 ## 7) Reconciliation step (optional)
 

@@ -5,8 +5,9 @@ This repository converts transport model outputs into LEAP-ready import/export f
 If you are new to this project, start here:
 
 1. Read `docs/START_HERE.md`.
-2. Run one dry run with COM writes turned off.
-3. Use `docs/RUNBOOK.md` when you are ready for a full run.
+2. Run the lifecycle stage first if turnover assumptions changed: `docs/LIFECYCLE_WORKFLOW.md`.
+3. Run one dry run with COM writes turned off.
+4. Use `docs/RUNBOOK.md` when you are ready for a full run.
 
 ## Why this exists
 
@@ -18,6 +19,7 @@ The transport pipeline still depends on legacy 9th-edition shaped data. This cod
 - Expands and maps source rows to LEAP branch tuples.
 - Applies measure logic and builds LEAP expressions.
 - Writes LEAP export/import workbooks.
+- Generates lifecycle inputs (`vehicle_survival_modified.xlsx`, `vintage_modelled_from_survival.xlsx`) used by stock/sales calculations.
 - Optionally writes values directly into an open LEAP model using COM.
 - Runs reconciliation adjustments against ESTO and archives change reports.
 
@@ -29,14 +31,15 @@ The transport pipeline still depends on legacy 9th-edition shaped data. This cod
 
 ## Repository map
 
-- `code/transport_workflow.py`: main entry point (run settings + orchestration call).
-- `code/transport_workflow_pipeline.py`: transport workflow implementation (processing, export, reconciliation).
-- `code/MAIN_leap_import.py`: backward-compatible wrapper to the new workflow entry point.
-- `code/transport_economy_config.py`: economy/scenario-specific file paths and defaults.
-- `code/branch_mappings.py`: branch tuple definitions and measure config.
-- `code/measure_processing.py`: measure preparation logic per branch.
-- `code/energy_use_reconciliation_road.py`: transport reconciliation functions.
-- `code/sales_curve_estimate.py`: passenger/freight sales estimation.
+- `codebase/lifecycle_profile_workflow.py`: top-level lifecycle generation workflow (survival -> vintage).
+- `codebase/transport_workflow.py`: main transport entry point (run settings + orchestration call).
+- `codebase/functions/transport_workflow_pipeline.py`: transport workflow implementation (processing, export, reconciliation).
+- `codebase/config/transport_economy_config.py`: economy/scenario-specific file paths and defaults.
+- `codebase/config/branch_mappings.py`: branch tuple definitions and measure config.
+- `codebase/functions/measure_processing.py`: measure preparation logic per branch.
+- `codebase/functions/energy_use_reconciliation_road.py`: transport reconciliation functions.
+- `codebase/sales_workflow.py`: policy-aware lifecycle/sales workflow wrapper.
+- `codebase/functions/lifecycle_profile_editor.py`: lifecycle profile editor and vintage-from-survival generator.
 - `config/env_leap.yml`: Python environment dependencies.
 - `data/`: source inputs and templates.
 - `results/`: output files and archived versions.
@@ -68,7 +71,17 @@ pip install -e ../leap_utilities
 
 ## Running the pipeline
 
-The script is configured in `code/transport_workflow.py`.
+### 1) Lifecycle stage (upstream)
+
+Run first when survival/vintage assumptions need to be refreshed:
+
+```bash
+python codebase/lifecycle_profile_workflow.py
+```
+
+### 2) Transport workflow
+
+The script is configured in `codebase/transport_workflow.py`.
 
 ### Common run modes
 
@@ -79,7 +92,7 @@ The script is configured in `code/transport_workflow.py`.
 Run from repo root:
 
 ```bash
-python code/transport_workflow.py
+python codebase/transport_workflow.py
 ```
 
 ## Recommended first run (safe)
@@ -97,6 +110,7 @@ This generates files without touching LEAP.
 
 - Main workbook: configured `transport_export_path` (usually under `results/`).
 - Sales files: `results/passenger_sales_*.csv`, `results/freight_sales_*.csv`.
+- Lifecycle files: `data/lifecycle_profiles/vehicle_survival_modified.xlsx`, `data/lifecycle_profiles/vintage_modelled_from_survival.xlsx`.
 - Reconciliation reports: `results/reconciliation/*.csv`.
 - Checkpoints: `intermediate_data/*.pkl`.
 - Error exports: `data/errors/*.csv`.
@@ -110,10 +124,12 @@ This generates files without touching LEAP.
 ## Handover docs
 
 - `docs/START_HERE.md`: minimum onboarding path.
+- `docs/LIFECYCLE_WORKFLOW.md`: dedicated lifecycle generation workflow.
+- `docs/TRANSPORT_WORKFLOW_SWITCHES.md`: full switch reference for `codebase/transport_workflow.py`.
 - `docs/RUNBOOK.md`: detailed operating guide.
 - `docs/TROUBLESHOOTING.md`: common failures and fixes.
 - `docs/FILE_GUIDE.md`: what each core module is responsible for.
-- `docs/MODULE_RELATIONSHIPS.md`: scanned map of every `code/*.py` file and how modules depend on each other.
+- `docs/MODULE_RELATIONSHIPS.md`: scanned map of every `codebase/*.py` file and how modules depend on each other.
 - `docs/SYSTEM_ARCHITECTURE.md`: in-depth architecture (layering, data flow, control flags, and boundaries).
 - `docs/PROCESS_FLOW.md`: plain-English beginning-to-end process flow (single, all, and 00_APEC modes).
 - `docs/CHANGE_IMPACT_MATRIX.md`: change-impact and retest matrix.

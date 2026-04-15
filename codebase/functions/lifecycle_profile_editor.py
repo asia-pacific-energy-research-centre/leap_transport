@@ -5,6 +5,7 @@ import os
 import sys
 import subprocess
 from copy import deepcopy
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -59,9 +60,10 @@ def save_lifecycle_profile_excel(new_path, area_name, profile_name, profile, she
     LEAP export format (Area/Profile/Year/Value).
 
     If a file already exists at `new_path`, it is moved into an `archive/`
-    subfolder beside it. If a file with the same name already exists in
-    `archive/`, an incrementing suffix (_1, _2, ...) is applied **in the
-    archive only**. The new file is always written to `new_path` itself.
+    subfolder beside it with a timestamp suffix.
+    If a timestamped archive name already exists, an incrementing suffix
+    (_01, _02, ...) is applied in the archive only.
+    The new file is always written to `new_path` itself.
     """
     target_path = Path(new_path)
     years = sorted(profile.keys())
@@ -81,12 +83,13 @@ def save_lifecycle_profile_excel(new_path, area_name, profile_name, profile, she
     if target_path.exists():
         archive_dir = target_path.parent / "archive"
         archive_dir.mkdir(parents=True, exist_ok=True)
+        date_id = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         base_str = target_path.stem
         ext = target_path.suffix
-        archived_candidate = archive_dir / target_path.name
+        archived_candidate = archive_dir / f"{base_str}_{date_id}{ext}"
         counter = 1
         while archived_candidate.exists():
-            archived_candidate = archive_dir / f"{base_str}_{counter}{ext}"
+            archived_candidate = archive_dir / f"{base_str}_{date_id}_{counter:02d}{ext}"
             counter += 1
         try:
             target_path.rename(archived_candidate)
@@ -97,8 +100,14 @@ def save_lifecycle_profile_excel(new_path, area_name, profile_name, profile, she
             ) from e
 
     # Write new file to the desired path (no numbering in the main folder).
-    with pd.ExcelWriter(target_path, engine="xlsxwriter") as writer:
-        out_df.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
+    try:
+        with pd.ExcelWriter(target_path, engine="xlsxwriter") as writer:
+            out_df.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
+    except ModuleNotFoundError as exc:
+        if "xlsxwriter" not in str(exc).lower():
+            raise
+        with pd.ExcelWriter(target_path, engine="openpyxl") as writer:
+            out_df.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
     return target_path
 
 
@@ -316,6 +325,7 @@ def main(
     smoothing_dict: Optional[dict[int, int]] = None,
     auto_open=False,
     verbose_explanations: bool = True,
+    plot_profiles: bool = True,
 ):
     original_path = resolve_str(original_path)
     new_path = resolve_str(new_path)
@@ -335,9 +345,10 @@ def main(
     else:
         print(f"Original profile sum (no 100%% requirement): {v_sum:.6f}")
 
-    if verbose_explanations:
-        print("Displaying the original profile so you can compare against the adjusted output.")
-    plot_profile(profile_original, "Original Profile", "Share (%)")
+    if plot_profiles:
+        if verbose_explanations:
+            print("Displaying the original profile so you can compare against the adjusted output.")
+        plot_profile(profile_original, "Original Profile", "Share (%)")
     if scale_age_band_factor != 1.0:
         if verbose_explanations:
             print(
@@ -380,14 +391,15 @@ def main(
         "Displaying the modified profile. This curve is intended to replace the original in the run inputs "
         "because it includes your chosen calibration adjustments."
     )
-    if verbose_explanations:
-        print(modified_profile_note)
-    plot_profile(
-        profile_mod,
-        "Modified Profile",
-        "Share (%)",
-        note=modified_profile_note if verbose_explanations else None,
-    )
+    if plot_profiles:
+        if verbose_explanations:
+            print(modified_profile_note)
+        plot_profile(
+            profile_mod,
+            "Modified Profile",
+            "Share (%)",
+            note=modified_profile_note if verbose_explanations else None,
+        )
 
     saved_path = save_lifecycle_profile_excel(
         new_path=new_path,
@@ -499,6 +511,7 @@ def build_vintage_from_survival_excel(
     simulation_years: int = 60,
     turnover_rate_bounds: tuple[float, float] | None = None,
     verbose_explanations: bool = True,
+    plot_profiles: bool = True,
 ):
     """
     Read a survival lifecycle profile (vehicle_survival_*), compute the
@@ -590,21 +603,23 @@ def build_vintage_from_survival_excel(
             n_years=simulation_years,
         )
         
-        plot_steady_state_simulation(sim_result, verbose_explanations=verbose_explanations)
+        if plot_profiles:
+            plot_steady_state_simulation(sim_result, verbose_explanations=verbose_explanations)
         
     # 1) Survival vs derived vintage on same axes
-    if verbose_explanations:
-        print(
-            "Plotting survival vs steady-state vintage: "
-            "survival shows how each cohort decays with age; "
-            "vintage shows the fleet age composition that those survival rates imply in long-run equilibrium."
+    if plot_profiles:
+        if verbose_explanations:
+            print(
+                "Plotting survival vs steady-state vintage: "
+                "survival shows how each cohort decays with age; "
+                "vintage shows the fleet age composition that those survival rates imply in long-run equilibrium."
+            )
+        plot_survival_and_vintage(
+            survival_profile,
+            vintage_profile,
+            title="Survival profile vs steady-state vintage (from survival)",
+            context_note=vintage_derivation_note if verbose_explanations else None,
         )
-    plot_survival_and_vintage(
-        survival_profile,
-        vintage_profile,
-        title="Survival profile vs steady-state vintage (from survival)",
-        context_note=vintage_derivation_note if verbose_explanations else None,
-    )
     
     # ===================
 
@@ -626,6 +641,124 @@ def build_vintage_from_survival_excel(
         open_file_cross_platform(saved_path)
 
     return saved_path, constant_sales
+
+
+def _sanitize_filename_token(value: str) -> str:
+    token = "".join(ch if (ch.isalnum() or ch in {"_", "-"}) else "_" for ch in str(value))
+    token = "_".join(part for part in token.split("_") if part)
+    return token or "token"
+
+
+def _append_token_to_filename(path: str | Path, token: str) -> str:
+    path_obj = Path(path)
+    safe = _sanitize_filename_token(token)
+    return str(path_obj.with_name(f"{path_obj.stem}_{safe}{path_obj.suffix}"))
+
+
+def _resolve_economy_list(selection: str | list[str] | tuple[str, ...]) -> list[str]:
+    if isinstance(selection, str):
+        if selection.strip().lower() == "all":
+            try:
+                from config.transport_economy_config import TRANSPORT_ECONOMY_CONFIGS
+            except Exception as exc:
+                raise RuntimeError(
+                    "Could not resolve 'all' economies from config.transport_economy_config."
+                ) from exc
+            return sorted(TRANSPORT_ECONOMY_CONFIGS.keys())
+        token = selection.strip()
+        return [token] if token else []
+
+    economies: list[str] = []
+    seen: set[str] = set()
+    for item in selection:
+        token = str(item).strip()
+        if not token:
+            continue
+        key = token.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        economies.append(token)
+    return economies
+
+
+def generate_economy_specific_lifecycle_profiles(
+    *,
+    economy_selection: str | list[str] | tuple[str, ...] = "all",
+    lifecycle_type: str = "vehicle_survival",
+    base_year: int | None = None,
+    original_survival_path: str = "data/lifecycle_profiles/vehicle_survival_original.xlsx",
+    survival_output_template: str = "data/lifecycle_profiles/vehicle_survival_modified.xlsx",
+    vintage_output_template: str = "data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
+    scale_age_band_age_min: int = 4,
+    scale_age_band_age_max: int = 15,
+    scale_age_band_factor: float = 1.0,
+    smoothing_dict: Optional[dict[int, int]] = None,
+    auto_open: bool = False,
+    run_simulation: bool = False,
+    simulation_years: int = 60,
+    turnover_rate_bounds: tuple[float, float] | None = (0.03, 0.07),
+    verbose_explanations: bool = True,
+    plot_profiles: bool = False,
+) -> list[dict[str, object]]:
+    """
+    Create economy-specific lifecycle profile outputs.
+
+    For each economy, writes:
+    - vehicle_survival_modified_<economy>.xlsx
+    - vintage_modelled_from_survival_<economy>.xlsx
+    """
+    economies = _resolve_economy_list(economy_selection)
+    if not economies:
+        raise ValueError("No economies resolved for economy-specific lifecycle profile generation.")
+
+    results: list[dict[str, object]] = []
+    for economy in economies:
+        economy_token = str(economy).strip()
+        survival_output = _append_token_to_filename(survival_output_template, economy_token)
+        vintage_output = _append_token_to_filename(vintage_output_template, economy_token)
+
+        print(f"\n=== Generating lifecycle profiles for {economy_token} ===")
+        main(
+            lifecycle_type=lifecycle_type,
+            base_year=base_year,
+            original_path=original_survival_path,
+            new_path=survival_output,
+            scale_age_band_age_min=scale_age_band_age_min,
+            scale_age_band_age_max=scale_age_band_age_max,
+            scale_age_band_factor=scale_age_band_factor,
+            smoothing_dict=smoothing_dict,
+            auto_open=False,
+            verbose_explanations=verbose_explanations,
+            plot_profiles=plot_profiles,
+        )
+
+        saved_path, const_sales = build_vintage_from_survival_excel(
+            survival_excel_path=resolve_str(survival_output),
+            vintage_excel_path=resolve_str(vintage_output),
+            turnover_rate_bounds=turnover_rate_bounds,
+            run_simulation=run_simulation,
+            simulation_years=simulation_years,
+            verbose_explanations=verbose_explanations,
+            plot_profiles=plot_profiles,
+        )
+
+        results.append(
+            {
+                "economy": economy_token,
+                "survival_output": resolve_str(survival_output),
+                "vintage_output": str(saved_path),
+                "constant_sales": float(const_sales),
+            }
+        )
+
+    if auto_open and results:
+        try:
+            open_file_cross_platform(Path(results[-1]["vintage_output"]))
+        except Exception as exc:
+            print(f"[WARN] Could not auto-open last vintage file: {exc}")
+
+    return results
 
 
 
@@ -1029,36 +1162,56 @@ if __name__ == "__main__":
     #     smoothing_dict={i: 36 for i in range(1, 101)},
     #     auto_open=True,
     #     )
-    main(
+    ECONOMY_SELECTION = "all"  # e.g. "20_USA", ["20_USA", "12_NZ"], or "all"
+    CREATE_LEGACY_UNSCOPED_FILES = True
+    PLOT_PROFILES = False
+
+    if CREATE_LEGACY_UNSCOPED_FILES:
+        main(
+            lifecycle_type="vehicle_survival",
+            base_year=None,
+            original_path="data/lifecycle_profiles/vehicle_survival_original.xlsx",
+            new_path="data/lifecycle_profiles/vehicle_survival_modified.xlsx",
+            scale_age_band_age_min=4,
+            scale_age_band_age_max=15,
+            scale_age_band_factor=1,
+            smoothing_dict={1: 2},
+            auto_open=False,
+            plot_profiles=PLOT_PROFILES,
+        )
+        saved_path, const_sales = build_vintage_from_survival_excel(
+            survival_excel_path=resolve_str("data/lifecycle_profiles/vehicle_survival_modified.xlsx"),
+            vintage_excel_path=resolve_str("data/lifecycle_profiles/vintage_modelled_from_survival.xlsx"),
+            turnover_rate_bounds=(0.03, 0.07),
+            plot_profiles=PLOT_PROFILES,
+            run_simulation=False,
+        )
+        print(f"Legacy file written: {saved_path}")
+        print(f"Legacy constant annual sales in steady state: {const_sales:,.0f} vehicles/year")
+
+    economy_results = generate_economy_specific_lifecycle_profiles(
+        economy_selection=ECONOMY_SELECTION,
         lifecycle_type="vehicle_survival",
         base_year=None,
-        original_path="data/lifecycle_profiles/vehicle_survival_original.xlsx",
-        new_path="data/lifecycle_profiles/vehicle_survival_modified.xlsx",
+        original_survival_path="data/lifecycle_profiles/vehicle_survival_original.xlsx",
+        survival_output_template="data/lifecycle_profiles/vehicle_survival_modified.xlsx",
+        vintage_output_template="data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
         scale_age_band_age_min=4,
         scale_age_band_age_max=15,
         scale_age_band_factor=1,
-        smoothing_dict={1:2},#i: 36 for i in range(1, 101)},
+        smoothing_dict={1: 2},
         auto_open=False,
-    )
-            
-    ###########################
-    #FIND VINTAGE CURVE GIVEN SURVIVAL CURVE
-    ###########################
-    #WORKFLOW: build vintage from modified survival profile so that sales are constant in steady state (i.e. total stock constant, no growth in activity, sales=retirements)
-
-    # This expects you’ve already produced e.g. vehicle_survival_modified.xlsx
-    # with your existing main() call.
-
-    survival_excel = resolve_str("data/lifecycle_profiles/vehicle_survival_modified.xlsx")
-    vintage_excel  = resolve_str("data/lifecycle_profiles/vintage_modelled_from_survival.xlsx")
-
-    saved_path, const_sales = build_vintage_from_survival_excel(
-        survival_excel_path=survival_excel,
-        vintage_excel_path=vintage_excel,
+        run_simulation=False,
         turnover_rate_bounds=(0.03, 0.07),
+        verbose_explanations=True,
+        plot_profiles=PLOT_PROFILES,
     )
 
-    print(f"File written: {saved_path}")
-    print(f"Constant annual sales in steady state: {const_sales:,.0f} vehicles/year")
+    print("\n=== Economy-specific lifecycle outputs ===")
+    for row in economy_results:
+        print(
+            f"{row['economy']}: survival={row['survival_output']} | "
+            f"vintage={row['vintage_output']} | constant_sales={row['constant_sales']:,.0f}"
+        )
 
 #%%

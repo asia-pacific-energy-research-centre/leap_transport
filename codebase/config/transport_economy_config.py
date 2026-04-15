@@ -5,6 +5,8 @@ Use `get_transport_run_config("<economy>")` to fetch all file paths and
 defaults for that economy in one place.
 """
 
+from pathlib import Path
+
 DEFAULT_TRANSPORT_ECONOMY = "12_NZ"
 DEFAULT_TRANSPORT_SCENARIO = "Target"
 
@@ -74,6 +76,52 @@ def get_transport_run_config(economy: str, scenario: str) -> dict:
         ) from exc
 
 
+def _strip_known_economy_suffix(stem: str) -> str:
+    """
+    Remove a trailing economy-code token from a filename stem when present.
+
+    Examples:
+    - vehicle_survival_modified_20_USA -> vehicle_survival_modified
+    - vintage_modelled_from_survival_00_APEC -> vintage_modelled_from_survival
+    """
+    parts = str(stem).split("_")
+    if len(parts) >= 3 and parts[-2].isdigit() and len(parts[-2]) == 2:
+        return "_".join(parts[:-2])
+    if len(parts) >= 2 and parts[-2] == "00" and parts[-1].upper() == "APEC":
+        return "_".join(parts[:-2])
+    return str(stem)
+
+
+def resolve_lifecycle_profile_path_for_economy(base_path: str, economy: str) -> str:
+    """
+    Prefer economy-specific lifecycle profile files when available.
+
+    If `<stem>_<economy>.xlsx` exists, return it; otherwise return base_path.
+    """
+    from functions.path_utils import resolve_str
+
+    resolved_base = resolve_str(base_path)
+    if resolved_base is None:
+        return base_path
+
+    base_obj = Path(resolved_base)
+    stem_without_suffix = _strip_known_economy_suffix(base_obj.stem)
+    candidate_abs = base_obj.with_name(f"{stem_without_suffix}_{economy}{base_obj.suffix}")
+    if candidate_abs.exists():
+        return str(candidate_abs)
+    return base_path
+
+
+def apply_lifecycle_profile_overrides_for_economy(cfg: dict, economy: str) -> dict:
+    """Return cfg with lifecycle profile paths swapped to economy-specific files when available."""
+    out = dict(cfg)
+    for key in ("survival_profile_path", "vintage_profile_path"):
+        value = out.get(key)
+        if isinstance(value, str) and value.strip():
+            out[key] = resolve_lifecycle_profile_path_for_economy(value, economy)
+    return out
+
+
 def list_transport_run_configs(scenario: str | None = None) -> list[tuple[str, str]]:
     """Return sorted (economy, scenario) pairs available in TRANSPORT_ECONOMY_CONFIGS."""
     selected_scenario = scenario or DEFAULT_TRANSPORT_SCENARIO
@@ -112,6 +160,7 @@ def load_transport_run_config(economy: str | None = None, scenario: str | None =
     selected_economy = economy or DEFAULT_TRANSPORT_ECONOMY
     selected_scenario = scenario or DEFAULT_TRANSPORT_SCENARIO
     cfg = get_transport_run_config(selected_economy, selected_scenario)
+    cfg = apply_lifecycle_profile_overrides_for_economy(cfg, selected_economy)
     cfg = {
         key: resolve_str(value)
         if isinstance(value, str) and (key.endswith("_path") or key.endswith("_output"))

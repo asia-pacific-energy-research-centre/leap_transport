@@ -160,6 +160,17 @@ from sales_workflow import (
 )
 import os
 
+LEAP_API_DISABLED_ERROR = (
+    "[ERROR] LEAP API usage is disabled because the LEAP API is currently buggy. "
+    "Disable LEAP COM flags to continue (CHECK_BRANCHES_IN_LEAP_USING_COM=False, "
+    "SET_VARS_IN_LEAP_USING_COM=False). "
+    "Attempted operation: {operation}"
+)
+
+
+def _raise_leap_api_disabled(operation: str) -> None:
+    raise RuntimeError(LEAP_API_DISABLED_ERROR.format(operation=operation))
+
 ##########
 #for reconciliation:
 
@@ -209,7 +220,12 @@ from functions.energy_use_reconciliation_road import (
     build_transport_esto_energy_totals,
 )
 from functions.merged_energy_io import load_transport_energy_dataset
-from config.transport_economy_config import load_transport_run_config, list_transport_run_configs
+from config.transport_economy_config import (
+    COMMON_CONFIG,
+    load_transport_run_config,
+    list_transport_run_configs,
+    resolve_lifecycle_profile_path_for_economy,
+)
 
 #%%
 # ------------------------------------------------------------
@@ -541,6 +557,54 @@ def _normalise_sales_policy_settings(
     return compact_settings
 
 
+def _build_unique_archive_path(path: str) -> str:
+    """Return a non-existing path by suffixing an increment when needed."""
+    if not os.path.exists(path):
+        return path
+
+    stem, ext = os.path.splitext(path)
+    counter = 1
+    while True:
+        candidate = f"{stem}_{counter:02d}{ext}"
+        if not os.path.exists(candidate):
+            return candidate
+        counter += 1
+
+
+def _archive_existing_output_file(
+    output_path: str | None,
+    *,
+    date_id: str | None = None,
+) -> str | None:
+    """
+    Move an existing output file into a sibling `archive/` folder.
+
+    Returns the archived file path when a move occurred, otherwise None.
+    """
+    if not output_path:
+        return None
+
+    resolved_output = resolve_str(output_path)
+    if not resolved_output or not os.path.exists(resolved_output):
+        return None
+
+    archive_dir = os.path.join(os.path.dirname(resolved_output), "archive")
+    os.makedirs(archive_dir, exist_ok=True)
+
+    base_name = os.path.basename(resolved_output)
+    stem, ext = os.path.splitext(base_name)
+    stamp = (
+        str(date_id).strip()
+        if date_id is not None and str(date_id).strip()
+        else datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    )
+    archive_path = os.path.join(archive_dir, f"{stem}_{stamp}{ext}")
+    archive_path = _build_unique_archive_path(archive_path)
+
+    shutil.move(resolved_output, archive_path)
+    return archive_path
+
+
 def run_passenger_sales_workflow(
     df: pd.DataFrame,
     economy: str,
@@ -553,6 +617,7 @@ def run_passenger_sales_workflow(
     output_path: str | None = None,
     plot: bool = False,
     policy_settings: Mapping[str, Any] | None = None,
+    archive_existing_output: bool = True,
     **kwargs,
 ) -> dict:
     """
@@ -596,6 +661,10 @@ def run_passenger_sales_workflow(
     sales_table = result.get("sales_table")
     if output_path and sales_table is not None:
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        if archive_existing_output:
+            archived_output = _archive_existing_output_file(output_path, date_id=DATE_ID)
+            if archived_output:
+                print(f"[INFO] Archived previous passenger sales table to {archived_output}")
         sales_table.to_csv(output_path, index=False)
         print(f"[INFO] Saved passenger sales table to {output_path}")
 
@@ -614,6 +683,7 @@ def run_freight_sales_workflow(
     output_path: str | None = None,
     plot: bool = False,
     policy_settings: Mapping[str, Any] | None = None,
+    archive_existing_output: bool = True,
     **kwargs,
 ) -> dict:
     """
@@ -656,6 +726,10 @@ def run_freight_sales_workflow(
     sales_table = result.get("sales_table")
     if output_path and sales_table is not None:
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        if archive_existing_output:
+            archived_output = _archive_existing_output_file(output_path, date_id=DATE_ID)
+            if archived_output:
+                print(f"[INFO] Archived previous freight sales table to {archived_output}")
         sales_table.to_csv(output_path, index=False)
         print(f"[INFO] Saved freight sales table to {output_path}")
 
@@ -1182,6 +1256,11 @@ def run_transport_reconciliation(
     scale_factor_tolerance: float = 1e-4,
     raise_on_non_convergence: bool = False,
 ):
+    if set_vars_in_leap_using_com:
+        _raise_leap_api_disabled(
+            "reconciliation COM write (set_vars_in_leap_using_com=True)"
+        )
+
     def _esto_key_to_str(esto_key: object) -> str:
         if isinstance(esto_key, tuple):
             return " | ".join(str(part) for part in esto_key)
@@ -2025,12 +2104,9 @@ def run_transport_reconciliation(
 
     leap_export_df, export_df_for_viewing = convert_values_to_expressions(adjusted_export_df_all)
     # Archive existing export before overwriting
-    export_archive_dir = os.path.join(os.path.dirname(transport_export_path), "archive")
-    os.makedirs(export_archive_dir, exist_ok=True)
-    if os.path.exists(transport_export_path):
-        export_base = os.path.splitext(os.path.basename(transport_export_path))
-        archived_export = os.path.join(export_archive_dir, f"{export_base[0]}_{date_id}{export_base[1]}")
-        shutil.move(transport_export_path, archived_export)
+    archived_export = _archive_existing_output_file(transport_export_path, date_id=date_id)
+    if archived_export:
+        print(f"[INFO] Archived previous transport export to {archived_export}")
 
     save_export_files(
         leap_export_df,
@@ -2041,10 +2117,6 @@ def run_transport_reconciliation(
         model_name=model_name,
     )
 
-    if set_vars_in_leap_using_com:
-        L = connect_to_leap()
-        write_export_df_to_leap(L, leap_export_df)
-        #TODO NEED A STEP TO COMMUNICATE THE VALUES THAT HAVE CHANGED AND BY HOW MUCH. ALSO NEED TO HAVE AN OPTION TO ADJUST THE PROJECTED VALUES BY THE SAME FACTOR RATHER THAN JUST THE BASE YEAR.
     print(f"\n=== Transport data reconciliation completed. {change_msg} ===\n")
 # ------------------------------------------------------------
 # Main Loader
@@ -2087,6 +2159,12 @@ def load_transport_into_leap(
     LEAP_REGION_NAME_OVERRIDE: str | None = None,
 ):
     """Main orchestrator for LEAP transport data loading."""
+    if CHECK_BRANCHES_IN_LEAP_USING_COM or SET_VARS_IN_LEAP_USING_COM:
+        _raise_leap_api_disabled(
+            "transport workflow LEAP COM access "
+            "(CHECK_BRANCHES_IN_LEAP_USING_COM and/or SET_VARS_IN_LEAP_USING_COM enabled)"
+        )
+
     export_filename = resolve_str(export_filename)
     import_filename = resolve_str(import_filename)
     TRANSPORT_ESTO_BALANCES_PATH = resolve_str(TRANSPORT_ESTO_BALANCES_PATH)
@@ -2163,8 +2241,7 @@ def load_transport_into_leap(
             policy_settings=FREIGHT_SALES_POLICY_SETTINGS,
         )
     
-    require_leap_connection = CHECK_BRANCHES_IN_LEAP_USING_COM or SET_VARS_IN_LEAP_USING_COM
-    L = connect_to_leap() if require_leap_connection else None
+    L = None
     if L is not None and ENSURE_FUELS_IN_LEAP:
         ensure_transport_fuels_in_leap(L)
     leap_export_df = create_transport_export_df()
@@ -2274,14 +2351,13 @@ def load_transport_into_leap(
                 report_tag=checkpoint_tag,
             )
         
+        archived_export = _archive_existing_output_file(export_filename, date_id=DATE_ID)
+        if archived_export:
+            print(f"[INFO] Archived previous transport export to {archived_export}")
         save_export_files(
             leap_export_df, export_df_for_viewing, export_filename, base_year, final_year, model_name
         )
     
-    if SET_VARS_IN_LEAP_USING_COM:
-        if L is None:
-            L = connect_to_leap()
-        write_export_df_to_leap(L, leap_export_df)
     print("\n=== Transport data loading process completed. ===\n")
 
 #%%
@@ -2899,11 +2975,17 @@ def aggregate_batch_sales_outputs(run_records, scenario, date_id):
     if passenger_frames:
         passenger_all = pd.concat(passenger_frames, ignore_index=True)
         passenger_all_path = resolve_str(f"results/passenger_sales_ALL_{scenario}_{date_id}.csv")
+        archived_output = _archive_existing_output_file(passenger_all_path, date_id=date_id)
+        if archived_output:
+            print(f"[INFO] Archived previous combined passenger sales to {archived_output}")
         passenger_all.to_csv(passenger_all_path, index=False)
         print(f"[INFO] Wrote combined passenger sales: {passenger_all_path}")
     if freight_frames:
         freight_all = pd.concat(freight_frames, ignore_index=True)
         freight_all_path = resolve_str(f"results/freight_sales_ALL_{scenario}_{date_id}.csv")
+        archived_output = _archive_existing_output_file(freight_all_path, date_id=date_id)
+        if archived_output:
+            print(f"[INFO] Archived previous combined freight sales to {archived_output}")
         freight_all.to_csv(freight_all_path, index=False)
         print(f"[INFO] Wrote combined freight sales: {freight_all_path}")
 
@@ -2927,6 +3009,21 @@ def build_apec_run_config(scenario: str):
         else:
             print(f"[WARN] Expected 00_APEC balances file not found, using ALL file: {candidate}")
 
+    default_survival_profile = str(
+        COMMON_CONFIG.get("survival_profile_path", seed_cfg.survival_profile_path)
+    )
+    default_vintage_profile = str(
+        COMMON_CONFIG.get("vintage_profile_path", seed_cfg.vintage_profile_path)
+    )
+    apec_survival_profile = resolve_lifecycle_profile_path_for_economy(
+        default_survival_profile,
+        "00_APEC",
+    )
+    apec_vintage_profile = resolve_lifecycle_profile_path_for_economy(
+        default_vintage_profile,
+        "00_APEC",
+    )
+
     return SimpleNamespace(
         transport_model_path=seed_cfg.transport_model_path,
         transport_region=APEC_REGION,
@@ -2938,8 +3035,8 @@ def build_apec_run_config(scenario: str):
         transport_import_path=seed_cfg.transport_import_path,
         transport_esto_balances_path=str(apec_balances_path),
         transport_fuels_path=seed_cfg.transport_fuels_path,
-        survival_profile_path=seed_cfg.survival_profile_path,
-        vintage_profile_path=seed_cfg.vintage_profile_path,
+        survival_profile_path=resolve_str(apec_survival_profile),
+        vintage_profile_path=resolve_str(apec_vintage_profile),
         passenger_sales_output=resolve_str(f"results/passenger_sales_00_APEC_{scenario}.csv"),
         freight_sales_output=resolve_str(f"results/freight_sales_00_APEC_{scenario}.csv"),
     )
@@ -3248,6 +3345,9 @@ def run_transport_workflow() -> list[dict]:
         summary_path = resolve_str(
             f"results/transport_all_run_summary_{TRANSPORT_SCENARIO_SELECTION}_{all_mode}_{DATE_ID}.csv"
         )
+        archived_output = _archive_existing_output_file(summary_path, date_id=DATE_ID)
+        if archived_output:
+            print(f"[INFO] Archived previous all-run summary to {archived_output}")
         pd.DataFrame(run_records).to_csv(summary_path, index=False)
         print(f"[INFO] Wrote run summary: {summary_path}")
 

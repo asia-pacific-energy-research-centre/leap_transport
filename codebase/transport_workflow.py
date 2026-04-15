@@ -39,8 +39,7 @@ ALL_RUN_MODE = "both"
 # If True, all+apec runs will also perform per-economy input setup (input-only
 # behavior) before the synthetic 00_APEC run.
 PREPARE_SEPARATE_INPUTS_WHEN_RUNNING_APEC = True
-APEC_REGION = "APEC"
-# For testing synthetic 00_APEC runs in a single-region LEAP area, map APEC
+APEC_REGION = "APEC"# For testing synthetic 00_APEC runs in a single-region LEAP area, map APEC
 # exports/IDs to an existing LEAP region name.
 APEC_LEAP_REGION_OVERRIDE = "United States of America"
 APEC_BASE_YEAR = 2022
@@ -81,7 +80,23 @@ PASSENGER_PLOT = False
 
 # SCENARIO_SALES_POLICY_SETTINGS: dict[str, dict[str, dict]] | None = None
 # Example:
-SCENARIO_SALES_POLICY_SETTINGS = None#{
+SCENARIO_SALES_POLICY_SETTINGS = {
+    "Reference": {
+        "passenger": {
+            "turnover_policies": {
+                "LPV": {"survival_multiplier": 1.4},
+                "MC": {"survival_multiplier": 1.4},
+                "Bus": {"survival_multiplier": 1.4},
+            },
+        },
+        "freight": {
+            "turnover_policies": {
+                "Trucks": {"survival_multiplier": 1.4},
+                "LCVs": {"survival_multiplier": 1.4},
+            },
+        },
+    },
+}#{
 #     "Reference": {
 #         "passenger": {
 #             # optional; can be empty or omitted
@@ -482,6 +497,10 @@ def _save_combined_scenario_workbook(
         model_name = f"Transport Combined ({', '.join(included_scenarios)})"
     combined_output_path = pipeline.resolve_str(combined_filename)
     base_year, final_year = _infer_year_bounds(combined_viewing_df)
+
+    archived_output = pipeline._archive_existing_output_file(combined_output_path, date_id=date_id)
+    if archived_output:
+        print(f"[INFO] Archived previous combined scenario export to {archived_output}")
 
     pipeline.save_export_files(
         combined_leap_df,

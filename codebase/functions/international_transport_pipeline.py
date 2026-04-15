@@ -7,8 +7,10 @@ and can optionally write that output to LEAP via COM.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 import re
+import shutil
 import sys
 
 import pandas as pd
@@ -94,6 +96,17 @@ except ModuleNotFoundError:
             )
             from leap_excel_io import finalise_export_df, save_export_files  # noqa: E402
             from configuration.config import BRANCH_DEMAND_CATEGORY, BRANCH_DEMAND_TECHNOLOGY  # noqa: E402
+
+LEAP_API_DISABLED_ERROR = (
+    "[ERROR] LEAP API usage is disabled because the LEAP API is currently buggy. "
+    "Disable LEAP COM flags to continue "
+    "(check_branches_in_leap_using_com=False, set_vars_in_leap_using_com=False). "
+    "Attempted operation: {operation}"
+)
+
+
+def _raise_leap_api_disabled(operation: str) -> None:
+    raise RuntimeError(LEAP_API_DISABLED_ERROR.format(operation=operation))
 
 
 REQUIRED_INPUT_COLUMNS: tuple[str, ...] = (
@@ -975,6 +988,10 @@ def _sync_international_export_to_leap(config: InternationalExportConfig, leap_d
     )
     if not require_leap_connection:
         return
+    _raise_leap_api_disabled(
+        "international transport LEAP COM access "
+        "(check_branches_in_leap_using_com and/or set_vars_in_leap_using_com enabled)"
+    )
 
     L = connect_to_leap()
     if L is None:
@@ -1106,6 +1123,39 @@ def _sanitize_filename_token(value: str) -> str:
     return token or "scenario"
 
 
+def _build_unique_archive_path(path: Path) -> Path:
+    """Return a non-existing archive path by suffixing an increment if needed."""
+    if not path.exists():
+        return path
+
+    stem = path.stem
+    suffix = path.suffix
+    counter = 1
+    while True:
+        candidate = path.with_name(f"{stem}_{counter:02d}{suffix}")
+        if not candidate.exists():
+            return candidate
+        counter += 1
+
+
+def _archive_existing_output_file(path: Path, *, stamp: str | None = None) -> Path | None:
+    """
+    Move an existing output into a sibling `archive/` directory.
+
+    Returns the archived path when a move occurs, else None.
+    """
+    if not path.exists():
+        return None
+
+    archive_dir = path.parent / "archive"
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    safe_stamp = str(stamp).strip() if stamp is not None and str(stamp).strip() else datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    archived = archive_dir / f"{path.stem}_{safe_stamp}{path.suffix}"
+    archived = _build_unique_archive_path(archived)
+    shutil.move(str(path), str(archived))
+    return archived
+
+
 def _drop_all_zero_rows_across_scenarios(export_long_df: pd.DataFrame) -> pd.DataFrame:
     if export_long_df.empty:
         return export_long_df.copy()
@@ -1205,6 +1255,10 @@ def run_international_export_workflow(
 
     scenario_token = _sanitize_filename_token("_".join(scenario_labels))
     workbook_path = output_dir / f"{config.scope}_international_transport_leap_export_{scenario_token}.xlsx"
+    archive_stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    archived_workbook = _archive_existing_output_file(workbook_path, stamp=archive_stamp)
+    if archived_workbook is not None:
+        print(f"[INFO] Archived previous workbook to {archived_workbook}")
 
     save_export_files(
         leap_df,
@@ -1225,6 +1279,9 @@ def run_international_export_workflow(
             output_dir
             / f"{config.scope}_international_transport_medium_summary_{scenario_token}.csv"
         )
+        archived_medium_summary = _archive_existing_output_file(medium_summary_path, stamp=archive_stamp)
+        if archived_medium_summary is not None:
+            print(f"[INFO] Archived previous medium summary to {archived_medium_summary}")
         medium_summary_df.to_csv(medium_summary_path, index=False)
         output_paths["medium_summary"] = str(medium_summary_path)
 
@@ -1234,6 +1291,9 @@ def run_international_export_workflow(
             output_dir
             / f"{config.scope}_international_transport_quality_{scenario_token}.csv"
         )
+        archived_quality = _archive_existing_output_file(quality_path, stamp=archive_stamp)
+        if archived_quality is not None:
+            print(f"[INFO] Archived previous quality report to {archived_quality}")
         quality_df.to_csv(quality_path, index=False)
         output_paths["quality"] = str(quality_path)
 

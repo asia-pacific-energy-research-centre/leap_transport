@@ -1,21 +1,37 @@
-# Process Flow (Plain English)
+# Process Flow (Plain English + Runbook)
 
-This document explains what the transport pipeline does from start to finish, in simple terms.
+This is now the primary operating document for the transport pipeline.
+
+`docs/START_HERE.md` and `docs/RUNBOOK.md` are merged into this file.
+
+## Background and purpose
+
+This repository exists to bridge the 9th transport model outputs into LEAP-ready inputs for the 10th-edition workflow.
+
+Why this bridge is needed:
+
+- Upstream transport outputs are still in a legacy 9th-edition-shaped structure.
+- LEAP import expects a different branch/variable structure, scenario layout, and expression format.
+- Base-year energy must be checked and (when enabled) reconciled against ESTO-aligned energy totals.
+
+What this repo does end-to-end:
+
+1. Reads economy/scenario transport outputs.
+2. Applies mapping, fuel-split, proxy-row, and share/sales processing logic.
+3. Builds LEAP-formatted tables and expressions.
+4. Optionally runs reconciliation and diagnostics/dashboards.
+5. Writes reproducible outputs, checkpoints, and audit artifacts.
 
 ## System view: transport model vs Python prep pipeline
 
 Editable diagram source: `docs/leap-system.drawio`
-
-Use this view to explain scope:
-
-1. The **transport model** is one upstream component that produces core outputs.
-2. The **Python system** then does a larger set of preparation, mapping, validation, and export steps so LEAP can consume those outputs safely.
 
 ```mermaid
 flowchart LR
     TM[Transport model<br/>core projections] --> IN
     FD[Fuel detail file] --> IN
     ME[Merged energy file] --> IN
+    LWF[Lifecycle workflow<br/>lifecycle_profile_workflow.py] --> LP
     LP[Lifecycle profiles] --> IN
 
     IN[Input datasets for Python workflow]
@@ -26,7 +42,7 @@ flowchart LR
         ENG[Transform engine<br/>fuel splits, proxies, sales, shares]
         ORCH[Orchestration<br/>transport_workflow.py + transport_workflow_pipeline.py]
         VAL[Validation + reconciliation]
-        OUT[Outputs<br/>LEAP workbooks, CSV reports, checkpoints, diagnostics]
+        OUT[Outputs<br/>workbooks, CSV reports, checkpoints, diagnostics]
 
         CFG --> ORCH
         MAP --> ORCH
@@ -36,168 +52,264 @@ flowchart LR
     end
 
     IN --> ENG
-    ORCH -.optional COM write.-> COM[LEAP desktop model]
-    VAL -.optional COM write.-> COM
 ```
 
-The key message for documentation readers: the transport model logic is relatively compact, while most operational complexity sits in the Python preparation and quality-control pipeline.
+## 1) Entrypoint and runtime scope
 
-## 1) What this script is trying to do
-
-`code/transport_workflow.py` is the run entrypoint, and delegates to
-`code/transport_workflow_pipeline.py` to convert transport model outputs into LEAP-ready expressions and workbooks.
+Use `codebase/transport_workflow.py`.
 
 It can run:
 
 1. One economy (for example `20_USA`)
 2. All economies separately
-3. A synthetic `00_APEC` run (aggregated from all economies)
-4. Both separate + `00_APEC`
+3. Synthetic `00_APEC` aggregation
+4. Both separate economies + synthetic `00_APEC`
 
-It can also reconcile the LEAP output against merged energy totals.
+The orchestrator delegates domestic processing to:
 
-## 2) Main input files
+- `codebase/functions/transport_workflow_pipeline.py`
 
-Per economy:
+and optional international processing to:
 
-1. Transport model output (regular): `data/transport_data_9th/model_output_detailed_2/*.csv`
-2. Fuel detail file: `data/transport_data_9th/model_output_with_fuels/*.csv`
+- `codebase/functions/international_transport_pipeline.py`
 
-Shared:
+and sales estimation logic via:
 
-1. Merged energy (pre-trump variability set):
-   - `data/merged_file_energy_ALL_20250814_pretrump.csv`
-   - `data/merged_file_energy_00_APEC_20250814_pretrump.csv`
-2. LEAP import template:
-   - `data/import_files/DEFAULT_transport_leap_import_TGT_REF_CA.xlsx`
-3. Lifecycle profiles:
-   - `data/lifecycle_profiles/vehicle_survival_modified.xlsx`
-   - `data/lifecycle_profiles/vintage_modelled_from_survival.xlsx`
+- `codebase/sales_workflow.py`
+- `codebase/functions/sales_curve_estimate.py`
 
-## 3) Runtime selection and modes
+## 2) Pre-run checklist
 
-At the top of `code/transport_workflow.py`:
+- Run from repo root.
+- Environment is active (`conda activate ./env_leap`).
+- Helper repo is available when imports require it (`pip install -e ../leap_utilities`).
+- Economy/scenario exists in `codebase/config/transport_economy_config.py`.
+- Expected inputs exist under:
+  - `data/transport_data_9th/model_output_detailed_2/`
+  - `data/transport_data_9th/model_output_with_fuels/`
+  - `data/import_files/DEFAULT_transport_leap_import_TGT_REF_CA.xlsx`
+- If `RUN_PROFILE` includes reconciliation, matching checkpoint files exist in `intermediate_data/`.
 
-1. `TRANSPORT_ECONOMY_SELECTION`
-2. `TRANSPORT_SCENARIO_SELECTION`
-3. `ALL_RUN_MODE`:
-   - `separate`: run each economy independently
-   - `apec`: run only synthetic `00_APEC`
-   - `both`: run separate economies and synthetic `00_APEC`
+## 3) Lifecycle stage (upstream)
 
-If `TRANSPORT_ECONOMY_SELECTION != "all"`, it runs a single-economy path.
+Run this when survival/vintage assumptions change:
 
-## 4) Economy-level input preparation
+```bash
+python3 codebase/lifecycle_profile_workflow.py
+```
 
-For each economy run, `prepare_input_data(...)` does this:
+Primary outputs:
 
-1. Read source model data and filter by economy + scenario + year window.
-2. Validate required source columns.
-3. Expand rows by fuel mapping (`add_fuel_column`).
-4. Allocate biofuels/e-fuels using the fuel detail file.
-5. Add proxy/combination rows from branch mapping rules.
-6. Calculate `Sales` from stock differences.
-7. Recalculate shares (`Vehicle_sales_share`, `Stock Share`) so they are consistent.
-8. Add special “Other” rows from merged energy using ESTO-to-LEAP mappings.
-9. Save a checkpoint in `intermediate_data/`.
+- `data/lifecycle_profiles/vehicle_survival_modified.xlsx`
+- `data/lifecycle_profiles/vintage_modelled_from_survival.xlsx`
 
-## 5) Synthetic 00_APEC input preparation
+## 4) Runtime switches you set each run
 
-If `ALL_RUN_MODE` includes `apec`, the script:
+Top-level switches live in `codebase/transport_workflow.py`.
 
-1. Prepares each economy input dataframe (same process as above).
-2. Concatenates all economies.
-3. Aggregates to one synthetic economy `00_APEC`.
+Minimum set to verify:
 
-Aggregation is done before LEAP measure creation, so weighting works correctly.
+- Scope:
+  - `TRANSPORT_ECONOMY_SELECTION`
+  - `TRANSPORT_SCENARIO_SELECTION`
+  - `ALL_RUN_MODE`
+- Stage behavior:
+  - `RUN_PROFILE` (`input_only`, `reconcile_only`, `full`)
+  - `RUN_RESULTS_DASHBOARD`
+- Input/checkpoint behavior:
+  - `INPUT_DATA_SOURCE` (`raw`, `checkpoint`)
+  - `CHECKPOINT_LOAD_STAGE` (`none`, `halfway`, `three_quarter`, `export`)
+  - `MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE`
+- Sales:
+  - `SALES_MODE`
+  - `SCENARIO_SALES_POLICY_SETTINGS`
+- Reconciliation:
+  - `APPLY_ADJUSTMENTS_TO_FUTURE_YEARS`
+  - `REPORT_ADJUSTMENT_CHANGES`
+  - `ESTO_ZERO_ENERGY_FALLBACK_RULES`
+- International:
+  - `RUN_INTERNATIONAL_WORKFLOW`
+  - `INTERNATIONAL_*` flags
 
-### 00_APEC aggregation rules
+Full switch reference: `docs/TRANSPORT_WORKFLOW_SWITCHES.md`
 
-1. Additive columns (sum): energy, activity, stocks, travel, GDP, population, and other stock/flow totals.
-2. Weighted columns (weighted average): efficiency, mileage, intensity, occupancy/load, turnover-like rates, growth/intensity improvement fields.
-3. Weight choices: usually `Activity`, fallback `Stocks`; some measures use `Population` or `New_stocks_needed`.
-4. Then sales and shares are recalculated on the aggregated dataframe.
+## 5) Economy-level input preparation (domestic)
 
-This avoids invalid results from averaging percentages or averaging already-aggregated outputs.
+For each economy/scenario, `prepare_input_data(...)` does this:
 
-## 6) LEAP export construction
+1. Load source model data (`csv` or Excel) and filter to selected economy, scenario, and year range.
+2. Validate schema using `EXPECTED_COLS_IN_SOURCE`; fail early if required fields are missing.
+3. Drop unneeded source columns (`Unit`, `Data_available`, `Measure`) and add canonical `Fuel` labels from mapping logic.
+4. Apply medium-specific cleanup (for non-road rows, road-only stock/share fields are zeroed where appropriate).
+5. Allocate alternative fuels using the fuel-detail file so energy/activity are split into LEAP-ready fuel rows. This is because leap expects the fuel dimension to be fully disaggregated at the bottom level whereas the 9th transport model output does not have the bottom level data for engine types split by fuel, and instead it is reported in a separate document (see `data/transport_data_9th/model_output_with_fuels/` vs `data/transport_data_9th/model_output_detailed_2/`).
+6. Create additional mapped rows:
+   - combination rows from configured mapping rules
+   - proxy rows for branches with no direct activity input
+7. Run duplicate-key checks on the core source tuple (`Date, Economy, Scenario, Transport Type, Medium, Vehicle Type, Drive, Fuel`); write debug output to `data/errors/duplicate_source_rows.csv` on failure.
+8. Recompute derived values:
+   - `Sales` from stock changes
+   - share columns via normalization (`Vehicle_sales_share`, `Stock Share`, and related share families)
+9. Insert ESTO “other” rows from merged-energy inputs for missing/non-direct transport categories.
+10. Save prepared-input checkpoint to `intermediate_data/transport_data_<economy>_<scenario>_<base>_<final>.pkl`.
 
-`load_transport_into_leap(...)`:
+## 6) `00_APEC` synthetic run behavior
 
-1. Loops every LEAP branch mapping.
-2. Processes source measures for each mapped branch.
-3. Writes yearly values into an export dataframe.
-4. Adds LEAP metadata (units/scale/per).
-5. Converts yearly values to LEAP expressions.
-6. Saves export workbook(s).
-7. Optionally writes expressions directly to LEAP through COM.
+When all-mode includes APEC, `prepare_apec_input_data(...)` does this:
 
-### Template alignment gate (important)
+1. Prepare each economy input dataframe using the same domestic preparation flow (or checkpoints if configured).
+2. Concatenate all economy-level prepared dataframes.
+3. Re-filter to the requested APEC year window.
+4. Aggregate to synthetic economy `00_APEC` by source key (`Date, Scenario, Transport Type, Medium, Vehicle Type, Drive, Fuel`).
+5. Apply column-specific aggregation rules:
+   - additive fields are summed (for example Energy, Stocks, Activity, GDP, Population, Sales)
+   - rate/intensity/share-like fields use weighted averages with measure-specific weights (typically `Activity` or `Stocks`, sometimes `Population`/`New_stocks_needed`)
+6. Recalculate post-aggregation derived fields:
+   - recalculate `Sales`
+   - renormalize shares (`Vehicle_sales_share`, `Stock Share`)
+7. Validate no duplicate source keys remain, then save `00_APEC` checkpoint in `intermediate_data/`.
 
-If `MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE=True`, there is a strict alignment step against the template file:
+This avoids invalid “average of averages” behavior.
 
-`data/import_files/DEFAULT_transport_leap_import_TGT_REF_CA.xlsx` (sheet: `Export`)
+## 7) LEAP export construction
 
-What this means:
+`load_transport_into_leap(...)` builds LEAP-ready output tables and expressions.
 
-1. The generated export is merged with the template structure using:
-   `Branch Path + Variable + Scenario + Region`.
-2. Rows that do **not** exist in the template are removed from the final LEAP import output.
-3. This is why a valid model branch can still disappear from the final workbook if naming does not match exactly.
+Main stages:
 
-The script now prints a clear summary for this step:
+1. Resolve runtime paths (export/import/template files, lifecycle files, checkpoint tags) and validate mapping integrity.
+2. Load prepared input data (fresh prep or checkpoint) and optionally run passenger/freight sales workflows for sales-driven measures.
+3. Initialize empty export dataframe and iterate every `LEAP_BRANCH_TO_SOURCE_MAP` mapping.
+4. For each branch mapping:
+   - resolve branch path and measure config
+   - process mapped measures from input dataframe
+   - write rows into export dataframe
+5. Save/load midpoint checkpoints depending on `CHECKPOINT_LOAD_STAGE` (`halfway`, `three_quarter`, `export`).
+6. Finalize export content:
+   - validate/fix share families to sum correctly
+   - generate `Current Accounts` rows from scenario data
+   - add final metadata (scenario, region, year structure)
+   - run base-year energy validation against ESTO totals
+7. Convert yearly values to LEAP expression strings and build `LEAP` + `FOR_VIEWING` outputs.
+8. If template alignment gate is enabled, enforce strict key match and merge with template IDs/structure.
+9. Archive prior workbook (if present) and save final export workbook.
 
-1. How many unique rows were kept vs dropped.
-2. Top dropped branch paths.
-3. Example dropped rows.
+## 8) Template alignment gate (important)
 
-And writes full dropped-row reports to `results/`, for example:
+This gate is controlled by:
 
-1. `results/template_alignment_dropped_<run_tag>_leap_sheet.csv`
-2. `results/template_alignment_dropped_<run_tag>_for_viewing_sheet.csv`
+- `MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE`
 
-If a fuel/branch is missing in output, check these CSVs first to confirm whether template mismatch is the cause.
+Template file:
 
-## 7) Reconciliation step (optional)
+- `data/import_files/DEFAULT_transport_leap_import_TGT_REF_CA.xlsx` (sheet `Export`)
 
-If enabled, `run_transport_reconciliation(...)`:
+Implementation (current code):
 
-1. Reads the generated export workbook.
-2. Reads merged energy transport totals.
-3. Builds ESTO/LEAP branch rules.
-4. Scales LEAP-side values so base-year energy matches transport energy totals.
-5. Writes adjustment reports and an updated export workbook.
-6. Optionally writes reconciled expressions to LEAP via COM.
+- `codebase/functions/transport_workflow_pipeline.py`
+  - `_enforce_exact_template_alignment_keys(...)`
+  - `_report_template_alignment_changes(...)`
 
-## 8) Subtotal filtering logic for merged energy
+What it does now:
 
-When extracting merged energy values, subtotal flags are applied by year type:
+1. **Strict pre-check**: exported keys (`Branch Path`, `Variable`, `Scenario`, `Region`) must already exist in the template for both scenario rows and `Current Accounts` rows.
+2. If any exported row is not in template, run fails immediately with `ValueError`.
+3. If strict check passes, export is merged with template IDs/structure.
+4. A summary is printed and dropped-key reports are written to `results/`:
+   - `template_alignment_dropped_<run_tag>_leap_sheet.csv`
+   - `template_alignment_dropped_<run_tag>_for_viewing_sheet.csv`
 
-1. For years `<= base_year`: keep rows where `subtotal_layout == False`
-2. For years `> base_year`: keep rows where `subtotal_results == False`
+## 9) Reconciliation step (optional)
 
-This is intentional and avoids double counting totals in historical vs projected ranges.
+If `RUN_PROFILE` includes reconciliation, pipeline scales LEAP-side values to match ESTO base-year energy totals and writes reports under `results/reconciliation/`.
 
-## 9) Outputs you should expect
+For `reconcile_only`, required input checkpoint:
 
-1. Per-economy or 00_APEC export workbooks in `results/`
-2. Passenger/freight sales CSVs in `results/`
-3. Reconciliation change reports in `results/reconciliation/`
-4. Run summary for all-mode runs in `results/transport_all_run_summary_*.csv`
-5. Checkpoints in `intermediate_data/`
+- `intermediate_data/export_df_for_viewing_checkpoint2_<economy>_<scenario>.pkl`
 
-## 10) Switching dataset vintage later
+## 10) Dashboard step (optional)
 
-Current defaults are pre-trump (`20250814_pretrump`) for higher variability.
+If `RUN_RESULTS_DASHBOARD=True`, the script runs:
 
-To switch to the newer set later, change defaults from:
+- `codebase/results_analysis/results_dashboard_workflow.py`
 
-1. `merged_file_energy_ALL_20250814_pretrump.csv`
-2. `merged_file_energy_00_APEC_20250814_pretrump.csv`
+Inputs expected:
 
-to:
+- Comparison CSVs in `results/checkpoint_audit/`:
+  - `transport_pre_recon_vs_raw_disaggregated_<economy>_<scenario>.csv`
+- Optional reconciliation snapshots in `results/reconciliation/` for reconciled overlays.
 
-1. `merged_file_energy_ALL_20251106.csv`
-2. `merged_file_energy_00_APEC_20251106.csv`
+Primary outputs (default paths):
 
-The pipeline logic stays the same; only input paths change.
+- `results/diagnostics/transport_results_series_comparison/comparison_long.csv`
+- `results/diagnostics/transport_results_series_comparison/comparison_summary.csv`
+- `results/diagnostics/transport_results_series_comparison/charts/`
+- `results/diagnostics/transport_results_series_comparison/dashboards/index.html`
+- `results/diagnostics/transport_results_series_comparison/dashboards/<economy>.html`
+
+Optional supporting outputs:
+
+- Stock proxy files in `results/diagnostics/stock_projection_exploration/`
+- Optional LEAP-results comparison artifacts under
+  `results/diagnostics/transport_results_series_comparison/leap_results_tables_comparison/`
+
+What is on the dashboards:
+
+- One dashboard page per economy, plus an `index.html` landing page.
+- Group selector (for example Passenger road, Freight road, non-road groups, pipelines, international).
+- Within each group:
+  - Rows = fuel (or transport+fuel when needed).
+  - Columns = metrics (energy, stock, mileage, efficiency, activity, intensity; order varies by group).
+  - Each cell = chart image/plot for that metric+fuel.
+- Typical chart lines:
+  - Input
+  - Pre-reconciled
+  - Reconciled (when available)
+  - Reconciled + alternatives (when available)
+  - Optional CP proxy / SF proxy stock lines when proxy series are present.
+
+Practical usefulness:
+
+- Useful for quickly spotting where pre/reconciled series diverge from input by economy, metric, and fuel.
+- Not required for producing the transport export workbook itself.
+
+## 11) Execute
+
+Run from repo root:
+
+```bash
+python3 codebase/transport_workflow.py
+```
+
+## 12) Expected outputs
+
+- Export workbook(s): `results/*transport_leap_export*.xlsx`
+- Sales CSVs: `results/passenger_sales_*`, `results/freight_sales_*`
+- Reconciliation reports: `results/reconciliation/*.csv`
+- Runtime summaries: `results/transport_all_run_summary_*.csv`, `results/runtime_stage_timings_*.csv`
+- Checkpoints: `intermediate_data/*.pkl`
+
+## 13) Safe first run profile
+
+Use these for low-risk onboarding:
+
+- `RUN_PROFILE = "input_only"`
+- `RUN_INTERNATIONAL_WORKFLOW = False` (optional, faster)
+- `INPUT_DATA_SOURCE = "raw"`
+- `CHECKPOINT_LOAD_STAGE = "none"`
+- `CHECK_BRANCHES_IN_LEAP_USING_COM = False`
+- `SET_VARS_IN_LEAP_USING_COM = False`
+- `INTERNATIONAL_CHECK_BRANCHES_IN_LEAP_USING_COM = False`
+- `INTERNATIONAL_SET_VARS_IN_LEAP_USING_COM = False`
+
+## 14) Current COM note
+
+Both domestic and international pipelines currently hard-stop when COM flags are enabled (LEAP API temporarily disabled in code).
+
+If you see an error like `LEAP API usage is disabled...`, disable COM flags and rerun.
+
+## 15) Adding a new economy
+
+1. Add metadata and scenario config in `codebase/config/transport_economy_config.py`.
+2. Confirm model/fuel input files exist.
+3. Run `input_only` profile first.
+4. Then run full profile when dry run passes.

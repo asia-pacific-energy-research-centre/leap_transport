@@ -1,100 +1,91 @@
 # File Guide
 
-This guide explains the important files without requiring you to read the entire codebase first.
+This guide maps the active files in the current transport toolkit.
 
-For a full scan of every Python module and dependency links, see `docs/MODULE_RELATIONSHIPS.md`.
-For architecture and retest planning, see `docs/SYSTEM_ARCHITECTURE.md` and `docs/CHANGE_IMPACT_MATRIX.md`.
+Important: the active pipeline lives under `codebase/`. The old `code/` path is not used in this repo.
 
-## Core entrypoint
+## Core entrypoints
 
-- `code/MAIN_leap_import.py`
+- `codebase/transport_workflow.py`
+  - Thin orchestrator and runtime switch surface.
+  - Runs domestic workflow, optional international workflow, and optional dashboard step.
+- `codebase/functions/transport_workflow_pipeline.py`
+  - Main domestic engine (input prep, mapping, LEAP export generation, reconciliation).
+- `codebase/lifecycle_profile_workflow.py`
+  - Upstream lifecycle generation wrapper (survival -> vintage profiles).
+- `codebase/functions/international_transport_pipeline.py`
+  - International bunker export workflow.
 
-What it does:
+## Config and mapping layer
 
-- Loads transport data.
-- Runs preprocessing and measure logic.
-- Builds LEAP export tables and expressions.
-- Saves output workbooks.
-- Optionally writes to LEAP through COM.
-- Optionally runs reconciliation.
+- `codebase/config/transport_economy_config.py`
+  - Economy/scenario file paths, years, and output destinations.
+- `codebase/config/basic_mappings.py`
+  - Required source schema and core mapping helpers.
+- `codebase/config/branch_mappings.py`
+  - LEAP branch tuples and source-to-LEAP mapping definitions.
+- `codebase/config/branch_expression_mapping.py`
+  - Expression templates and measure-to-expression behavior.
+- `codebase/config/measure_catalog.py`
+- `codebase/config/measure_metadata.py`
 
-## Config and path handling
+## Processing and validation modules
 
-- `code/transport_economy_config.py`
-- `code/path_utils.py`
+- `codebase/functions/preprocessing.py`
+  - Fuel allocation, stock/share normalization, and pre-export transformations.
+- `codebase/functions/measure_processing.py`
+  - Per-measure extraction/writes for each branch mapping.
+- `codebase/functions/mappings_validation.py`
+  - Mapping integrity checks and share normalization checks.
+- `codebase/functions/esto_data.py`
+  - ESTO “other” row insertion support.
+- `codebase/functions/merged_energy_io.py`
+  - Merged-energy data loading.
 
-What they do:
+## Reconciliation and historical output
 
-- Define economy/scenario-specific file paths and output names.
-- Resolve relative paths against repository root.
+- `codebase/functions/energy_use_reconciliation_road.py`
+  - Reconciliation math used by domestic pipeline.
+- `codebase/functions/historical_exports.py`
+  - Historical-context export helpers.
 
-## Mapping layer
+## Sales and lifecycle logic
 
-- `code/basic_mappings.py`
-- `code/branch_mappings.py`
-- `code/branch_expression_mapping.py`
+- `codebase/sales_workflow.py`
+  - Passenger/freight policy-aware sales wrappers.
+- `codebase/functions/sales_curve_estimate.py`
+  - Core survival/vintage sales estimation logic.
+- `codebase/functions/lifecycle_profile_editor.py`
+  - Lifecycle profile editing and vintage derivation.
 
-What they do:
+## Diagnostics and dashboard
 
-- Define expected source schema and basic fuel mapping rules.
-- Define LEAP branch tuple structure and source-to-LEAP mappings.
-- Define expression generation templates used for final LEAP variables.
-
-## Measure layer
-
-- `code/measure_catalog.py`
-- `code/measure_metadata.py`
-- `code/measure_processing.py`
-- `code/measures.py`
-
-What they do:
-
-- Centralize measure definitions and metadata.
-- Process source values into per-measure dataframes by branch.
-
-## Data prep and validation
-
-- `code/preprocessing.py`
-- `code/esto_data.py`
-- `code/mappings_validation.py`
-
-What they do:
-
-- Expand and normalize source values.
-- Merge required ESTO-related rows.
-- Validate mapping consistency and key share/energy checks.
-
-## Sales estimation
-
-- `code/sales_curve_estimate.py`
-- `code/lifecycle_profile_editor.py`
-
-What they do:
-
-- Estimate passenger and freight sales curves using survival and vintage profiles.
-
-## Reconciliation
-
-- `code/energy_use_reconciliation_road.py`
-- `code/historical_exports.py`
-
-What they do:
-
-- Apply transport-specific reconciliation behavior.
-- Produce adjustment summaries and optional historical context.
+- `codebase/results_analysis/results_dashboard_workflow.py`
+  - Dashboard entrypoint.
+- `codebase/results_analysis/leap_series_analysis_workflow.py`
+  - Series comparison orchestration.
+- `codebase/results_analysis/leap_series_comparison.py`
+  - Long-table + charts pipeline.
+- `codebase/results_analysis/transport_pre_recon_vs_raw_disaggregated.py`
+  - Pre-recon vs raw comparison table generator used by checkpoint-audit workflows.
 
 ## Runtime directories
 
-- `data/`: source and template inputs.
-- `intermediate_data/`: checkpoint pickles for reruns.
-- `results/`: exports, archives, and reconciliation reports.
-- `data/errors/`: debug files generated on failed validation steps.
+- `data/`: input files, templates, lifecycle inputs.
+- `intermediate_data/`: checkpoints used by reruns/reconciliation.
+- `results/`: exports, reconciliation artifacts, diagnostics, archives.
+- `data/errors/`: debug/error CSVs emitted during failed validations.
 
-## Suggested reading order for new maintainers
+## High-level docs to read first
 
 1. `README.md`
-2. `docs/START_HERE.md`
-3. `code/transport_economy_config.py`
-4. `code/MAIN_leap_import.py`
-5. `docs/RUNBOOK.md`
-6. Any mapping module relevant to your change.
+2. `docs/PROCESS_FLOW.md` (now includes onboarding + runbook content)
+3. `docs/TRANSPORT_WORKFLOW_SWITCHES.md`
+4. `docs/TROUBLESHOOTING.md`
+5. `docs/LIFECYCLE_WORKFLOW.md`
+
+## Deep architecture docs
+
+- `docs/for ai/SYSTEM_ARCHITECTURE.md`
+- `docs/for ai/MODULE_RELATIONSHIPS.md`
+- `docs/for ai/CHANGE_IMPACT_MATRIX.md`

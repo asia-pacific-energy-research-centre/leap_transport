@@ -94,7 +94,7 @@ sequenceDiagram
     participant M as MAIN_leap_import
     participant C as transport_economy_config
     participant P as preprocess/measure stack
-    participant X as leap_utils Excel helpers
+    participant X as vendored LEAP helper functions
     participant V as validation/reconciliation
     participant L as LEAP COM API
 
@@ -186,10 +186,12 @@ Reconciliation behavior:
 
 ## 6) External dependency boundaries
 
-### Required external package
+### Vendored helper snapshot
 
-- `leap_utils` from sibling repo (or editable install)
-- used for LEAP COM handling, expression writing, workbook assembly, and generic reconciliation engine
+- `codebase/functions/leap_utilities_functions.py`
+- imported from the sibling `leap_utilities` repo on 16/04/2026
+- review against upstream by 16/04/2027
+- used for expression writing, workbook assembly, and generic reconciliation helpers
 
 ### LEAP desktop COM boundary
 

@@ -7,7 +7,6 @@ to perform comparison, chart generation, and per-economy dashboard build.
 #%%
 from __future__ import annotations
 
-import importlib.util
 import math
 import os
 from pathlib import Path
@@ -41,14 +40,12 @@ OUTPUT_DIR = REPO_ROOT / "plotting_output"
 INCLUDE_STOCK_PROXIES = True
 STOCK_PROXY_DIR = REPO_ROOT / "plotting_output/stock_projection_exploration"
 INCLUDE_APEC_AGGREGATE = False
-INCLUDE_LEAP_RESULTS_COMPARISON = True
-LEAP_UTILITIES_REPO = Path("C:/Users/Work/github/leap_utilities/")  # Update this path to your local leap_utilities repository
+INCLUDE_LEAP_RESULTS_COMPARISON = False
 if os.getcwd() != REPO_ROOT:
     print(
         f"[WARN] Current working directory is not repo root; "
         f"relative paths may not resolve as expected: {os.getcwd()}"
     )
-LEAP_RESULTS_TABLES_DIR = LEAP_UTILITIES_REPO / "data/leap results tables"
 CHART_BACKEND = "plotly"  # "static" or "plotly"
 # Set to None to keep default series behavior.
 # Allowed categories:
@@ -150,173 +147,12 @@ def _run_or_load_leap_results_comparisons(
     input_dir: str | Path,
     output_dir: str | Path,
 ) -> list[dict[str, Any]]:
-    print("[INFO] LEAP results comparison mode enabled; scanning optional workbook inputs.")
-    leap_input_dir = LEAP_RESULTS_TABLES_DIR.resolve()
-    if not leap_input_dir.exists():
-        print(f"[WARN] LEAP results tables directory missing; skipping integration: {leap_input_dir}")
-        return []
-
-    all_workbooks = sorted(
-        [
-            *leap_input_dir.glob("*.xlsx"),
-            *leap_input_dir.glob("*.xlsm"),
-            *leap_input_dir.glob("*.xls"),
-        ]
+    print(
+        "[WARN] LEAP results-table comparison is disabled. The previous path "
+        "loaded code and data from ../leap_utilities; that external dependency "
+        "has been removed from this repo."
     )
-    all_workbooks = [wb for wb in all_workbooks if not wb.name.startswith("~$")]
-    if not all_workbooks:
-        print(f"[WARN] No LEAP workbooks found in {leap_input_dir}; skipping integration.")
-        return []
-    print(f"[INFO] Found {len(all_workbooks)} workbook(s) in {leap_input_dir}")
-
-    requested_economies = (
-        {str(e).strip() for e in include_economies if str(e).strip()}
-        if include_economies
-        else _discover_economies_for_scenarios(input_dir=input_dir, scenarios=scenarios)
-    )
-    requested_economies.discard("00_APEC")
-    if not requested_economies:
-        print("[WARN] No requested economies resolved for LEAP results comparison; skipping integration.")
-        return []
-
-    external_module_path = LEAP_UTILITIES_REPO / "codebase/functions/leap_series_comparison.py"
-    if not external_module_path.exists():
-        print(f"[WARN] External comparison module missing; skipping integration: {external_module_path}")
-        return []
-
-    utilities_repo = LEAP_UTILITIES_REPO.resolve()
-    if str(utilities_repo) not in sys.path:
-        sys.path.insert(0, str(utilities_repo))
-    spec = importlib.util.spec_from_file_location("leap_utilities_series_comparison", external_module_path)
-    if spec is None or spec.loader is None:
-        print(f"[WARN] Unable to load external comparison module; skipping integration: {external_module_path}")
-        return []
-
-    external_mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = external_mod
-    spec.loader.exec_module(external_mod)
-    cfg_cls = getattr(external_mod, "TransportResultsComparisonConfig", None)
-    run_fn = getattr(external_mod, "run_transport_results_table_comparison", None)
-    if cfg_cls is None or run_fn is None:
-        print("[WARN] External comparison config/function missing; skipping integration.")
-        return []
-
-    integration_root = Path(output_dir).expanduser()
-    if not integration_root.is_absolute():
-        integration_root = (REPO_ROOT / integration_root).resolve()
-    integration_root = integration_root / "leap_results_tables_comparison"
-
-    comparison_runs: list[dict[str, Any]] = []
-    normalized_files = {wb: _normalize_filename_token(wb.name) for wb in all_workbooks}
-    for economy in sorted(requested_economies):
-        econ_token = _normalize_filename_token(economy)
-        for scenario in scenarios:
-            scenario_token = _normalize_filename_token(scenario)
-            candidates = [
-                wb
-                for wb, norm_name in normalized_files.items()
-                if econ_token in norm_name and scenario_token in norm_name
-            ]
-            if not candidates:
-                print(
-                    f"[WARN] No LEAP workbook filename matched economy/scenario "
-                    f"tokens for {economy} / {scenario}; skipping."
-                )
-                continue
-
-            candidates = sorted(candidates, key=lambda p: p.stat().st_mtime, reverse=True)
-            selected = candidates[0]
-            if len(candidates) > 1:
-                print(
-                    f"[WARN] Multiple workbook matches for {economy} / {scenario}; "
-                    f"using newest: {selected.name}"
-                )
-            selected_norm = _normalize_filename_token(selected.name)
-            if econ_token not in selected_norm or scenario_token not in selected_norm:
-                print(
-                    f"[WARN] Selected workbook failed token validation for {economy} / {scenario}; "
-                    f"skipping: {selected.name}"
-                )
-                continue
-
-            region = _parse_region_from_workbook_metadata(selected, str(scenario))
-            if not region:
-                print(
-                    f"[WARN] Could not infer region from workbook metadata for "
-                    f"{selected.name} [{scenario}]; skipping."
-                )
-                continue
-
-            pair_output_dir = integration_root / f"{_safe_filename_token(economy)}__{_safe_filename_token(scenario)}"
-            comparison_long_csv = pair_output_dir / "comparison_long.csv"
-            charts_dir = pair_output_dir / "charts"
-            if comparison_long_csv.exists() and charts_dir.exists():
-                print(
-                    f"[INFO] Reusing existing LEAP comparison artifacts for {economy}/{scenario}: "
-                    f"{pair_output_dir}"
-                )
-                comparison_runs.append(
-                    {
-                        "economy": economy,
-                        "scenario": str(scenario),
-                        "workbook": selected,
-                        "comparison_long_csv": comparison_long_csv,
-                        "charts_dir": charts_dir,
-                    }
-                )
-                continue
-
-            print(
-                f"[INFO] Running LEAP results comparison for {economy}/{scenario} "
-                f"using {selected.name}"
-            )
-            try:
-                cfg = cfg_cls(
-                    leap_results_file=selected,
-                    economy=economy,
-                    scenario=str(scenario),
-                    region=region,
-                    branch_sector_mapping_csv=LEAP_UTILITIES_REPO / "config/leap_transport_branch_to_ninth_sector_map.csv",
-                    fuel_aliases_csv=LEAP_UTILITIES_REPO / "config/leap_transport_fuel_aliases.csv",
-                    code_to_name_path=LEAP_UTILITIES_REPO / "config/sector_fuel_codes_to_names.xlsx",
-                    code_to_name_sheet="code_to_name",
-                    esto_data_path=LEAP_UTILITIES_REPO / "data/00APEC_2024_low.csv",
-                    ninth_data_path=LEAP_UTILITIES_REPO / "data/merged_file_energy_ALL_20250814_pre_trump.csv",
-                    subtotal_mapping_path=LEAP_UTILITIES_REPO / "config/ESTO_subtotal_mapping.xlsx",
-                    ninth_to_esto_mapping_path=LEAP_UTILITIES_REPO / "config/ninth_pairs_to_esto_pairs.xlsx",
-                    output_dir=pair_output_dir,
-                )
-                artifacts = run_fn(cfg)
-            except Exception as exc:
-                print(
-                    f"[WARN] LEAP results comparison failed for {economy}/{scenario}; "
-                    f"skipping integration for this pair: {exc}"
-                )
-                continue
-
-            artifacts_csv = Path(artifacts.comparison_long_csv)
-            artifacts_charts = Path(artifacts.charts_dir)
-            if not artifacts_csv.exists() or not artifacts_charts.exists():
-                print(
-                    f"[WARN] LEAP comparison artifacts missing for {economy}/{scenario}; "
-                    "skipping integration for this pair."
-                )
-                continue
-            comparison_runs.append(
-                {
-                    "economy": economy,
-                    "scenario": str(scenario),
-                    "workbook": selected,
-                    "comparison_long_csv": artifacts_csv,
-                    "charts_dir": artifacts_charts,
-                }
-            )
-
-    if not comparison_runs:
-        print("[WARN] No LEAP comparison runs/artifacts available for dashboard integration.")
-    else:
-        print(f"[INFO] LEAP comparison runs/artifacts ready: {len(comparison_runs)}")
-    return comparison_runs
+    return []
 
 
 def _inject_leap_results_comparison_into_dashboard(

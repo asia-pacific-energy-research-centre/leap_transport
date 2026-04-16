@@ -82,7 +82,7 @@ and sales estimation logic via:
 
 - Run from repo root.
 - Environment is active (`conda activate ./env_leap`).
-- Helper repo is available when imports require it (`pip install -e ../leap_utilities`).
+- Vendored helper snapshot exists at `codebase/functions/leap_utilities_functions.py`.
 - Economy/scenario exists in `codebase/config/transport_economy_config.py`.
 - Expected inputs exist under:
   - `data/transport_data_9th/model_output_detailed_2/`

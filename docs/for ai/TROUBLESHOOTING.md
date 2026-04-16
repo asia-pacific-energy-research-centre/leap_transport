@@ -1,18 +1,18 @@
 # Troubleshooting
 
-## `ModuleNotFoundError` for `leap_utils`, `codebase.*`, or helper modules
+## `ModuleNotFoundError` for `functions.leap_utilities_functions`, `codebase.*`, or helper modules
 
 Cause:
 
-- Helper package/repo is not importable.
+- The script is not being run from the repo root, or the vendored helper file is missing.
 
 Fix:
 
 ```bash
-pip install -e ../leap_utilities
+python codebase/transport_workflow.py
 ```
 
-Then rerun from repo root.
+Run from the repo root and confirm `codebase/functions/leap_utilities_functions.py` exists.
 
 ## `LEAP API usage is disabled because the LEAP API is currently buggy...`
 

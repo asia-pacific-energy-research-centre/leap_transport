@@ -15,31 +15,12 @@ from enum import Enum
 from collections.abc import Mapping
 from typing import Any
 
-# Allow sibling leap_utilities package without pip install
 BASE_DIR = Path(__file__).resolve().parent.parent
 LOCAL_FUNCTIONS_DIR = BASE_DIR / "functions"
-UTILS_ROOT_CANDIDATES = [
-    (BASE_DIR / "leap_utilities").resolve(),
-    (BASE_DIR.parent / "leap_utilities").resolve(),
-    (BASE_DIR.parent.parent / "leap_utilities").resolve(),
-]
-
 paths_to_add = [BASE_DIR, LOCAL_FUNCTIONS_DIR]
-for utils_root in UTILS_ROOT_CANDIDATES:
-    legacy_pkg = utils_root / "leap_utils"
-    code_pkg = utils_root / "code"
-    codebase_pkg = utils_root / "codebase"
-    if legacy_pkg.exists():
-        paths_to_add.extend([legacy_pkg, utils_root])
-    if code_pkg.exists():
-        paths_to_add.extend([code_pkg, utils_root])
-    if codebase_pkg.exists():
-        paths_to_add.extend([codebase_pkg, codebase_pkg / "functions", utils_root])
-
 for path in paths_to_add:
     if path.exists() and str(path) not in sys.path:
         sys.path.insert(0, str(path))
-# Keep this repo's local modules ahead of similarly named packages from leap_utilities.
 for keep_first in (str(BASE_DIR), str(LOCAL_FUNCTIONS_DIR)):
     if keep_first in sys.path:
         sys.path.remove(keep_first)
@@ -52,60 +33,17 @@ from functions.transport_branch_paths import (
     extract_transport_branch_tuple,
     is_non_road_branch_tuple,
 )
-try:
-    from leap_utils.leap_core import (
-        connect_to_leap,
-        diagnose_measures_in_leap_branch,
-        ensure_branch_exists,
-        ensure_fuel_exists,
-        safe_set_variable,
-        # diagnose_leap_branch,
-        create_transport_export_df,
-        write_row_to_leap_export_df,
-        build_expression_from_mapping,
-        define_value_based_on_src_tuple,
-    )
-except ModuleNotFoundError:
-    try:
-        from code.leap_core import (
-            connect_to_leap,
-            diagnose_measures_in_leap_branch,
-            ensure_branch_exists,
-            ensure_fuel_exists,
-            safe_set_variable,
-            # diagnose_leap_branch,
-            create_transport_export_df,
-            write_row_to_leap_export_df,
-            build_expression_from_mapping,
-            define_value_based_on_src_tuple,
-        )
-    except ModuleNotFoundError:
-        try:
-            from leap_core import (
-                connect_to_leap,
-                diagnose_measures_in_leap_branch,
-                ensure_branch_exists,
-                ensure_fuel_exists,
-                safe_set_variable,
-                # diagnose_leap_branch,
-                create_transport_export_df,
-                write_row_to_leap_export_df,
-                build_expression_from_mapping,
-                define_value_based_on_src_tuple,
-            )
-        except ModuleNotFoundError:
-            from leap_core import (
-                connect_to_leap,
-                diagnose_measures_in_leap_branch,
-                ensure_branch_exists,
-                ensure_fuel_exists,
-                safe_set_variable,
-                # diagnose_leap_branch,
-                create_transport_export_df,
-                write_row_to_leap_export_df,
-                build_expression_from_mapping,
-                define_value_based_on_src_tuple,
-            )
+from functions.leap_utilities_functions import (
+    connect_to_leap,
+    diagnose_measures_in_leap_branch,
+    ensure_branch_exists,
+    ensure_fuel_exists,
+    safe_set_variable,
+    create_transport_export_df,
+    write_row_to_leap_export_df,
+    build_expression_from_mapping,
+    define_value_based_on_src_tuple,
+)
 from config.branch_mappings import (
     ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
     LEAP_BRANCH_TO_SOURCE_MAP,
@@ -122,16 +60,12 @@ from functions.preprocessing import (
     allocate_fuel_alternatives_energy_and_activity,
     calculate_sales,
     normalize_and_calculate_shares)
-try:
-    from leap_utils.leap_excel_io import finalise_export_df, save_export_files, join_and_check_import_structure_matches_export_structure, separate_current_accounts_from_scenario
-except ModuleNotFoundError:
-    try:
-        from code.leap_excel_io import finalise_export_df, save_export_files, join_and_check_import_structure_matches_export_structure, separate_current_accounts_from_scenario
-    except ModuleNotFoundError:
-        try:
-            from leap_excel_io import finalise_export_df, save_export_files, join_and_check_import_structure_matches_export_structure, separate_current_accounts_from_scenario
-        except ModuleNotFoundError:
-            from leap_excel_io import finalise_export_df, save_export_files, join_and_check_import_structure_matches_export_structure, separate_current_accounts_from_scenario
+from functions.leap_utilities_functions import (
+    finalise_export_df,
+    save_export_files,
+    join_and_check_import_structure_matches_export_structure,
+    separate_current_accounts_from_scenario,
+)
 from config.branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING, ALL_YEARS
 from functions.esto_data import (
     extract_other_type_rows_from_esto_and_insert_into_transport_df,
@@ -175,36 +109,12 @@ def _raise_leap_api_disabled(operation: str) -> None:
 
 # imports and data loading
 import pandas as pd
-try:
-    from leap_utils.energy_use_reconciliation import (
-        build_branch_rules_from_mapping,
-        reconcile_energy_use,
-        build_adjustment_change_tables,
-        get_adjustment_year_columns,
-    )
-except ModuleNotFoundError:
-    try:
-        from code.energy_use_reconciliation import (
-            build_branch_rules_from_mapping,
-            reconcile_energy_use,
-            build_adjustment_change_tables,
-            get_adjustment_year_columns,
-        )
-    except ModuleNotFoundError:
-        try:
-            from energy_use_reconciliation import (
-                build_branch_rules_from_mapping,
-                reconcile_energy_use,
-                build_adjustment_change_tables,
-                get_adjustment_year_columns,
-            )
-        except ModuleNotFoundError:
-            from energy_use_reconciliation import (
-                build_branch_rules_from_mapping,
-                reconcile_energy_use,
-                build_adjustment_change_tables,
-                get_adjustment_year_columns,
-            )
+from functions.leap_utilities_functions import (
+    build_branch_rules_from_mapping,
+    reconcile_energy_use,
+    build_adjustment_change_tables,
+    get_adjustment_year_columns,
+)
 from config.branch_mappings import (
     ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
     UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT,

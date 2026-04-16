@@ -32,7 +32,7 @@ Consumes:
 - Processing helpers: `preprocessing`, `measure_processing`, `sales_curve_estimate`, `esto_data`.
 - QA/reconciliation: `mappings_validation`, `energy_use_reconciliation_road`.
 - Path utility: `path_utils`.
-- External helper package: `leap_utils.*`.
+- Vendored helper snapshot: `leap_utilities_functions`.
 
 Used by:
 
@@ -93,7 +93,7 @@ Role:
 
 Consumes:
 
-- `branch_mappings`, `esto_data` and external `leap_utils.energy_use_reconciliation`.
+- `branch_mappings`, `esto_data` and vendored `leap_utilities_functions`.
 
 Used by:
 
@@ -318,4 +318,3 @@ If you change a module, check these linked modules next:
 - `measure_metadata.py` -> re-check `measure_processing.py` aggregations and unit scaling.
 - `preprocessing.py` -> re-check final QA in `mappings_validation.py`.
 - `sales_curve_estimate.py` or `lifecycle_profile_editor.py` -> re-check passenger/freight outputs and file paths from `transport_economy_config.py`.
-

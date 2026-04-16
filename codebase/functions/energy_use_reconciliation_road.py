@@ -1,42 +1,11 @@
 from __future__ import annotations
-import sys
-from pathlib import Path
 import pandas as pd
 from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
-# Allow sibling leap_utils package without pip install
-BASE_DIR = Path(__file__).resolve().parent.parent
-UTILS_ROOT_CANDIDATES = [
-    (BASE_DIR / "leap_utilities").resolve(),
-    (BASE_DIR.parent / "leap_utilities").resolve(),
-]
-for utils_root in UTILS_ROOT_CANDIDATES:
-    for path in (utils_root / "leap_utils", utils_root / "code", utils_root / "codebase", utils_root):
-        if path.exists() and str(path) not in sys.path:
-            sys.path.insert(0, str(path))
-
-try:
-    from leap_utils.energy_use_reconciliation import (
-        _apply_proportional_adjustment,
-        get_adjustment_year_columns,
-    )
-except ModuleNotFoundError:
-    try:
-        from code.energy_use_reconciliation import (
-            _apply_proportional_adjustment,
-            get_adjustment_year_columns,
-        )
-    except ModuleNotFoundError:
-        try:
-            from energy_use_reconciliation import (
-                _apply_proportional_adjustment,
-                get_adjustment_year_columns,
-            )
-        except ModuleNotFoundError:
-            from energy_use_reconciliation import (
-                _apply_proportional_adjustment,
-                get_adjustment_year_columns,
-            )
+from functions.leap_utilities_functions import (
+    _apply_proportional_adjustment,
+    get_adjustment_year_columns,
+)
 from config.branch_mappings import ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP, LEAP_MEASURE_CONFIG
 from functions.esto_data import extract_esto_energy_use_for_leap_branches
 from functions.transport_branch_paths import (

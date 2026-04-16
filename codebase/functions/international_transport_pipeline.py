@@ -23,79 +23,29 @@ from functions.transport_branch_paths import (
 )
 
 
-# Allow sibling leap_utilities package without pip install.
 BASE_DIR = Path(__file__).resolve().parent.parent
 LOCAL_FUNCTIONS_DIR = BASE_DIR / "functions"
-UTILS_ROOT_CANDIDATES = [
-    (BASE_DIR / "leap_utilities").resolve(),
-    (BASE_DIR.parent / "leap_utilities").resolve(),
-    (BASE_DIR.parent.parent / "leap_utilities").resolve(),
-]
-
 paths_to_add = [BASE_DIR, LOCAL_FUNCTIONS_DIR]
-for utils_root in UTILS_ROOT_CANDIDATES:
-    legacy_pkg = utils_root / "leap_utils"
-    code_pkg = utils_root / "code"
-    codebase_pkg = utils_root / "codebase"
-    if legacy_pkg.exists():
-        paths_to_add.extend([legacy_pkg, utils_root])
-    if code_pkg.exists():
-        paths_to_add.extend([code_pkg, utils_root])
-    if codebase_pkg.exists():
-        paths_to_add.extend([codebase_pkg, codebase_pkg / "functions", utils_root])
-
 for path in paths_to_add:
     if path.exists() and str(path) not in sys.path:
         sys.path.insert(0, str(path))
-# Keep this repo's local modules ahead of similarly named packages from leap_utilities.
 for keep_first in (str(BASE_DIR), str(LOCAL_FUNCTIONS_DIR)):
     if keep_first in sys.path:
         sys.path.remove(keep_first)
 for keep_first in (str(LOCAL_FUNCTIONS_DIR), str(BASE_DIR)):
     sys.path.insert(0, keep_first)
 
-try:
-    from leap_utils.leap_core import (  # noqa: E402
-        connect_to_leap,
-        diagnose_measures_in_leap_branch,
-        ensure_branch_exists,
-        ensure_fuel_exists,
-        safe_set_variable,
-    )
-    from leap_utils.leap_excel_io import finalise_export_df, save_export_files  # noqa: E402
-    from leap_utils.config import BRANCH_DEMAND_CATEGORY, BRANCH_DEMAND_TECHNOLOGY  # noqa: E402
-except ModuleNotFoundError:
-    try:
-        from code.leap_core import (  # noqa: E402
-            connect_to_leap,
-            diagnose_measures_in_leap_branch,
-            ensure_branch_exists,
-            ensure_fuel_exists,
-            safe_set_variable,
-        )
-        from code.leap_excel_io import finalise_export_df, save_export_files  # noqa: E402
-        from code.config import BRANCH_DEMAND_CATEGORY, BRANCH_DEMAND_TECHNOLOGY  # noqa: E402
-    except ModuleNotFoundError:
-        try:
-            from leap_core import (  # noqa: E402
-                connect_to_leap,
-                diagnose_measures_in_leap_branch,
-                ensure_branch_exists,
-                ensure_fuel_exists,
-                safe_set_variable,
-            )
-            from leap_excel_io import finalise_export_df, save_export_files  # noqa: E402
-            from configuration.config import BRANCH_DEMAND_CATEGORY, BRANCH_DEMAND_TECHNOLOGY  # noqa: E402
-        except ModuleNotFoundError:
-            from leap_core import (  # noqa: E402
-                connect_to_leap,
-                diagnose_measures_in_leap_branch,
-                ensure_branch_exists,
-                ensure_fuel_exists,
-                safe_set_variable,
-            )
-            from leap_excel_io import finalise_export_df, save_export_files  # noqa: E402
-            from configuration.config import BRANCH_DEMAND_CATEGORY, BRANCH_DEMAND_TECHNOLOGY  # noqa: E402
+from functions.leap_utilities_functions import (  # noqa: E402
+    BRANCH_DEMAND_CATEGORY,
+    BRANCH_DEMAND_TECHNOLOGY,
+    connect_to_leap,
+    diagnose_measures_in_leap_branch,
+    ensure_branch_exists,
+    ensure_fuel_exists,
+    finalise_export_df,
+    safe_set_variable,
+    save_export_files,
+)
 
 LEAP_API_DISABLED_ERROR = (
     "[ERROR] LEAP API usage is disabled because the LEAP API is currently buggy. "

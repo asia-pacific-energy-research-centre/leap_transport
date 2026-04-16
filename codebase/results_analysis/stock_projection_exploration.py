@@ -7,6 +7,8 @@ import argparse
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "plotting_output/stock_projection_exploration"
+DEFAULT_COMPARISON_LONG_CSV = REPO_ROOT / "plotting_output/comparison_long.csv"
 
 
 @dataclass
@@ -15,7 +17,7 @@ class ExplorationConfig:
     scenarios: tuple[str, ...] = ("Reference", "Target")
     base_year: int = 2022
     final_year: int = 2060
-    output_dir: Path = REPO_ROOT / "results/diagnostics/stock_projection_exploration"
+    output_dir: Path = DEFAULT_OUTPUT_DIR
 
 
 def _resolve_transport_checkpoint(economy: str, scenario: str, base_year: int, final_year: int) -> Path:
@@ -186,7 +188,7 @@ def _build_vehicle_type_share_compare(detail_df: pd.DataFrame, projected_df: pd.
 
 
 def _join_with_comparison_long(df: pd.DataFrame, *, economy: str) -> pd.DataFrame:
-    cmp_path = REPO_ROOT / "results/diagnostics/transport_results_series_comparison/comparison_long.csv"
+    cmp_path = DEFAULT_COMPARISON_LONG_CSV
     if not cmp_path.exists():
         return df
 
@@ -259,7 +261,7 @@ def _parse_args() -> ExplorationConfig:
     parser.add_argument("--scenarios", nargs="+", default=["Reference", "Target"])
     parser.add_argument("--base-year", type=int, default=2022)
     parser.add_argument("--final-year", type=int, default=2060)
-    parser.add_argument("--output-dir", default=str(REPO_ROOT / "results/diagnostics/stock_projection_exploration"))
+    parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     args = parser.parse_args()
 
     return ExplorationConfig(

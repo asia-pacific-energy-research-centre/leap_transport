@@ -12,6 +12,8 @@ import pandas as pd
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SCENARIOS: tuple[str, ...] = ("Reference", "Target")
 DEFAULT_ECONOMIES: tuple[str, ...] | None = None
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "plotting_output"
+DEFAULT_STOCK_PROXY_DIR = REPO_ROOT / "plotting_output/stock_projection_exploration"
 
 
 @dataclass
@@ -19,7 +21,7 @@ class TransportResultsComparisonConfig:
     scenario: str | None = None
     scenarios: tuple[str, ...] | None = DEFAULT_SCENARIOS
     input_dir: str | Path = "results/checkpoint_audit"
-    output_dir: str | Path = "results/diagnostics/transport_results_series_comparison"
+    output_dir: str | Path = DEFAULT_OUTPUT_DIR
     include_economies: tuple[str, ...] | None = DEFAULT_ECONOMIES
     metrics: tuple[str, ...] = (
         "activity",
@@ -37,7 +39,7 @@ class TransportResultsComparisonConfig:
     international_input_dir: str | Path = "results/international"
     international_medium_summary_path: str | Path | None = None
     include_stock_proxies: bool = False
-    stock_proxy_dir: str | Path = "results/diagnostics/stock_projection_exploration"
+    stock_proxy_dir: str | Path = DEFAULT_STOCK_PROXY_DIR
     include_apec_aggregate: bool = False
     # Allowed values:
     # input, pre, reconciled, reconciled_plus_alt, checkpoint_direct_proxy, sales_flow_projected_proxy

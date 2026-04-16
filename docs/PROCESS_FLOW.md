@@ -211,7 +211,7 @@ Implementation (current code):
 
 What it does now:
 
-1. **Strict pre-check**: exported keys (`Branch Path`, `Variable`, `Scenario`, `Region`) must already exist in the template for both scenario rows and `Current Accounts` rows.
+1. **Strict pre-check**: exported keys (`Branch Path`, `Variable`, `Scenario`) must already exist in the template for both scenario rows and `Current Accounts` rows. `Region` is ignored by this gate.
 2. If any exported row is not in template, run fails immediately with `ValueError`.
 3. If strict check passes, export is merged with template IDs/structure.
 4. A summary is printed and dropped-key reports are written to `results/`:

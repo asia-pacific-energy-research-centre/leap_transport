@@ -21,7 +21,7 @@ from results_analysis.leap_series_comparison import (
 
 SCENARIOS = ("Reference", "Target")
 INPUT_DIR = REPO_ROOT / "results/checkpoint_audit"
-OUTPUT_DIR = REPO_ROOT / "results/diagnostics/transport_results_series_comparison"
+OUTPUT_DIR = REPO_ROOT / "plotting_output"
 INCLUDE_ECONOMIES: tuple[str, ...] | None = None
 METRICS = (
     "activity",
@@ -39,7 +39,7 @@ INCLUDE_INTERNATIONAL = True
 INTERNATIONAL_INPUT_DIR = "results/international"
 INTERNATIONAL_MEDIUM_SUMMARY_PATH: str | Path | None = None
 INCLUDE_STOCK_PROXIES = False
-STOCK_PROXY_DIR = REPO_ROOT / "results/diagnostics/stock_projection_exploration"
+STOCK_PROXY_DIR = REPO_ROOT / "plotting_output/stock_projection_exploration"
 INCLUDE_APEC_AGGREGATE = False
 SERIES_CATEGORIES: tuple[str, ...] | None = None
 

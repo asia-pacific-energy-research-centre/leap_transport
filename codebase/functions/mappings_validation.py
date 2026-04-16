@@ -2,6 +2,8 @@
 # VALIDATION: Transport Mapping Consistency (with Measures)
 # ============================================================
 from collections import defaultdict, Counter
+from pathlib import Path
+
 import pandas as pd
 from config.measure_metadata import SHARE_MEASURES
 from config.measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
@@ -21,6 +23,10 @@ from functions.merged_energy_io import (
     load_transport_energy_dataset,
 )
 import numpy as np
+
+WRITE_TRANSPORT_ENERGY_USE_STATS_COLLECTOR = False
+TRANSPORT_ENERGY_USE_STATS_COLLECTOR_PATH = "results/debug/transport_energy_use_stats_collector.xlsx"
+
 def get_most_detailed_branches(mapping: dict):
     """
     From a mapping of tuple keys (branch hierarchy) → values,
@@ -627,10 +633,12 @@ def validate_final_energy_use_for_base_year_equals_esto_totals(
             "\n✅ Energy validation passed within tolerance "
             f"(relative_tolerance={relative_tolerance:.2%}, absolute_tolerance={absolute_tolerance})."
         )
-    #TEMP
-    print("Saving transport energy use stats collector to Excel...")
-    stats_collector.to_excel('transport_energy_use_stats_collector.xlsx', index=False)
-    #TEMP
+    if WRITE_TRANSPORT_ENERGY_USE_STATS_COLLECTOR:
+        output_path = resolve_str(TRANSPORT_ENERGY_USE_STATS_COLLECTOR_PATH)
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        stats_collector.to_excel(output_path, index=False)
+        print(f"[INFO] Wrote transport energy use stats collector to {output_path}")
+
     validate_non_specified_energy_use_for_base_year_equals_esto_totals(BASE_YEAR, export_df, esto_energy_use_filtered, TRANSPORT_ROOT)
     print("Final energy use validation complete.")
     

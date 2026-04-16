@@ -19,6 +19,11 @@ COMMON_CONFIG = {
     "transport_final_year": 2060,
 }
 
+DOMESTIC_EXPORT_DIR = "results/domestic_exports"
+COMBINED_EXPORT_DIR = "results/combined_exports"
+PASSENGER_SALES_DIR = "results/sales/passenger"
+FREIGHT_SALES_DIR = "results/sales/freight"
+
 # Economy metadata for 9th-edition transport runs.
 # NOTE: Region strings must match LEAP region names used by your model.
 ECONOMY_METADATA = {
@@ -41,7 +46,7 @@ ECONOMY_METADATA = {
     "17_SGP": {"region": "Singapore", "short": "SGP", "base_year": 2022, "file": "17_SGP_NON_ROAD_DETAILED_model_output_with_fuels20250227.csv"},
     "18_CT": {"region": "Chinese Taipei", "short": "CT", "base_year": 2022, "file": "18_CT_NON_ROAD_DETAILED_model_output_with_fuels20250123.csv"},
     "19_THA": {"region": "Thailand", "short": "THA", "base_year": 2022, "file": "19_THA_NON_ROAD_DETAILED_model_output_with_fuels20250226.csv"},
-    "20_USA": {"region": "United States of America", "short": "USA", "base_year": 2022, "file": "20_USA_NON_ROAD_DETAILED_model_output_with_fuels20250225.csv"},
+    "20_USA": {"region": "United States of America", "short": "USA", "base_year": 2022, "file": "20_USA_NON_ROAD_DETAILED_model_output_with_fuels20250225.csv"},#confirmed to be based on trump policies compared to 20250814 pre-trump file, so should be used for all USA runs where we want to compare to tgt as it was published. 
     "21_VN": {"region": "Viet Nam", "short": "VN", "base_year": 2022, "file": "21_VN_NON_ROAD_DETAILED_model_output_with_fuels20250226.csv"},
 }
 
@@ -58,10 +63,10 @@ for economy_code, meta in ECONOMY_METADATA.items():
             "transport_region": meta["region"],
             "transport_base_year": meta["base_year"],
             "transport_model_name": f"{meta['short']} transport",
-            "transport_export_path": f"results/{economy_code}_transport_leap_export_{scenario}.xlsx",
+            "transport_export_path": f"{DOMESTIC_EXPORT_DIR}/{economy_code}_transport_leap_export_{scenario}.xlsx",
             "transport_fuels_path": f"data/transport_data_9th/model_output_with_fuels/{meta['file']}",
-            "passenger_sales_output": f"results/passenger_sales_{economy_code}_{scenario}.csv",
-            "freight_sales_output": f"results/freight_sales_{economy_code}_{scenario}.csv",
+            "passenger_sales_output": f"{PASSENGER_SALES_DIR}/passenger_sales_{economy_code}_{scenario}.csv",
+            "freight_sales_output": f"{FREIGHT_SALES_DIR}/freight_sales_{economy_code}_{scenario}.csv",
         }
     TRANSPORT_ECONOMY_CONFIGS[economy_code] = scenario_cfg
 

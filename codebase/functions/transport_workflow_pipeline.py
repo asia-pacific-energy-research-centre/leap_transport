@@ -14,7 +14,6 @@ from datetime import datetime
 from enum import Enum
 from collections.abc import Mapping
 from typing import Any
-import time
 
 # Allow sibling leap_utilities package without pip install
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -222,6 +221,10 @@ from functions.energy_use_reconciliation_road import (
 from functions.merged_energy_io import load_transport_energy_dataset
 from config.transport_economy_config import (
     COMMON_CONFIG,
+    DOMESTIC_EXPORT_DIR,
+    ECONOMY_METADATA,
+    FREIGHT_SALES_DIR,
+    PASSENGER_SALES_DIR,
     load_transport_run_config,
     list_transport_run_configs,
     resolve_lifecycle_profile_path_for_economy,
@@ -737,7 +740,9 @@ def run_freight_sales_workflow(
 
 
 def _extract_template_alignment_keys(df: pd.DataFrame) -> pd.DataFrame:
-    key_cols = ["Branch Path", "Variable", "Scenario", "Region"]
+    # Region is allowed to differ between the exported workbook and the template.
+    # Keep the alignment gate focused on the structural keys that must match.
+    key_cols = ["Branch Path", "Variable", "Scenario"]
     missing = [col for col in key_cols if col not in df.columns]
     if missing:
         return pd.DataFrame(columns=key_cols)
@@ -754,7 +759,7 @@ def _report_template_alignment_changes(
     max_examples: int = 10,
 ) -> None:
     """Log and save rows removed during template alignment."""
-    key_cols = ["Branch Path", "Variable", "Scenario", "Region"]
+    key_cols = ["Branch Path", "Variable", "Scenario"]
     before_keys = _extract_template_alignment_keys(before_df)
     after_keys = _extract_template_alignment_keys(after_df)
 
@@ -785,7 +790,7 @@ def _report_template_alignment_changes(
         report_name = f"template_alignment_dropped_{report_tag}_{safe_label}.csv"
     else:
         report_name = f"template_alignment_dropped_{safe_label}.csv"
-    report_path = resolve_str(f"results/{report_name}")
+    report_path = resolve_str(f"results/checkpoint_audit/{report_name}")
     os.makedirs(Path(report_path).parent, exist_ok=True)
     dropped.sort_values(key_cols).to_csv(report_path, index=False)
     print(f"[INFO] Wrote template-drop report ({dataset_label}) to: {report_path}")
@@ -802,7 +807,7 @@ def _enforce_exact_template_alignment_keys(
     max_examples: int = 15,
 ) -> None:
     """Fail fast if export rows are not exact key matches to template rows."""
-    key_cols = ["Branch Path", "Variable", "Scenario", "Region"]
+    key_cols = ["Branch Path", "Variable", "Scenario"]
     try:
         template_df = pd.read_excel(import_filename, sheet_name="Export", header=2, usecols=key_cols)
     except Exception as exc:
@@ -815,12 +820,10 @@ def _enforce_exact_template_alignment_keys(
         lines: list[str] = []
         for scenario_name in [current_accounts_label, scenario]:
             template_slice = template_df[
-                (template_df["Scenario"] == scenario_name)
-                & (template_df["Region"] == region)
+                template_df["Scenario"] == scenario_name
             ][key_cols].drop_duplicates()
             export_slice = dataset[
-                (dataset["Scenario"] == scenario_name)
-                & (dataset["Region"] == region)
+                dataset["Scenario"] == scenario_name
             ][key_cols].drop_duplicates()
             if export_slice.empty:
                 continue
@@ -842,7 +845,7 @@ def _enforce_exact_template_alignment_keys(
             for row in missing.head(max_examples).itertuples(index=False):
                 lines.append(
                     f"  - Branch Path='{row[0]}', Variable='{row[1]}', "
-                    f"Scenario='{row[2]}', Region='{row[3]}'"
+                    f"Scenario='{row[2]}'"
                 )
         return lines
 
@@ -856,6 +859,146 @@ def _enforce_exact_template_alignment_keys(
             "(case-sensitive; no auto-correction is applied).\n"
             + "\n".join(issues)
         )
+
+
+def _register_transport_regions_for_leap_excel_helpers() -> None:
+    """Add transport economy regions to leap_excel_io's structure-check region lookup."""
+    helper_globals = getattr(
+        join_and_check_import_structure_matches_export_structure,
+        "__globals__",
+        {},
+    )
+    region_lookup = helper_globals.get("region_id_name_dict")
+    if not isinstance(region_lookup, dict):
+        return
+
+    existing_names = {
+        str(payload.get("region_name", "")).strip()
+        for payload in region_lookup.values()
+        if isinstance(payload, dict)
+    }
+    existing_ids = [
+        int(payload.get("region_id"))
+        for payload in region_lookup.values()
+        if isinstance(payload, dict) and str(payload.get("region_id", "")).isdigit()
+    ]
+    next_region_id = max(existing_ids, default=0) + 1
+
+    added: list[str] = []
+    for economy_code, metadata in sorted(ECONOMY_METADATA.items()):
+        region_name = str(metadata.get("region", "")).strip()
+        if not region_name or region_name in existing_names:
+            continue
+        region_lookup[economy_code] = {
+            "region_id": next_region_id,
+            "region_name": region_name,
+            "region_code": economy_code,
+        }
+        existing_names.add(region_name)
+        added.append(region_name)
+        next_region_id += 1
+
+    if added:
+        print(
+            "[INFO] Registered transport regions for LEAP Excel structure checks: "
+            + ", ".join(added)
+        )
+
+
+def _patch_leap_excel_region_handling() -> None:
+    """Allow structure checks to reuse template rows from any known region."""
+    helper_globals = getattr(
+        join_and_check_import_structure_matches_export_structure,
+        "__globals__",
+        {},
+    )
+    if helper_globals.get("_transport_region_patch_active"):
+        return
+
+    region_lookup = helper_globals.get("region_id_name_dict")
+    scenario_lookup = helper_globals.get("scenario_dict")
+    if not isinstance(region_lookup, dict) or not isinstance(scenario_lookup, dict):
+        return
+
+    def _transport_check_scenario_and_region_ids(import_df, scenario, region):
+        dict_regions = [
+            str(payload.get("region_name", "")).strip()
+            for payload in region_lookup.values()
+            if isinstance(payload, dict)
+        ]
+        if region not in dict_regions:
+            raise ValueError(
+                f"[ERROR] The region {region} specified for structure checking is not found "
+                f"in the region_id_name_dict: {dict_regions}. Make sure to load the correct "
+                "region data for structure checking."
+            )
+
+        import_df = import_df.copy()
+        template_regions = [
+            str(value).strip()
+            for value in import_df.get("Region", pd.Series(dtype=object)).dropna().unique()
+            if str(value).strip()
+        ]
+        if region in template_regions:
+            import_df = import_df[import_df["Region"] == region].copy()
+        elif template_regions:
+            source_region = template_regions[0]
+            import_df = import_df[import_df["Region"].astype(str).str.strip() == source_region].copy()
+            print(
+                "[INFO] Structure-check template region fallback: "
+                f"using template region='{source_region}' rows for requested region='{region}'."
+            )
+        else:
+            raise ValueError("[ERROR] No regions found in import_df during structure checks.")
+
+        region_ids = [
+            payload.get("region_id")
+            for payload in region_lookup.values()
+            if isinstance(payload, dict) and str(payload.get("region_name", "")).strip() == region
+        ]
+        if len(region_ids) != 1:
+            raise ValueError(f"[ERROR] Multiple or no region ids found for region {region} in region_id_name_dict.")
+        import_df["Region"] = region
+        import_df["RegionID"] = region_ids[0]
+
+        dict_scenarios = [
+            scenario_lookup[key]["scenario_name"]
+            for key in scenario_lookup
+        ]
+        if scenario not in dict_scenarios:
+            raise ValueError(
+                f"[ERROR] The scenario {scenario} specified for structure checking is not found "
+                f"in the scenario_dict: {dict_scenarios}. Make sure to load the correct scenario "
+                "data for structure checking."
+            )
+        import_df = import_df[
+            (import_df["Scenario"] == scenario) | (import_df["Scenario"] == "Current Accounts")
+        ].copy()
+
+        import_scenarios = [
+            value for value in import_df["Scenario"].dropna().unique()
+            if value != "Current Accounts"
+        ]
+        if len(import_scenarios) != 1:
+            raise ValueError(
+                "[ERROR] More or less than one scenario found in import_df during structure checks: "
+                f"{import_scenarios}. There should be a Current Accounts scenario and the projected scenario."
+            )
+        if scenario not in import_scenarios:
+            scenario_ids = [
+                scenario_lookup[key]["scenario_id"]
+                for key in scenario_lookup
+                if scenario_lookup[key]["scenario_name"] == scenario
+            ]
+            if len(scenario_ids) != 1:
+                raise ValueError(f"[ERROR] Multiple scenario ids found for scenario {scenario} in scenario_dict.")
+            import_df.loc[import_df["Scenario"] != "Current Accounts", "Scenario"] = scenario
+            import_df.loc[import_df["Scenario"] != "Current Accounts", "ScenarioID"] = scenario_ids[0]
+
+        return import_df
+
+    helper_globals["check_scenario_and_region_ids"] = _transport_check_scenario_and_region_ids
+    helper_globals["_transport_region_patch_active"] = True
 
 
 def process_transport_branch_mapping(leap_tuple, src_tuple, TRANSPORT_ROOT=r"Demand"):
@@ -2104,6 +2247,7 @@ def run_transport_reconciliation(
 
     leap_export_df, export_df_for_viewing = convert_values_to_expressions(adjusted_export_df_all)
     # Archive existing export before overwriting
+    os.makedirs(os.path.dirname(transport_export_path), exist_ok=True)
     archived_export = _archive_existing_output_file(transport_export_path, date_id=date_id)
     if archived_export:
         print(f"[INFO] Archived previous transport export to {archived_export}")
@@ -2134,10 +2278,10 @@ def load_transport_into_leap(
     CHECK_BRANCHES_IN_LEAP_USING_COM=True,
     SET_VARS_IN_LEAP_USING_COM=False,
     AUTO_SET_MISSING_BRANCHES=False,
-    export_filename="results/leap_export.xlsx",
+    export_filename=f"{DOMESTIC_EXPORT_DIR}/leap_export.xlsx",
     import_filename="data/import_files/leap_import.xlsx",
     TRANSPORT_ESTO_BALANCES_PATH = 'data/merged_file_energy_ALL_20250814_pretrump.csv',
-    TRANSPORT_FUELS_DATA_FILE_PATH = 'data/USA fuels model output.csv',
+    TRANSPORT_FUELS_DATA_FILE_PATH = 'data/transport_data_9th/model_output_with_fuels/20_USA_NON_ROAD_DETAILED_model_output_with_fuels20250225.csv',
     TRANSPORT_ROOT = r"Demand",
     LOAD_INPUT_CHECKPOINT=False,
     LOAD_HALFWAY_CHECKPOINT=False,
@@ -2210,7 +2354,7 @@ def load_transport_into_leap(
     passenger_sales_result = None
     freight_sales_result = None
     if RUN_PASSENGER_SALES:
-        passenger_output = PASSENGER_SALES_OUTPUT or f"results/passenger_sales_{economy}_{original_scenario}.csv"
+        passenger_output = PASSENGER_SALES_OUTPUT or f"{PASSENGER_SALES_DIR}/passenger_sales_{economy}_{original_scenario}.csv"
         # breakpoint()
         passenger_sales_result = run_passenger_sales_workflow(
             df=df,
@@ -2226,7 +2370,7 @@ def load_transport_into_leap(
             policy_settings=PASSENGER_SALES_POLICY_SETTINGS,
         )
     if RUN_FREIGHT_SALES:
-        freight_output = FREIGHT_SALES_OUTPUT or f"results/freight_sales_{economy}_{original_scenario}.csv"
+        freight_output = FREIGHT_SALES_OUTPUT or f"{FREIGHT_SALES_DIR}/freight_sales_{economy}_{original_scenario}.csv"
         freight_sales_result = run_freight_sales_workflow(
             df=df,
             economy=economy,
@@ -2321,6 +2465,8 @@ def load_transport_into_leap(
         #     return export_df_current
         #todo need to change the expressions for rows in scneario current accounts os they dont include any values except the base year
         if MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE:
+            _register_transport_regions_for_leap_excel_helpers()
+            _patch_leap_excel_region_handling()
             pre_merge_leap_export_df = leap_export_df.copy()
             pre_merge_viewing_df = export_df_for_viewing.copy()
             _enforce_exact_template_alignment_keys(
@@ -2351,6 +2497,7 @@ def load_transport_into_leap(
                 report_tag=checkpoint_tag,
             )
         
+        os.makedirs(os.path.dirname(export_filename), exist_ok=True)
         archived_export = _archive_existing_output_file(export_filename, date_id=DATE_ID)
         if archived_export:
             print(f"[INFO] Archived previous transport export to {archived_export}")
@@ -2574,25 +2721,6 @@ CHECKPOINT_LOAD_STAGE = "none"
 MERGE_IMPORT_EXPORT_AND_CHECK_STRUCTURE = True
 
 DATE_ID = datetime.now().strftime("%Y%m%d")
-RUNTIME_STAGE_LOG_PATH = resolve_str("config/transport_stage_runtime_log.csv")
-
-
-def _append_runtime_stage_rows(rows: list[dict[str, Any]]) -> None:
-    """Append stage runtime rows to a config-level CSV log."""
-    if not rows:
-        return
-    out_path = Path(RUNTIME_STAGE_LOG_PATH)
-    os.makedirs(out_path.parent, exist_ok=True)
-    df_new = pd.DataFrame(rows)
-    if out_path.exists():
-        try:
-            df_existing = pd.read_csv(out_path)
-        except Exception:
-            df_existing = pd.DataFrame()
-        df_out = pd.concat([df_existing, df_new], ignore_index=True)
-    else:
-        df_out = df_new
-    df_out.to_csv(out_path, index=False)
 
 
 def _normalise_esto_key(value: str) -> str:
@@ -2971,10 +3099,10 @@ def aggregate_batch_sales_outputs(run_records, scenario, date_id):
             freight_df["Scenario"] = scenario
             freight_frames.append(freight_df)
 
-    os.makedirs(resolve_str("results"), exist_ok=True)
     if passenger_frames:
         passenger_all = pd.concat(passenger_frames, ignore_index=True)
-        passenger_all_path = resolve_str(f"results/passenger_sales_ALL_{scenario}_{date_id}.csv")
+        passenger_all_path = resolve_str(f"{PASSENGER_SALES_DIR}/passenger_sales_ALL_{scenario}_{date_id}.csv")
+        os.makedirs(os.path.dirname(passenger_all_path), exist_ok=True)
         archived_output = _archive_existing_output_file(passenger_all_path, date_id=date_id)
         if archived_output:
             print(f"[INFO] Archived previous combined passenger sales to {archived_output}")
@@ -2982,7 +3110,8 @@ def aggregate_batch_sales_outputs(run_records, scenario, date_id):
         print(f"[INFO] Wrote combined passenger sales: {passenger_all_path}")
     if freight_frames:
         freight_all = pd.concat(freight_frames, ignore_index=True)
-        freight_all_path = resolve_str(f"results/freight_sales_ALL_{scenario}_{date_id}.csv")
+        freight_all_path = resolve_str(f"{FREIGHT_SALES_DIR}/freight_sales_ALL_{scenario}_{date_id}.csv")
+        os.makedirs(os.path.dirname(freight_all_path), exist_ok=True)
         archived_output = _archive_existing_output_file(freight_all_path, date_id=date_id)
         if archived_output:
             print(f"[INFO] Archived previous combined freight sales to {archived_output}")
@@ -3031,14 +3160,14 @@ def build_apec_run_config(scenario: str):
         transport_base_year=APEC_BASE_YEAR,
         transport_final_year=APEC_FINAL_YEAR,
         transport_model_name="APEC transport",
-        transport_export_path=resolve_str(f"results/00_APEC_transport_leap_export_{scenario}.xlsx"),
+        transport_export_path=resolve_str(f"{DOMESTIC_EXPORT_DIR}/00_APEC_transport_leap_export_{scenario}.xlsx"),
         transport_import_path=seed_cfg.transport_import_path,
         transport_esto_balances_path=str(apec_balances_path),
         transport_fuels_path=seed_cfg.transport_fuels_path,
         survival_profile_path=resolve_str(apec_survival_profile),
         vintage_profile_path=resolve_str(apec_vintage_profile),
-        passenger_sales_output=resolve_str(f"results/passenger_sales_00_APEC_{scenario}.csv"),
-        freight_sales_output=resolve_str(f"results/freight_sales_00_APEC_{scenario}.csv"),
+        passenger_sales_output=resolve_str(f"{PASSENGER_SALES_DIR}/passenger_sales_00_APEC_{scenario}.csv"),
+        freight_sales_output=resolve_str(f"{FREIGHT_SALES_DIR}/freight_sales_00_APEC_{scenario}.csv"),
     )
 
 
@@ -3069,10 +3198,6 @@ def run_configured_transport_workflow(
         "status": "success",
         "error": "",
     }
-    runtime_rows: list[dict[str, Any]] = []
-    run_started_at = time.perf_counter()
-    run_timestamp_utc = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-
     checkpoint_tag = f"{transport_economy}_{transport_scenario}".replace(" ", "_")
     reconciliation_input_path = resolve_str(
         f"intermediate_data/export_df_for_viewing_checkpoint2_{checkpoint_tag}.pkl"
@@ -3086,7 +3211,6 @@ def run_configured_transport_workflow(
 
     try:
         if RUN_INPUT_CREATION:
-            stage_started_at = time.perf_counter()
             load_transport_into_leap(
                 transport_model_excel_path=transport_cfg.transport_model_path,
                 economy=transport_economy,
@@ -3124,24 +3248,8 @@ def run_configured_transport_workflow(
                 PREPARED_INPUT_DF=prepared_input_df,
                 LEAP_REGION_NAME_OVERRIDE=getattr(transport_cfg, "transport_leap_region_override", None),
             )
-            elapsed_input = time.perf_counter() - stage_started_at
-            runtime_rows.append(
-                {
-                    "timestamp_utc": run_timestamp_utc,
-                    "date_id": DATE_ID,
-                    "economy": transport_economy,
-                    "scenario": transport_scenario,
-                    "run_type": run_type,
-                    "stage": "input_creation",
-                    "elapsed_seconds": elapsed_input,
-                    "elapsed_minutes": elapsed_input / 60.0,
-                    "status": "success",
-                    "error": "",
-                }
-            )
 
         if RUN_RECONCILIATION:
-            stage_started_at = time.perf_counter()
             run_transport_reconciliation(
                 apply_adjustments_to_future_years=APPLY_ADJUSTMENTS_TO_FUTURE_YEARS,
                 report_adjustment_changes=REPORT_ADJUSTMENT_CHANGES,
@@ -3161,56 +3269,10 @@ def run_configured_transport_workflow(
                 set_vars_in_leap_using_com=SET_VARS_IN_LEAP_USING_COM,
                 scale_factor_tolerance=1e-4,
             )
-            elapsed_recon = time.perf_counter() - stage_started_at
-            runtime_rows.append(
-                {
-                    "timestamp_utc": run_timestamp_utc,
-                    "date_id": DATE_ID,
-                    "economy": transport_economy,
-                    "scenario": transport_scenario,
-                    "run_type": run_type,
-                    "stage": "reconciliation",
-                    "elapsed_seconds": elapsed_recon,
-                    "elapsed_minutes": elapsed_recon / 60.0,
-                    "status": "success",
-                    "error": "",
-                }
-            )
     except Exception as exc:
         record["status"] = "failed"
         record["error"] = str(exc)
         print(f"[ERROR] {transport_economy} failed: {exc}")
-        runtime_rows.append(
-            {
-                "timestamp_utc": run_timestamp_utc,
-                "date_id": DATE_ID,
-                "economy": transport_economy,
-                "scenario": transport_scenario,
-                "run_type": run_type,
-                "stage": "failed",
-                "elapsed_seconds": time.perf_counter() - run_started_at,
-                "elapsed_minutes": (time.perf_counter() - run_started_at) / 60.0,
-                "status": "failed",
-                "error": str(exc),
-            }
-        )
-    finally:
-        total_elapsed = time.perf_counter() - run_started_at
-        runtime_rows.append(
-            {
-                "timestamp_utc": run_timestamp_utc,
-                "date_id": DATE_ID,
-                "economy": transport_economy,
-                "scenario": transport_scenario,
-                "run_type": run_type,
-                "stage": "total",
-                "elapsed_seconds": total_elapsed,
-                "elapsed_minutes": total_elapsed / 60.0,
-                "status": record["status"],
-                "error": record["error"],
-            }
-        )
-        _append_runtime_stage_rows(runtime_rows)
 
     return record
 
@@ -3343,8 +3405,9 @@ def run_transport_workflow() -> list[dict]:
 
     if is_all_mode:
         summary_path = resolve_str(
-            f"results/transport_all_run_summary_{TRANSPORT_SCENARIO_SELECTION}_{all_mode}_{DATE_ID}.csv"
+            f"results/run_summaries/transport_all_run_summary_{TRANSPORT_SCENARIO_SELECTION}_{all_mode}_{DATE_ID}.csv"
         )
+        os.makedirs(os.path.dirname(summary_path), exist_ok=True)
         archived_output = _archive_existing_output_file(summary_path, date_id=DATE_ID)
         if archived_output:
             print(f"[INFO] Archived previous all-run summary to {archived_output}")
@@ -3369,7 +3432,7 @@ if __name__ == "__main__":
 # from functions.energy_use_reconciliation_road import build_transport_esto_energy_totals
 # from functions.esto_data import extract_esto_energy_use_for_leap_branches
 # import pandas as pd
-# export_df = pd.read_excel("../results/USA_transport_leap_export_Target.xlsx")
+# export_df = pd.read_excel("../results/domestic_exports/USA_transport_leap_export_Target.xlsx")
 # esto_totals = {("15_02_road", "07_petroleum_products", "07_01_motor_gasoline"): 100.0}
 # # ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP, UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT
 # LEAP_BRANCHES_LIST = [branch for branches in SHORTNAME_TO_LEAP_BRANCHES.values() for branch in branches]

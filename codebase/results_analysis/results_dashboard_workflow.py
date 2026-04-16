@@ -37,9 +37,9 @@ from results_analysis.stock_projection_exploration import (
 SCENARIOS = ("Reference", "Target")
 INCLUDE_ECONOMIES: tuple[str, ...] | None = None
 INPUT_DIR = REPO_ROOT / "results/checkpoint_audit"
-OUTPUT_DIR = REPO_ROOT / "results/diagnostics/transport_results_series_comparison"
+OUTPUT_DIR = REPO_ROOT / "plotting_output"
 INCLUDE_STOCK_PROXIES = True
-STOCK_PROXY_DIR = REPO_ROOT / "results/diagnostics/stock_projection_exploration"
+STOCK_PROXY_DIR = REPO_ROOT / "plotting_output/stock_projection_exploration"
 INCLUDE_APEC_AGGREGATE = False
 INCLUDE_LEAP_RESULTS_COMPARISON = True
 LEAP_UTILITIES_REPO = Path("C:/Users/Work/github/leap_utilities/")  # Update this path to your local leap_utilities repository

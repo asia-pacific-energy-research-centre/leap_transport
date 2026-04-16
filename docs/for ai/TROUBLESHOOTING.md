@@ -66,7 +66,8 @@ Fix:
 
 Cause:
 
-- Export keys (`Branch Path`, `Variable`, `Scenario`, `Region`) do not exactly match template keys.
+- Export keys (`Branch Path`, `Variable`, `Scenario`) do not exactly match template keys.
+- `Region` is ignored by the current alignment gate, so region differences should no longer block this check.
 
 Fix:
 

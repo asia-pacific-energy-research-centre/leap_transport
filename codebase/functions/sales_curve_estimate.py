@@ -68,7 +68,7 @@ DEFAULT_FREIGHT_VEHICLE_TYPE_MAP = {
 }
 
 USE_9TH_VEHICLE_TYPE_SALES_SHARES = False  # if True, build vehicle_shares from Vehicle_sales_share column
-DEFAULT_PLOTTING_OUTPUT_DIR = (Path(__file__).resolve().parent.parent / "plotting_output").resolve()
+DEFAULT_PLOTTING_OUTPUT_DIR = (Path(__file__).resolve().parents[2] / "plotting_output").resolve()
 
 
 def _raise_plot_failure(context: str, exc: Exception) -> None:
@@ -3179,7 +3179,7 @@ def _convert_cumulative_survival_to_annual(survival: pd.Series) -> pd.Series:
 
 def run_example_with_real_data(
     *,
-    source_path: str | os.PathLike = "data/USA transport file.xlsx",
+    source_path: str | os.PathLike = "data/transport_data_9th/model_output_detailed_2/20_USA_NON_ROAD_DETAILED_model_output20250225.csv",
     survival_path: str | os.PathLike = "data/lifecycle_profiles/vehicle_survival_modified.xlsx",
     vintage_path: str | os.PathLike = "data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
     esto_path: str | os.PathLike | None = "data/merged_file_energy_ALL_20250814_pretrump.csv",

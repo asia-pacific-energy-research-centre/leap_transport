@@ -569,6 +569,21 @@ def _choose_export_column(comparison_df: pd.DataFrame, column: str) -> pd.Series
     return pd.Series([pd.NA] * len(comparison_df), index=comparison_df.index)
 
 
+def _logical_level_column_name(column: object) -> str | None:
+    """Return the unsuffixed ``Level N`` name for merged import/export columns."""
+    name = str(column)
+    if not name.startswith("Level "):
+        return None
+    for suffix in ("_export", "_import"):
+        if name.endswith(suffix):
+            name = name[: -len(suffix)]
+            break
+    level_text = name.replace("Level ", "", 1).replace("...", "").strip()
+    if not level_text.isdigit():
+        return None
+    return f"Level {int(level_text)}"
+
+
 def join_and_check_import_structure_matches_export_structure(
     import_filename,
     export_df,
@@ -667,12 +682,12 @@ def join_and_check_import_structure_matches_export_structure(
             out[col] = _choose_export_column(comparison_df, col)
 
         level_cols = sorted(
-            [
-                col
+            {
+                logical_col
                 for col in comparison_df.columns
-                if str(col).startswith("Level ") and not str(col).endswith("_import")
-            ],
-            key=lambda c: int(str(c).replace("Level ", "").replace("...", "")),
+                if (logical_col := _logical_level_column_name(col)) is not None
+            },
+            key=lambda c: int(c.replace("Level ", "")),
         )
         year_cols = [
             col

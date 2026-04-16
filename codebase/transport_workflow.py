@@ -25,7 +25,7 @@ from functions.workflow_utilities import (
 
 #%%
 # Select economy config by code (e.g. "12_NZ", "20_USA") or "all".
-TRANSPORT_ECONOMY_SELECTION = "19_THA"
+TRANSPORT_ECONOMY_SELECTION = "05_PRC"
 # Select one scenario (e.g. "Reference") or many (e.g. ["Reference", "Target"]).
 TRANSPORT_SCENARIO_SELECTION: str | list[str] = ["Reference", "Target"]#"Reference", 
 # Applies only when TRANSPORT_ECONOMY_SELECTION == "all" (ignored otherwise):
@@ -43,7 +43,7 @@ PREPARE_SEPARATE_INPUTS_WHEN_RUNNING_APEC = True
 APEC_REGION = "APEC"
 # Region name written into the synthetic 00_APEC LEAP export file. This could
 # also be used as the LEAP API target region, but API export is inactive for now.
-APEC_LEAP_REGION_OVERRIDE = "Thailand"
+APEC_LEAP_REGION_OVERRIDE = "China"
 APEC_BASE_YEAR = 2022
 APEC_FINAL_YEAR = 2060
 

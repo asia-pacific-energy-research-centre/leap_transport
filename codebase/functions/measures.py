@@ -10,7 +10,7 @@ functions so existing notebooks and scripts can continue importing from
 ``measures`` while new code can opt into the narrower modules.
 """
 
-from config.measure_catalog import (
+from configurations.measure_catalog import (
     LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP,
     get_leap_measure,
     get_source_unit,

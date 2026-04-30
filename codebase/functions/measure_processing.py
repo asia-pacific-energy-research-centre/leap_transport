@@ -8,13 +8,13 @@ they require.
 
 import pandas as pd
 
-from config.basic_mappings import SOURCE_CSV_TREE
-from config.measure_catalog import (
+from configurations.basic_mappings import SOURCE_CSV_TREE
+from configurations.measure_catalog import (
     get_leap_measure,
     get_source_unit,
     get_weight_priority,
 )
-from config.measure_metadata import (
+from configurations.measure_metadata import (
     AGGREGATION_BASE_MEASURES,
     AGGREGATION_RULES,
     CALCULATED_MEASURES,

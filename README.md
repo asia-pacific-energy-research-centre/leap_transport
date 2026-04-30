@@ -35,7 +35,7 @@ The active code lives under `codebase/`. Older examples or notes may mention a
   lifecycle profiles need to be regenerated.
 - `codebase/sales_workflow.py`: passenger/freight sales and turnover helpers.
 - `codebase/functions/`: implementation code used by the workflow files.
-- `codebase/config/`: economy settings, mappings, measure metadata, and LEAP
+- `codebase/configurations/`: economy settings, mappings, measure metadata, and LEAP
   expression rules.
 - `config/env_leap.yml`: Conda environment definition.
 - `data/`: input files, templates, lifecycle files, and error outputs.
@@ -361,7 +361,7 @@ Domestic workflow:
 - `data/transport_data_9th/model_output_detailed_2/`
 - `data/transport_data_9th/model_output_with_fuels/`
 - merged ESTO energy input configured in
-  `codebase/config/transport_economy_config.py`
+  `codebase/configurations/transport_economy_config.py`
 - `data/lifecycle_profiles/vehicle_survival_modified.xlsx`
 - `data/lifecycle_profiles/vintage_modelled_from_survival.xlsx`
 
@@ -452,7 +452,7 @@ the detailed road stock-flow structure.
 ## Adding Or Updating An Economy
 
 1. Add or update metadata and scenario paths in
-   `codebase/config/transport_economy_config.py`.
+   `codebase/configurations/transport_economy_config.py`.
 2. Confirm detailed model outputs, fuel-detail files, merged-energy data, and
    lifecycle profile inputs exist.
 3. Run `input_only` first.
@@ -468,7 +468,7 @@ the detailed road stock-flow structure.
   exists.
 - Missing input file under `data/`: check the selected economy and scenario in
   `codebase/transport_workflow.py`, then check the paths in
-  `codebase/config/transport_economy_config.py`.
+  `codebase/configurations/transport_economy_config.py`.
 - Missing checkpoint: use `INPUT_DATA_SOURCE = "raw"` and
   `CHECKPOINT_LOAD_STAGE = "none"`, or run `input_only` before
   `reconcile_only`.

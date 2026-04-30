@@ -24,10 +24,10 @@ from typing import Any
 
 import pandas as pd
 
-from config.basic_mappings import add_fuel_column
-from config.branch_mappings import KM_PER_PJ_TO_MJ_PER_100KM, LEAP_BRANCH_TO_SOURCE_MAP
-from config.measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
-from config.measure_metadata import SOURCE_MEASURE_TO_UNIT
+from configurations.basic_mappings import add_fuel_column
+from configurations.branch_mappings import KM_PER_PJ_TO_MJ_PER_100KM, LEAP_BRANCH_TO_SOURCE_MAP
+from configurations.measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
+from configurations.measure_metadata import SOURCE_MEASURE_TO_UNIT
 from functions.path_utils import resolve_path
 from functions.transport_branch_paths import (
     branch_tuple_depth,
@@ -35,7 +35,7 @@ from functions.transport_branch_paths import (
     is_non_road_transport_branch_path,
     is_pipeline_or_nonspecified_branch_path,
 )
-from config.transport_economy_config import load_transport_run_config
+from configurations.transport_economy_config import load_transport_run_config
 
 
 SOURCE_DIMS = ["Transport Type", "Medium", "Vehicle Type", "Drive", "Fuel"]

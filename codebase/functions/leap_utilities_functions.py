@@ -423,6 +423,85 @@ def save_export_files(
     leap_export_df2 = leap_export_df.copy()
     export_df_for_viewing2 = export_df_for_viewing.copy()
 
+    id_cols = ["BranchID", "VariableID", "ScenarioID", "RegionID"]
+
+    def _ensure_id_cols_first(df: pd.DataFrame) -> pd.DataFrame:
+        for col in id_cols:
+            if col not in df.columns:
+                df = df.assign(**{col: pd.NA})
+        rest = [c for c in df.columns if c not in id_cols]
+        return df[id_cols + rest]
+
+    leap_export_df2 = _ensure_id_cols_first(leap_export_df2)
+    export_df_for_viewing2 = _ensure_id_cols_first(export_df_for_viewing2)
+
+    def _normalize_sheet_columns(df: pd.DataFrame, *, sheet_kind: str) -> pd.DataFrame:
+        out = df.copy()
+
+        def _level_sort_key(column: object) -> tuple[int, str]:
+            text = str(column)
+            if text.startswith("Level "):
+                token = text.replace("Level ", "", 1).replace("...", "").strip()
+                if token.isdigit():
+                    return int(token), ""
+            return 9999, text
+
+        id_cols = ["BranchID", "VariableID", "ScenarioID", "RegionID"]
+        key_cols = ["Branch Path", "Variable", "Scenario", "Region"]
+        meta_cols = ["Scale", "Units", "Per..."]
+        level_cols = sorted(
+            [col for col in out.columns if str(col).startswith("Level ")],
+            key=_level_sort_key,
+        )
+        year_cols = [
+            year for year in range(int(base_year), int(final_year) + 1)
+        ]
+
+        if sheet_kind == "LEAP":
+            if "Method" in out.columns:
+                out = out.drop(columns=["Method"])
+            for col in year_cols:
+                if col in out.columns:
+                    out = out.drop(columns=[col])
+            desired = id_cols + key_cols + meta_cols + ["Expression", "Unnamed: 12"] + level_cols
+        else:
+            if "Expression" in out.columns:
+                out = out.drop(columns=["Expression"])
+            desired = id_cols + key_cols + meta_cols + ["Method"] + year_cols + level_cols
+            for col in year_cols:
+                if col not in out.columns:
+                    out[col] = pd.NA
+            if "Method" not in out.columns:
+                out["Method"] = pd.NA
+
+        for col in desired:
+            if col not in out.columns:
+                out[col] = pd.NA
+
+        ordered = desired + [col for col in out.columns if col not in desired]
+        return out.loc[:, ordered].copy()
+
+    leap_export_df2 = _normalize_sheet_columns(leap_export_df2, sheet_kind="LEAP")
+    export_df_for_viewing2 = _normalize_sheet_columns(
+        export_df_for_viewing2, sheet_kind="FOR_VIEWING"
+    )
+
+    def _warn_missing_ids(df: pd.DataFrame, *, label: str) -> None:
+        missing_mask = df[id_cols].isna().any(axis=1)
+        if not missing_mask.any():
+            return
+        missing_counts = {col: int(df[col].isna().sum()) for col in id_cols}
+        print(
+            f"[WARN] {label}: {int(missing_mask.sum())} row(s) still have missing ID values "
+            "at save time."
+        )
+        print(f"[WARN] {label}: missing counts by column -> {missing_counts}")
+        preview_cols = [col for col in id_cols + ["Branch Path", "Variable", "Scenario", "Region"] if col in df.columns]
+        print(df.loc[missing_mask, preview_cols].head(20).to_string(index=False))
+
+    _warn_missing_ids(leap_export_df2, label="LEAP sheet")
+    _warn_missing_ids(export_df_for_viewing2, label="FOR_VIEWING sheet")
+
     header_data_0 = {col: "" for col in leap_export_df2.columns}
     header_data_0["Branch Path"] = "Area:"
     header_data_0["Variable"] = model_name
@@ -467,6 +546,61 @@ def save_export_files(
     print(f" - Variables: {leap_export_df['Variable'].nunique()}")
     print(f" - Branches: {export_df_for_viewing['Branch Path'].nunique()}")
     print("=" * 60)
+
+
+def merge_template_ids_into_export_df(
+    export_df: pd.DataFrame,
+    import_filename,
+    *,
+    label: str = "export dataframe",
+) -> pd.DataFrame:
+    """Fill LEAP ID columns by matching an export dataframe against a template."""
+
+    key_cols = ["Branch Path", "Variable", "Scenario", "Region"]
+    id_cols = ["BranchID", "VariableID", "ScenarioID", "RegionID"]
+
+    template_df = pd.read_excel(import_filename, sheet_name="Export", header=2)
+    missing_template_cols = [col for col in key_cols + id_cols if col not in template_df.columns]
+    if missing_template_cols:
+        raise ValueError(
+            "Import template is missing required columns for ID merge: "
+            + ", ".join(missing_template_cols)
+        )
+
+    template_df = template_df[key_cols + id_cols].copy()
+    duplicate_keys = template_df.duplicated(subset=key_cols, keep=False)
+    if duplicate_keys.any():
+        print(
+            f"[WARN] Template used for {label} contains {int(duplicate_keys.sum())} duplicate key row(s) "
+            f"across {key_cols}; using the first match per key."
+        )
+        template_df = template_df.drop_duplicates(subset=key_cols, keep="first").copy()
+    template_df = template_df.rename(columns={col: f"{col}_template" for col in id_cols})
+
+    merged = export_df.copy().merge(template_df, how="left", on=key_cols)
+    for id_col in id_cols:
+        template_col = f"{id_col}_template"
+        if id_col in merged.columns:
+            merged[id_col] = merged[template_col].combine_first(merged[id_col])
+        else:
+            merged[id_col] = merged[template_col]
+        merged = merged.drop(columns=[template_col])
+
+    missing_mask = merged[id_cols].isna().any(axis=1)
+    if missing_mask.any():
+        missing_counts = {col: int(merged[col].isna().sum()) for col in id_cols}
+        print(
+            f"[WARN] {label}: {int(missing_mask.sum())} row(s) still have missing ID values after template merge."
+        )
+        print(f"[WARN] {label}: missing counts by column -> {missing_counts}")
+        preview_cols = [col for col in key_cols + id_cols if col in merged.columns]
+        print(merged.loc[missing_mask, preview_cols].head(20).to_string(index=False))
+
+    for id_col in id_cols:
+        if id_col in merged.columns:
+            merged[id_col] = merged[id_col].astype("Int64")
+
+    return merged
 
 
 def check_scenario_and_region_ids(import_df, scenario, region):

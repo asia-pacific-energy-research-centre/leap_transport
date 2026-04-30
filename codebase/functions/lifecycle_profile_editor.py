@@ -659,10 +659,10 @@ def _resolve_economy_list(selection: str | list[str] | tuple[str, ...]) -> list[
     if isinstance(selection, str):
         if selection.strip().lower() == "all":
             try:
-                from config.transport_economy_config import TRANSPORT_ECONOMY_CONFIGS
+                from configurations.transport_economy_config import TRANSPORT_ECONOMY_CONFIGS
             except Exception as exc:
                 raise RuntimeError(
-                    "Could not resolve 'all' economies from config.transport_economy_config."
+                    "Could not resolve 'all' economies from configurations.transport_economy_config."
                 ) from exc
             return sorted(TRANSPORT_ECONOMY_CONFIGS.keys())
         token = selection.strip()

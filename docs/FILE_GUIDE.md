@@ -18,16 +18,16 @@ Important: the active pipeline lives under `codebase/`. The old `code/` path is 
 
 ## Config and mapping layer
 
-- `codebase/config/transport_economy_config.py`
+- `codebase/configurations/transport_economy_config.py`
   - Economy/scenario file paths, years, and output destinations.
-- `codebase/config/basic_mappings.py`
+- `codebase/configurations/basic_mappings.py`
   - Required source schema and core mapping helpers.
-- `codebase/config/branch_mappings.py`
+- `codebase/configurations/branch_mappings.py`
   - LEAP branch tuples and source-to-LEAP mapping definitions.
-- `codebase/config/branch_expression_mapping.py`
+- `codebase/configurations/branch_expression_mapping.py`
   - Expression templates and measure-to-expression behavior.
-- `codebase/config/measure_catalog.py`
-- `codebase/config/measure_metadata.py`
+- `codebase/configurations/measure_catalog.py`
+- `codebase/configurations/measure_metadata.py`
 
 ## Processing and validation modules
 

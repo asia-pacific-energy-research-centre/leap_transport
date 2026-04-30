@@ -5,9 +5,9 @@ from collections import defaultdict, Counter
 from pathlib import Path
 
 import pandas as pd
-from config.measure_metadata import SHARE_MEASURES
-from config.measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
-from config.branch_mappings import ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP, LEAP_MEASURE_CONFIG, DEFAULT_BRANCH_SHARE_SETTINGS_DICT
+from configurations.measure_metadata import SHARE_MEASURES
+from configurations.measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
+from configurations.branch_mappings import NINTH_SOURCE_TO_LEAP_BRANCH_MAP, LEAP_MEASURE_CONFIG, DEFAULT_BRANCH_SHARE_SETTINGS_DICT
 from functions.esto_data import extract_esto_energy_use_for_leap_branches
 from functions.transport_branch_paths import (
     branch_tuple_depth,
@@ -52,7 +52,7 @@ def get_most_detailed_branches(mapping: dict):
 
 
 def check_for_duplicate_keys(
-        ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+        NINTH_SOURCE_TO_LEAP_BRANCH_MAP,
         LEAP_BRANCH_TO_EXPRESSION_MAPPING,
         LEAP_BRANCH_TO_SOURCE_MAP,
         SHORTNAME_TO_LEAP_BRANCHES,
@@ -63,12 +63,12 @@ def check_for_duplicate_keys(
         duplicate_key_checker = {}
         duplicated_keys = {}
         
-        # Check ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP for duplicate keys
-        for key in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP.keys():
+        # Check NINTH_SOURCE_TO_LEAP_BRANCH_MAP for duplicate keys
+        for key in NINTH_SOURCE_TO_LEAP_BRANCH_MAP.keys():
             if key in duplicate_key_checker:
-                duplicated_keys.setdefault("ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP", []).append(key)
+                duplicated_keys.setdefault("NINTH_SOURCE_TO_LEAP_BRANCH_MAP", []).append(key)
             else:
-                duplicate_key_checker[key] = "ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP"
+                duplicate_key_checker[key] = "NINTH_SOURCE_TO_LEAP_BRANCH_MAP"
         
         # Check LEAP_BRANCH_TO_EXPRESSION_MAPPING for duplicate keys
         for key in LEAP_BRANCH_TO_EXPRESSION_MAPPING.keys():
@@ -101,7 +101,7 @@ def check_for_duplicate_keys(
             print("✅ No duplicate keys found across mapping dictionaries.")
             
 def validate_all_mappings_with_measures(
-    ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+    NINTH_SOURCE_TO_LEAP_BRANCH_MAP,
     LEAP_BRANCH_TO_EXPRESSION_MAPPING,
     LEAP_BRANCH_TO_SOURCE_MAP,
     SHORTNAME_TO_LEAP_BRANCHES,
@@ -117,12 +117,12 @@ def validate_all_mappings_with_measures(
     # ------------------------------------------------------------
     most_detailed_leap_branches = get_most_detailed_branches(LEAP_BRANCH_TO_SOURCE_MAP)
     # ------------------------------------------------------------
-    # 1. Check ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP for duplicates
+    # 1. Check NINTH_SOURCE_TO_LEAP_BRANCH_MAP for duplicates
     # ------------------------------------------------------------
     reverse_map = defaultdict(list)
     nonspecified_map = defaultdict(list)
     empty_keys = []
-    for key, leap_list in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP.items():
+    for key, leap_list in NINTH_SOURCE_TO_LEAP_BRANCH_MAP.items():
         if not leap_list:
             empty_keys.append(key)
             continue
@@ -140,15 +140,15 @@ def validate_all_mappings_with_measures(
     #drop any in duplicate values that are for the Nonspecified branch since we are doing a many to one mapping on these (so we gather all random fuels [e.g. kerosene use in vehicles] under nonspecified)
     duplicated_values = {k: v for k, v in duplicated_values.items() if 'Nonspecified transport' not in k}
 
-    print(f"→ {len(ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP)} keys checked in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP.")
+    print(f"→ {len(NINTH_SOURCE_TO_LEAP_BRANCH_MAP)} keys checked in NINTH_SOURCE_TO_LEAP_BRANCH_MAP.")
     print(f"→ {len(reverse_map)} unique LEAP branches mapped across all sector-fuel keys.")
 
     if empty_keys:
-        print(f"⚠️  {len(empty_keys)} sector-fuel keys have no LEAP branches assigned in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP.")
+        print(f"⚠️  {len(empty_keys)} sector-fuel keys have no LEAP branches assigned in NINTH_SOURCE_TO_LEAP_BRANCH_MAP.")
         for e in empty_keys[:EXAMPLE_SAMPLE_SIZE]:
             print(f"   • {e}")
     if duplicated_values:
-        print(f"⚠️  {len(duplicated_values)} LEAP branches are mapped to by multiple sector-fuel keys in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP:")
+        print(f"⚠️  {len(duplicated_values)} LEAP branches are mapped to by multiple sector-fuel keys in NINTH_SOURCE_TO_LEAP_BRANCH_MAP:")
         for v, c in list(duplicated_values.items())[:EXAMPLE_SAMPLE_SIZE]:
             print(f"   • {v} ← {c} sector-fuel keys")
 
@@ -156,7 +156,7 @@ def validate_all_mappings_with_measures(
         print(f"ℹ️  {len(nonspecified_map)} sector-fuel keys use 'NONSPECIFIED' placeholders.")
         
     check_for_duplicate_keys(
-        ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+        NINTH_SOURCE_TO_LEAP_BRANCH_MAP,
         LEAP_BRANCH_TO_EXPRESSION_MAPPING,
         LEAP_BRANCH_TO_SOURCE_MAP,
         SHORTNAME_TO_LEAP_BRANCHES,
@@ -226,7 +226,7 @@ def validate_all_mappings_with_measures(
 
     if unmapped_to_sector:
         print(f"⚠️  {len(unmapped_to_sector)} branch tuples exist in LEAP_BRANCH_TO_EXPRESSION_MAPPING "
-              f"but are not referenced in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP:")
+              f"but are not referenced in NINTH_SOURCE_TO_LEAP_BRANCH_MAP:")
         for b in list(unmapped_to_sector)[:EXAMPLE_SAMPLE_SIZE]:
             print(f"   • {b}")
     
@@ -240,12 +240,12 @@ def validate_all_mappings_with_measures(
         print("✅ All LEAP branches consistently represented across all mappings.")
 
     # ------------------------------------------------------------
-    # 5. Check for consistency between ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP keys and ESTO_TRANSPORT_SECTOR_TUPLES
+    # 5. Check for consistency between NINTH_SOURCE_TO_LEAP_BRANCH_MAP keys and ESTO_TRANSPORT_SECTOR_TUPLES
     # ------------------------------------------------------------
     try:
         # Try to import ESTO_TRANSPORT_SECTOR_TUPLES from appropriate module
         
-        esto_keys = set(ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP.keys())
+        esto_keys = set(NINTH_SOURCE_TO_LEAP_BRANCH_MAP.keys())
         transport_tuples = set(ESTO_TRANSPORT_SECTOR_TUPLES)
         
         missing_in_map = transport_tuples - esto_keys
@@ -253,18 +253,18 @@ def validate_all_mappings_with_measures(
         
         if missing_in_map:
             print(f"\n⚠️  {len(missing_in_map)} transport sector-fuel tuples are in ESTO_TRANSPORT_SECTOR_TUPLES "
-                  f"but missing from ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP:")
+                  f"but missing from NINTH_SOURCE_TO_LEAP_BRANCH_MAP:")
             for item in list(missing_in_map)[:EXAMPLE_SAMPLE_SIZE]:
                 print(f"   • {item}")
                 
         if extra_in_map:
-            print(f"\n⚠️  {len(extra_in_map)} keys in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP "
+            print(f"\n⚠️  {len(extra_in_map)} keys in NINTH_SOURCE_TO_LEAP_BRANCH_MAP "
                   f"are not present in ESTO_TRANSPORT_SECTOR_TUPLES:")
             for item in list(extra_in_map)[:EXAMPLE_SAMPLE_SIZE]:
                 print(f"   • {item}")
                 
         if not (missing_in_map or extra_in_map):
-            print("\n✅ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP keys and ESTO_TRANSPORT_SECTOR_TUPLES are fully consistent.")
+            print("\n✅ NINTH_SOURCE_TO_LEAP_BRANCH_MAP keys and ESTO_TRANSPORT_SECTOR_TUPLES are fully consistent.")
             
     except ImportError:
         print("\nℹ️  Could not import ESTO_TRANSPORT_SECTOR_TUPLES for comparison check.")
@@ -292,7 +292,7 @@ def validate_all_mappings_with_measures(
 # Example usage
 # if __name__ == "__main__":
 #     from config.branch_mappings import (
-#         ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+#         NINTH_SOURCE_TO_LEAP_BRANCH_MAP,
 #         LEAP_BRANCH_TO_SOURCE_MAP,
 #         SHORTNAME_TO_LEAP_BRANCHES,
 #         LEAP_MEASURE_CONFIG,
@@ -302,7 +302,7 @@ def validate_all_mappings_with_measures(
 #     from config.basic_mappings import ESTO_TRANSPORT_SECTOR_TUPLES
 
 #     results = validate_all_mappings_with_measures(
-#         ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+#         NINTH_SOURCE_TO_LEAP_BRANCH_MAP,
 #         LEAP_BRANCH_TO_EXPRESSION_MAPPING,
 #         LEAP_BRANCH_TO_SOURCE_MAP,
 #         SHORTNAME_TO_LEAP_BRANCHES,
@@ -458,10 +458,10 @@ def validate_final_energy_use_for_base_year_equals_esto_totals(
 ):
     """
     Validate that LEAP final energy use for the base year matches ESTO totals.
-    this will utilise the ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP to sum up LEAP final energy use by branch, using the msot detailed branch levels and then caculating total energy use for each branch based on what measures are avaialble. There would be two types of calculation: 
+    this will utilise the NINTH_SOURCE_TO_LEAP_BRANCH_MAP to sum up LEAP final energy use by branch, using the msot detailed branch levels and then caculating total energy use for each branch based on what measures are avaialble. There would be two types of calculation: 
     Stock based:  where stocks*mileage*efficiency -> energy use
     Intensity based: where activity level * intensity -> energy use
-    We will iterate over each key in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP, sum up the energy use from each of the LEAP branches mapped to that key, and compare it to the ESTO total for that sector-fuel combination.
+    We will iterate over each key in NINTH_SOURCE_TO_LEAP_BRANCH_MAP, sum up the energy use from each of the LEAP branches mapped to that key, and compare it to the ESTO total for that sector-fuel combination.
     """
     #filter out current accounts scnario from export_df so we dont double count it when comparing to the esto data
     export_df = export_df[export_df['Scenario'] != 'Current Accounts']
@@ -491,7 +491,7 @@ def validate_final_energy_use_for_base_year_equals_esto_totals(
     leap_energy_use_totals = {}
     esto_energy_totals = {}
     stats_collector = pd.DataFrame()
-    for esto_key, leap_branches in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP.items():
+    for esto_key, leap_branches in NINTH_SOURCE_TO_LEAP_BRANCH_MAP.items():
         total_energy_use = 0
         for leap_branch in leap_branches:
             if 'Nonspecified transport' in leap_branch:
@@ -585,7 +585,7 @@ def validate_final_energy_use_for_base_year_equals_esto_totals(
     for key, leap_total in leap_energy_use_totals.items():
         esto_total = esto_energy_totals.get(key, 0)
         FOUND_NONSPECIFIED = False
-        for tup in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP[key]:
+        for tup in NINTH_SOURCE_TO_LEAP_BRANCH_MAP[key]:
             if 'Nonspecified transport' in tup:
                 FOUND_NONSPECIFIED = True
                 break  # Skip nonspecified branches since they don't have direct ESTO equivalents
@@ -649,7 +649,7 @@ def validate_non_specified_energy_use_for_base_year_equals_esto_totals(BASE_YEAR
     """
     nonspecified_branches_leap = {}
     # completed_nonspecified_branches = {}
-    for esto_key, leap_branches in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP.items():
+    for esto_key, leap_branches in NINTH_SOURCE_TO_LEAP_BRANCH_MAP.items():
         for leap_branch in leap_branches:
             if 'Nonspecified transport' in leap_branch:
                 if leap_branch in nonspecified_branches_leap.keys():
@@ -960,10 +960,10 @@ def normalize_share_columns_wide(export_df: pd.DataFrame, tol: float = 1e-3):
 # def validate_final_energy_use_for_base_year_equals_esto_totals(ECONOMY, original_scenario,new_scenario, BASE_YEAR, FINAL_YEAR, export_df, TRANSPORT_ESTO_BALANCES_PATH = '../data/all transport balances data.xlsx', TRANSPORT_ROOT = r"Demand"):
 #     """
 #     Validate that LEAP final energy use for the base year matches ESTO totals.
-#     this will utilise the ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP to sum up LEAP final energy use by branch, using the msot detailed branch levels and then caculating total energy use for each branch based on what measures are avaialble. There would be two types of calculation: 
+#     this will utilise the NINTH_SOURCE_TO_LEAP_BRANCH_MAP to sum up LEAP final energy use by branch, using the msot detailed branch levels and then caculating total energy use for each branch based on what measures are avaialble. There would be two types of calculation: 
 #     Stock based:  where stocks*mileage*efficiency -> energy use
 #     Intensity based: where activity level * intensity -> energy use
-#     We will iterate over each key in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP, sum up the energy use from each of the LEAP branches mapped to that key, and compare it to the ESTO total for that sector-fuel combination.
+#     We will iterate over each key in NINTH_SOURCE_TO_LEAP_BRANCH_MAP, sum up the energy use from each of the LEAP branches mapped to that key, and compare it to the ESTO total for that sector-fuel combination.
     
 #     THIS FUNCTION HAS BEEN DUPLICATED ABOVE WITH MINOR MODIFICATIONS TO ALLOW FOR use in other sectors BEYOND TRANSPORT
 #     """
@@ -977,7 +977,7 @@ def normalize_share_columns_wide(export_df: pd.DataFrame, tol: float = 1e-3):
 #     leap_energy_use_totals = {}
 #     esto_energy_totals = {}
 #     stats_collector = pd.DataFrame()
-#     for esto_key, leap_branches in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP.items():
+#     for esto_key, leap_branches in NINTH_SOURCE_TO_LEAP_BRANCH_MAP.items():
 #         total_energy_use = 0
 #         for leap_branch in leap_branches:
 #             if 'Nonspecified transport' in leap_branch:
@@ -1066,7 +1066,7 @@ def normalize_share_columns_wide(export_df: pd.DataFrame, tol: float = 1e-3):
 #         esto_total = esto_energy_totals.get(key, 0)
 #         if leap_total != esto_total:
 #             FOUND_NONSPECIFIED = False
-#             for tup in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP[key]:
+#             for tup in NINTH_SOURCE_TO_LEAP_BRANCH_MAP[key]:
 #                 if 'Nonspecified transport' in tup:
 #                     FOUND_NONSPECIFIED = True
 #                     break  # Skip nonspecified branches since they don't have direct ESTO equivalents

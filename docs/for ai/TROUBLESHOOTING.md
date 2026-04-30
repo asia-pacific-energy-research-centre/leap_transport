@@ -36,7 +36,7 @@ Cause:
 
 Fix:
 
-- Compare against `EXPECTED_COLS_IN_SOURCE` in `codebase/config/basic_mappings.py`.
+- Compare against `EXPECTED_COLS_IN_SOURCE` in `codebase/configurations/basic_mappings.py`.
 - Fix upstream column naming or add missing fields.
 
 ## Duplicate rows error after preprocessing

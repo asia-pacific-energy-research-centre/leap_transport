@@ -29,21 +29,21 @@ def create_leap_branch_to_analysis_type_mapping():
 
 LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP = create_leap_branch_to_analysis_type_mapping()
 
-# def get_leap_branch_to_analysis_type_mapping(leap_branch):
-#     """Return the analysis type associated with a LEAP branch path."""
-#     for shortname, branches in SHORTNAME_TO_LEAP_BRANCHES.items():
-#         if leap_branch in branches:
-#             analysis_type = SHORTNAME_TO_ANALYSIS_TYPE.get(shortname, None)
-#             if analysis_type is None:
-#                 print(
-#                     f"Shortname {shortname} not found in SHORTNAME_TO_ANALYSIS_TYPE mapping. Analysis type cannot be determined."
-#                 )
-#                 return None
-#             return analysis_type
-#     print(
-#         f"LEAP branch {leap_branch} not found in SHORTNAME_TO_LEAP_BRANCHES mapping. Analysis type cannot be determined."
-#     )
-#     return None
+def get_leap_branch_to_analysis_type_mapping(leap_branch):
+    """Return the analysis type associated with a LEAP branch path."""
+    for shortname, branches in SHORTNAME_TO_LEAP_BRANCHES.items():
+        if leap_branch in branches:
+            analysis_type = SHORTNAME_TO_ANALYSIS_TYPE.get(shortname, None)
+            if analysis_type is None:
+                print(
+                    f"Shortname {shortname} not found in SHORTNAME_TO_ANALYSIS_TYPE mapping. Analysis type cannot be determined."
+                )
+                return None
+            return analysis_type
+    print(
+        f"LEAP branch {leap_branch} not found in SHORTNAME_TO_LEAP_BRANCHES mapping. Analysis type cannot be determined."
+    )
+    return None
 
 
 def list_all_measures(shortname=None):
@@ -83,6 +83,7 @@ def get_weight_priority(measure: str):
 
 
 __all__ = [
+    "LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP",
     "get_leap_branch_to_analysis_type_mapping",
     "list_all_measures",
     "get_leap_measure",

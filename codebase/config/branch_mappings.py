@@ -328,9 +328,7 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Nonspecified transport", "Gas and diesel oil"),
         ("Nonspecified transport", "LPG"),
         ("Nonspecified transport", "Motor gasoline"),
-        ("Nonspecified transport", "Coal products nonspecified"),
-        ("Nonspecified transport", "Coal tar"),
-        ("Nonspecified transport", "Lubricants"),
+        ("Nonspecified transport", "Coke oven coke"),
         ("Nonspecified transport", "Other products"),
         ("Nonspecified transport", "Natural gas"),
         ("Nonspecified transport", "Electricity"),
@@ -695,9 +693,8 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     ("Nonspecified transport", "Gas and diesel oil"): ("Nonspecified transport", "Gas and diesel oil"),
     ("Nonspecified transport", "LPG"): ("Nonspecified transport", "LPG"),
     ("Nonspecified transport", "Motor gasoline"): ("Nonspecified transport", "Motor gasoline"),
-    ("Nonspecified transport", "Coal products nonspecified"): ("Nonspecified transport", "Coal products nonspecified"),
-    ("Nonspecified transport", "Coal tar"): ("Nonspecified transport", "Coal tar"),
-    ("Nonspecified transport", "Lubricants"): ("Nonspecified transport", "Lubricants"),
+    ("Nonspecified transport", "Coke oven coke"): ("Nonspecified transport", "Coke oven coke"),
+    # Based on 01_AUS balance usage of 07.17 Other products.
     ("Nonspecified transport", "Other products"): ("Nonspecified transport", "Other products"),
     ("Nonspecified transport", "Natural gas"): ("Nonspecified transport", "Natural gas"),
     ("Nonspecified transport", "Electricity"): ("Nonspecified transport", "Electricity"),
@@ -1394,7 +1391,7 @@ def create_new_source_rows_based_on_combinations(source_df):
     return new_df_rows #, rows_to_remove
 
 #%%
-ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
+NINTH_SOURCE_TO_LEAP_BRANCH_MAP = {
     #Please note that we may be missing some LEAP branches here if there is no corresponding fuel use in the ESTO dataset. They are basically where data will appear in the projections but dont exist in the historical data. Use validate_branch_mapping and identify_missing_esto_mappings to find and  missing branches. An example would be biogasoline in ships. 
     # ------------------------------------------------------------
     # 15_01_domestic_air_transport → Passenger non-road Air
@@ -1447,6 +1444,7 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
         ("Freight road", "Trucks", "PHEV heavy", "Motor gasoline"),
         ("Freight road", "Trucks", "PHEV medium", "Motor gasoline"),
     ],
+    # Used in road in 04_CHL, but represented in LEAP under Nonspecified transport.
     ("15_02_road", "07_petroleum_products", "07_06_kerosene"): [("Nonspecified transport", "Kerosene")],
     ("15_02_road", "07_petroleum_products", "07_07_gas_diesel_oil"): [
         ("Passenger road", "LPVs", "ICE small", "Gas and diesel oil"),
@@ -1578,8 +1576,9 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
         ("Passenger non road", "Rail", "Other bituminous coal"),
         ("Freight non road", "Rail", "Other bituminous coal")
     ],
+    # Used in rail in 05_PRC, but represented in LEAP under Nonspecified transport.
     ("15_03_rail", "02_coal_products", "x"): [
-        ("Nonspecified transport", "Coal products nonspecified"),
+        ("Nonspecified transport", "Coke oven coke"),
     ],
     ("15_03_rail", "07_petroleum_products", "07_01_motor_gasoline"): [
         ("Nonspecified transport", "Motor gasoline"),
@@ -1614,6 +1613,7 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
         ("Passenger non road", "Shipping", "Biogasoline"),
         ("Freight non road", "Shipping", "Biogasoline"),
     ],
+    # Used in domestic navigation in 07_INA, but represented in LEAP under Nonspecified transport.
     ("15_04_domestic_navigation", "07_petroleum_products", "07_06_kerosene"): [("Nonspecified transport", "Kerosene")],
     ("15_04_domestic_navigation", "07_petroleum_products", "07_07_gas_diesel_oil"): [
         ("Passenger non road", "Shipping", "Gas and diesel oil"),
@@ -1661,10 +1661,9 @@ ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP = {
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_08_fuel_oil"): [("Nonspecified transport", "Fuel oil")],
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_09_lpg"): [("Nonspecified transport", "LPG")],
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_x_jet_fuel"): [("Nonspecified transport", "Kerosene")],
+    # Based on 01_AUS balance usage of 07.17 Other products.
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_x_other_petroleum_products"): [("Nonspecified transport", "Other products")],
-    ("15_06_nonspecified_transport", "07_petroleum_products", "07_13_lubricants"): [("Nonspecified transport", "Lubricants")],
-    ("15_06_nonspecified_transport", "02_coal_products", "x"): [("Nonspecified transport", "Coal products nonspecified")],
-    ("15_06_nonspecified_transport", "02_coal_products", "02_07_coal_tar"): [("Nonspecified transport", "Coal tar")],
+    ("15_06_nonspecified_transport", "02_coal_products", "x"): [("Nonspecified transport", "Coke oven coke")],
     ("15_06_nonspecified_transport", "08_gas", "08_01_natural_gas"): [("Nonspecified transport", "Natural gas")],
     ("15_06_nonspecified_transport", "17_electricity", "x"): [("Nonspecified transport", "Electricity")],
 }
@@ -2621,12 +2620,12 @@ def validate_branch_combinations_across_mappings(max_examples: int = 5):
 
     * ``LEAP_BRANCH_TO_EXPRESSION_MAPPING`` (ignoring the measure prefix),
     * ``LEAP_BRANCH_TO_SOURCE_MAP``,
-    * ``ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP`` values,
+    * ``NINTH_SOURCE_TO_LEAP_BRANCH_MAP`` values,
     * ``SHORTNAME_TO_LEAP_BRANCHES`` values, and
     * ``ALL_PATHS_LEAP`` generated from ``basic_mappings``.
 
     Branches listed in ``UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT`` are excluded
-    when checking coverage inside ``ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP``
+    when checking coverage inside ``NINTH_SOURCE_TO_LEAP_BRANCH_MAP``
     because they are known to have no ESTO equivalent.
     """
 
@@ -2639,9 +2638,9 @@ def validate_branch_combinations_across_mappings(max_examples: int = 5):
         for branch in branches
     )
     source_branches = _get_most_detailed_branch_set(LEAP_BRANCH_TO_SOURCE_MAP.keys())
-    esto_branches = _get_most_detailed_branch_set(
+    ninth_branches = _get_most_detailed_branch_set(
         branch
-        for branches in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP.values()
+        for branches in NINTH_SOURCE_TO_LEAP_BRANCH_MAP.values()
         for branch in branches
     )
     leap_structure_branches = _get_most_detailed_branch_set(ALL_PATHS_LEAP)
@@ -2649,7 +2648,7 @@ def validate_branch_combinations_across_mappings(max_examples: int = 5):
     mapping_sets = {
         "LEAP_BRANCH_TO_EXPRESSION_MAPPING": expression_branches,
         "LEAP_BRANCH_TO_SOURCE_MAP": source_branches,
-        "ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP": esto_branches,
+        "NINTH_SOURCE_TO_LEAP_BRANCH_MAP": ninth_branches,
         "SHORTNAME_TO_LEAP_BRANCHES": shortname_branches,
         "ALL_PATHS_LEAP": leap_structure_branches,
     }
@@ -2661,7 +2660,7 @@ def validate_branch_combinations_across_mappings(max_examples: int = 5):
             if source_name == target_name:
                 continue
 
-            if target_name == "ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP":
+            if target_name == "NINTH_SOURCE_TO_LEAP_BRANCH_MAP":
                 branches_to_check = {
                     branch
                     for branch in branches
@@ -2691,7 +2690,7 @@ def validate_branch_combinations_across_mappings(max_examples: int = 5):
 
 #%%
 identify_missing_esto_mappings_for_leap_branches(
-    ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+    NINTH_SOURCE_TO_LEAP_BRANCH_MAP,
     UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT,
     [branch for branches in SHORTNAME_TO_LEAP_BRANCHES.values() for branch in branches],
 )

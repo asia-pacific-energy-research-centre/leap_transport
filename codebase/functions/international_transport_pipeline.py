@@ -15,6 +15,11 @@ import sys
 
 import pandas as pd
 
+from configurations.transport_economy_config import COMMON_CONFIG, ECONOMY_METADATA
+from functions.apec_mapping_workbook import (
+    build_workbook_international_esto_energy_totals,
+    build_workbook_international_esto_to_leaf_mapping,
+)
 from functions.path_utils import resolve_str
 from functions.transport_branch_paths import (
     TRANSPORT_ROOT,
@@ -43,8 +48,16 @@ from functions.leap_utilities_functions import (  # noqa: E402
     ensure_branch_exists,
     ensure_fuel_exists,
     finalise_export_df,
+    merge_template_ids_into_export_df,
     safe_set_variable,
     save_export_files,
+)
+from functions.transport_workflow_pipeline import (  # noqa: E402
+    _enforce_exact_template_alignment_keys,
+    _patch_leap_excel_region_handling,
+    _register_transport_regions_for_leap_excel_helpers,
+    _report_template_alignment_changes,
+    join_and_check_import_structure_matches_export_structure,
 )
 
 LEAP_API_DISABLED_ERROR = (
@@ -72,6 +85,7 @@ REQUIRED_INPUT_COLUMNS: tuple[str, ...] = (
 
 CURRENT_ACCOUNTS_LABEL = "Current Accounts"
 ROOT_BRANCH = build_transport_branch_path(("International transport",), root=TRANSPORT_ROOT)
+DEFAULT_TRANSPORT_IMPORT_TEMPLATE = str(COMMON_CONFIG["transport_import_path"]).strip()
 
 MEDIUM_NAME_MAP: dict[str, str] = {
     "air": "Air",
@@ -110,6 +124,8 @@ FUEL_CODE_TO_FUEL_LEAF: dict[str, str] = {
     "07_x_other_petroleum_products": "Other products",
     "08_01_natural_gas": "Natural gas",
     "08_02_lng": "LNG",
+    "16_06_biodiesel": "Biodiesel",
+    "16_07_bio_jet_kerosene": "Bio jet kerosene",
     "16_x_ammonia": "Ammonia",
     "16_x_hydrogen": "Hydrogen",
 }
@@ -120,6 +136,7 @@ CANONICAL_FUELS_BY_MEDIUM: dict[str, list[str]] = {
         "Gas and diesel oil",
         "Fuel oil",
         "Motor gasoline",
+        "Bio jet kerosene",
         "Hydrogen",
         "Kerosene type jet fuel",
         "Kerosene",
@@ -154,6 +171,10 @@ class InternationalExportConfig:
     set_vars_in_leap_using_com: bool = False
     auto_set_missing_branches: bool = False
     ensure_fuels_in_leap: bool = True
+    reconcile_to_esto: bool = True
+    mapping_workbook_path: str | None = COMMON_CONFIG.get("transport_mapping_workbook_path")
+    mapping_esto_path: str | None = COMMON_CONFIG.get("transport_mapping_esto_path")
+    emit_reconciliation_report: bool = True
 
 
 def _resolve_input_and_output(config: InternationalExportConfig) -> tuple[Path, Path]:
@@ -172,12 +193,157 @@ def _resolve_input_and_output(config: InternationalExportConfig) -> tuple[Path, 
     return input_path, output_dir
 
 
+def _resolve_import_template_path() -> Path:
+    resolved_template = resolve_str(DEFAULT_TRANSPORT_IMPORT_TEMPLATE)
+    if resolved_template is None:
+        raise ValueError("transport_import_path must be configured.")
+
+    template_path = Path(resolved_template)
+    if not template_path.exists():
+        raise FileNotFoundError(f"Transport import template not found: {template_path}")
+    return template_path
+
+
+def _drop_export_rows_not_in_template(
+    df: pd.DataFrame,
+    template_keys: pd.DataFrame,
+    label: str,
+    region: str,
+) -> pd.DataFrame:
+    key_cols = ["Branch Path", "Variable", "Scenario"]
+    merged = df.merge(template_keys, on=key_cols, how="left", indicator=True)
+    not_in_template = merged[merged["_merge"] == "left_only"][key_cols].drop_duplicates()
+    if not_in_template.empty:
+        return df
+    print(
+        f"[WARN] Dropping {len(not_in_template)} row-key(s) from {label} for region={region} "
+        "not found in template (these branches cannot be imported into LEAP):"
+    )
+    for row in not_in_template.itertuples(index=False):
+        print(f"  - Branch Path='{row[0]}', Variable='{row[1]}', Scenario='{row[2]}'")
+    keep_mask = merged["_merge"] != "left_only"
+    return df[keep_mask.values].copy()
+
+
+def _apply_transport_template_structure(
+    *,
+    leap_df: pd.DataFrame,
+    viewing_df: pd.DataFrame,
+    region: str,
+    report_tag: str,
+    current_accounts_label: str = CURRENT_ACCOUNTS_LABEL,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    template_path = _resolve_import_template_path()
+    _register_transport_regions_for_leap_excel_helpers()
+    _patch_leap_excel_region_handling()
+
+    key_cols = ["Branch Path", "Variable", "Scenario"]
+    try:
+        template_keys = pd.read_excel(
+            str(template_path), sheet_name="Export", header=2, usecols=key_cols
+        )[key_cols].drop_duplicates()
+    except Exception:
+        template_keys = None
+
+    pre_merge_leap_df = leap_df.copy()
+    pre_merge_viewing_df = viewing_df.copy()
+
+    scenario_order = [
+        str(value).strip()
+        for value in leap_df.get("Scenario", pd.Series(dtype=object)).dropna().unique()
+        if str(value).strip() and str(value).strip() != current_accounts_label
+    ]
+    if not scenario_order:
+        raise ValueError(
+            "International export dataframe must include at least one non-Current Accounts scenario "
+            "before template alignment."
+        )
+
+    leap_parts: list[pd.DataFrame] = []
+    viewing_parts: list[pd.DataFrame] = []
+    for idx, scenario in enumerate(scenario_order):
+        leap_slice = leap_df[
+            leap_df["Scenario"].isin([current_accounts_label, scenario])
+        ].copy()
+        viewing_slice = viewing_df[
+            viewing_df["Scenario"].isin([current_accounts_label, scenario])
+        ].copy()
+
+        if template_keys is not None:
+            leap_slice = _drop_export_rows_not_in_template(
+                leap_slice, template_keys, "LEAP sheet", region
+            )
+            viewing_slice = _drop_export_rows_not_in_template(
+                viewing_slice, template_keys, "FOR_VIEWING sheet", region
+            )
+
+        _enforce_exact_template_alignment_keys(
+            import_filename=str(template_path),
+            leap_export_df=leap_slice,
+            export_df_for_viewing=viewing_slice,
+            scenario=scenario,
+            region=region,
+        )
+        merged_leap_slice, merged_viewing_slice = (
+            join_and_check_import_structure_matches_export_structure(
+                str(template_path),
+                leap_slice,
+                viewing_slice,
+                scenario=scenario,
+                region=region,
+                STRICT_CHECKS=False,
+            )
+        )
+
+        if idx > 0:
+            merged_leap_slice = merged_leap_slice[
+                merged_leap_slice["Scenario"] != current_accounts_label
+            ].copy()
+            merged_viewing_slice = merged_viewing_slice[
+                merged_viewing_slice["Scenario"] != current_accounts_label
+            ].copy()
+
+        leap_parts.append(merged_leap_slice)
+        viewing_parts.append(merged_viewing_slice)
+
+    leap_df = pd.concat(leap_parts, ignore_index=True)
+    viewing_df = pd.concat(viewing_parts, ignore_index=True)
+
+    _report_template_alignment_changes(
+        pre_merge_leap_df,
+        leap_df,
+        dataset_label="LEAP sheet",
+        report_tag=report_tag,
+    )
+    _report_template_alignment_changes(
+        pre_merge_viewing_df,
+        viewing_df,
+        dataset_label="FOR_VIEWING sheet",
+        report_tag=report_tag,
+    )
+    return leap_df, viewing_df
+
+
 def _validate_scope(scope: str) -> None:
     scope_text = str(scope).strip()
     if not scope_text:
         raise ValueError(
             "scope must be a non-empty string such as '00_APEC' or an economy code like '20_USA'."
         )
+
+
+def _resolve_scope_region_name(scope: str) -> str:
+    scope_text = str(scope).strip()
+    if not scope_text:
+        raise ValueError("scope must be a non-empty string.")
+    if scope_text.upper() == "00_APEC":
+        return "APEC"
+    metadata = ECONOMY_METADATA.get(scope_text)
+    if isinstance(metadata, dict):
+        region_name = str(metadata.get("region", "")).strip()
+        if region_name:
+            return region_name
+    return scope_text
 
 
 def _validate_required_columns(df: pd.DataFrame) -> None:
@@ -268,10 +434,10 @@ def _map_medium_branch(raw_medium: str) -> str:
 def _map_fuel_leaf(drive: str, fuel_code: str) -> str:
     drive_key = str(drive)
     fuel_key = str(fuel_code)
-    if drive_key in DRIVE_TO_FUEL_LEAF:
-        return DRIVE_TO_FUEL_LEAF[drive_key]
     if fuel_key in FUEL_CODE_TO_FUEL_LEAF:
         return FUEL_CODE_TO_FUEL_LEAF[fuel_key]
+    if drive_key in DRIVE_TO_FUEL_LEAF:
+        return DRIVE_TO_FUEL_LEAF[drive_key]
     return fuel_key
 
 
@@ -393,6 +559,94 @@ def _build_scoped_leaf_table(
     leaf_df["Activity_raw"] = leaf_df["Activity_raw"].fillna(0.0)
 
     return leaf_df
+
+
+def _reconcile_international_leaf_energy_to_esto(
+    leaf_df: pd.DataFrame,
+    *,
+    config: InternationalExportConfig,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Scale international bunker energy to raw ESTO base-year bunker totals."""
+    if not config.reconcile_to_esto:
+        return leaf_df.copy(), pd.DataFrame()
+    if not config.mapping_workbook_path or not config.mapping_esto_path:
+        print("[WARN] International ESTO reconciliation skipped: mapping workbook or ESTO path is not configured.")
+        return leaf_df.copy(), pd.DataFrame()
+
+    key_to_leaves = build_workbook_international_esto_to_leaf_mapping(
+        config.mapping_workbook_path
+    )
+    esto_totals = build_workbook_international_esto_energy_totals(
+        esto_path=config.mapping_esto_path,
+        economy=config.scope,
+        base_year=config.base_year,
+        mapping_keys=key_to_leaves.keys(),
+        absolute_values=True,
+    )
+
+    out = leaf_df.copy()
+    report_rows: list[dict[str, object]] = []
+    scenarios = out["Scenario"].dropna().astype(str).unique().tolist()
+    for scenario in scenarios:
+        for key, leaves in key_to_leaves.items():
+            flow, product = key
+            target_energy = float(esto_totals.get(key, 0.0) or 0.0)
+            leaf_mask = pd.Series(False, index=out.index)
+            for medium, fuel in leaves:
+                leaf_mask |= (
+                    (out["Medium_branch"].astype(str) == str(medium))
+                    & (out["Fuel_leaf"].astype(str) == str(fuel))
+                )
+            scenario_mask = out["Scenario"].astype(str) == scenario
+            base_mask = scenario_mask & (out["Date"].astype(int) == int(config.base_year)) & leaf_mask
+            all_years_mask = scenario_mask & leaf_mask
+
+            source_energy = float(
+                pd.to_numeric(out.loc[base_mask, "Energy_clean"], errors="coerce")
+                .fillna(0.0)
+                .sum()
+            )
+            if abs(source_energy) <= 1e-12:
+                scale_factor = 1.0 if abs(target_energy) <= 1e-12 else pd.NA
+                status = "matched_zero" if abs(target_energy) <= 1e-12 else "unscaled_zero_source"
+            else:
+                scale_factor = target_energy / source_energy
+                out.loc[all_years_mask, "Energy_clean"] = (
+                    pd.to_numeric(out.loc[all_years_mask, "Energy_clean"], errors="coerce")
+                    .fillna(0.0)
+                    * float(scale_factor)
+                )
+                status = "scaled"
+
+            report_rows.append(
+                {
+                    "Scenario": scenario,
+                    "Economy": config.scope,
+                    "ESTO Flow": flow,
+                    "ESTO Product": product,
+                    "Mapped Leaves": "; ".join(f"{medium}/{fuel}" for medium, fuel in leaves),
+                    "Base Year": int(config.base_year),
+                    "Source Energy": source_energy,
+                    "ESTO Energy": target_energy,
+                    "Scale Factor": scale_factor,
+                    "Status": status,
+                }
+            )
+
+    report_df = pd.DataFrame(report_rows)
+    unscaled = report_df[report_df["Status"] == "unscaled_zero_source"] if not report_df.empty else report_df
+    if unscaled is not None and not unscaled.empty:
+        preview = unscaled.head(10).to_string(index=False)
+        print(
+            "[WARN] International ESTO reconciliation found positive ESTO bunker totals "
+            "with zero source energy; those keys were not scaled.\n"
+            f"{preview}"
+        )
+    print(
+        "[INFO] International ESTO reconciliation used workbook mapping "
+        f"({len(key_to_leaves)} raw bunker flow/product keys)."
+    )
+    return out, report_df
 
 
 def _compute_share_or_equal(series: pd.Series) -> pd.Series:
@@ -1169,6 +1423,10 @@ def run_international_export_workflow(
             )
         )
     scoped_leaf_df = pd.concat(scoped_leaf_parts, ignore_index=True)
+    scoped_leaf_df, reconciliation_report_df = _reconcile_international_leaf_energy_to_esto(
+        scoped_leaf_df,
+        config=config,
+    )
 
     top_df, medium_df, leaf_df = _compute_hierarchy_values(scoped_leaf_df)
     _validate_activity_share_sums(medium_df, leaf_df)
@@ -1188,7 +1446,7 @@ def run_international_export_workflow(
     viewing_df = finalise_export_df(
         export_long_df,
         scenario=current_accounts_source,
-        region=str(config.scope),
+        region=_resolve_scope_region_name(config.scope),
         base_year=config.base_year,
         final_year=config.final_year,
     )
@@ -1200,8 +1458,24 @@ def run_international_export_workflow(
         current_accounts_label=CURRENT_ACCOUNTS_LABEL,
     )
 
-    viewing_df = _attach_blank_id_columns(viewing_df, leap_sheet=False)
-    leap_df = _attach_blank_id_columns(leap_df, leap_sheet=True)
+    report_tag = _sanitize_filename_token(f"{config.scope}_{'_'.join(scenario_labels)}_international")
+    leap_df, viewing_df = _apply_transport_template_structure(
+        leap_df=leap_df,
+        viewing_df=viewing_df,
+        region=_resolve_scope_region_name(config.scope),
+        report_tag=report_tag,
+    )
+    template_path = _resolve_import_template_path()
+    leap_df = merge_template_ids_into_export_df(
+        leap_df,
+        template_path,
+        label=f"international LEAP sheet ({config.scope} | {', '.join(scenario_labels)})",
+    )
+    viewing_df = merge_template_ids_into_export_df(
+        viewing_df,
+        template_path,
+        label=f"international FOR_VIEWING sheet ({config.scope} | {', '.join(scenario_labels)})",
+    )
 
     scenario_token = _sanitize_filename_token("_".join(scenario_labels))
     workbook_path = output_dir / f"{config.scope}_international_transport_leap_export_{scenario_token}.xlsx"
@@ -1222,6 +1496,17 @@ def run_international_export_workflow(
     _sync_international_export_to_leap(config, leap_df)
 
     output_paths: dict[str, str] = {"workbook": str(workbook_path)}
+
+    if config.emit_reconciliation_report and not reconciliation_report_df.empty:
+        reconciliation_path = (
+            output_dir
+            / f"{config.scope}_international_transport_esto_reconciliation_{scenario_token}.csv"
+        )
+        archived_reconciliation = _archive_existing_output_file(reconciliation_path, stamp=archive_stamp)
+        if archived_reconciliation is not None:
+            print(f"[INFO] Archived previous reconciliation report to {archived_reconciliation}")
+        reconciliation_report_df.to_csv(reconciliation_path, index=False)
+        output_paths["esto_reconciliation"] = str(reconciliation_path)
 
     if config.emit_medium_summary:
         medium_summary_df = _build_medium_summary(scoped_leaf_df, scope=config.scope)

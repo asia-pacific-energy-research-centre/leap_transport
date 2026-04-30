@@ -6,7 +6,7 @@ from functions.leap_utilities_functions import (
     _apply_proportional_adjustment,
     get_adjustment_year_columns,
 )
-from config.branch_mappings import ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP, LEAP_MEASURE_CONFIG
+from configurations.branch_mappings import NINTH_SOURCE_TO_LEAP_BRANCH_MAP, LEAP_MEASURE_CONFIG
 from functions.esto_data import extract_esto_energy_use_for_leap_branches
 from functions.transport_branch_paths import (
     branch_tuple_depth,
@@ -15,6 +15,14 @@ from functions.transport_branch_paths import (
     is_pipeline_or_nonspecified_branch_path,
     transport_branch_path_candidates,
 )
+
+OPTIONAL_PROXY_FUELS = {
+    "Bio jet kerosene",
+    "Biodiesel",
+    "Biogasoline",
+    "Biogas",
+    "Efuel",
+}
 
 
 def _get_scalar(
@@ -46,6 +54,24 @@ def _get_scalar(
             return default if default is not None else 0.0
         raise ValueError(f"Value for {variable} at {path} is NaN")
     return value
+
+
+def _is_missing_optional_proxy_branch(
+    export_df: pd.DataFrame,
+    rule: Mapping[str, object],
+) -> bool:
+    branch_tuple = tuple(rule.get("branch_tuple", ()) or ())
+    if not branch_tuple:
+        return False
+    fuel_label = str(branch_tuple[-1]).strip()
+    if fuel_label not in OPTIONAL_PROXY_FUELS:
+        return False
+
+    branch_path = build_transport_branch_path(branch_tuple, root=rule.get("root", "Demand"))
+    for candidate_path in transport_branch_path_candidates(branch_path):
+        if (export_df["Branch Path"] == candidate_path).any():
+            return False
+    return True
 
 
 ##########################################################
@@ -244,6 +270,9 @@ def transport_intensity_energy_fn(
 ) -> float:
     """Intensity-based energy calculation compatible with reconcile_energy_use."""
 
+    if _is_missing_optional_proxy_branch(export_df, rule):
+        return 0.0
+
     branch_path = build_transport_branch_path(rule["branch_tuple"], root=rule.get("root", "Demand"))
     parts = branch_path.split("\\")
     logical_depth = branch_tuple_depth(branch_path)
@@ -315,6 +344,9 @@ def transport_stock_energy_fn(
     combination_fn: Optional[Callable[[List[pd.Series]], pd.Series]] = None,
 ) -> float:
     """Stock-based energy calculation compatible with reconcile_energy_use.This may be useful for other sectors with stock-based energy calculations - the way that we have to access branch paths up x levels is tricky but important for getting the right numbers. Similarly the scaling factors from LEAP_MEASURE_CONFIG are important to ensure we are working in the right units - they will need to be adapted for other sectors. Latly it should be noted that since th unit for efficiency is mj/km, efficiency is timesed by mileage rather than divided as it would be if efficiency were in km/mj which is the standard unit... Leap things!"""
+
+    if _is_missing_optional_proxy_branch(export_df, rule):
+        return 0.0
 
     branch_path = build_transport_branch_path(rule["branch_tuple"], root=rule.get("root", "Demand"))
     parts = branch_path.split("\\")
@@ -1153,7 +1185,7 @@ def build_transport_esto_energy_totals(
 
     esto_energy_totals: Dict[Tuple[str, ...], float] = {}
 
-    for esto_key, leap_branches in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP.items():
+    for esto_key, leap_branches in NINTH_SOURCE_TO_LEAP_BRANCH_MAP.items():
         # esto_key can be either:
         #   - 3-tuple: (sub1sector, fuel, subfuel)
         #   - 4-tuple: (sub1sector, sub2sector, fuel, subfuel)

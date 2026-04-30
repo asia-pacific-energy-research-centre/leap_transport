@@ -15,7 +15,7 @@ from typing import Iterator
 
 import pandas as pd
 
-from config.transport_economy_config import COMBINED_EXPORT_DIR
+from configurations.transport_economy_config import COMBINED_EXPORT_DIR, ECONOMY_METADATA
 from functions import transport_workflow_pipeline as pipeline
 
 CONFIG_ARCHIVE_MANIFEST_FILENAME = "_config_file_size_manifest.json"
@@ -564,6 +564,35 @@ def _raise_for_missing_scenario_domains(
     )
 
 
+def _resolve_combined_economy_token(
+    *,
+    records: Sequence[dict],
+    selected_scenarios: Mapping[str, str],
+) -> str:
+    economies: list[str] = []
+    seen: set[str] = set()
+    for record in records:
+        scenario_key = str(record.get("scenario", "")).strip().lower()
+        if scenario_key not in selected_scenarios:
+            continue
+        if str(record.get("status", "")).strip().lower() != "success":
+            continue
+        economy = str(record.get("economy", "")).strip()
+        if not economy or economy in seen:
+            continue
+        economies.append(economy)
+        seen.add(economy)
+
+    if not economies:
+        return "all"
+    if len(economies) == 1:
+        return sanitize_filename_token(economies[0])
+    total_economies = len(ECONOMY_METADATA)
+    if len(economies) >= total_economies:
+        return "All_econs"
+    return f"{len(economies)}_econs"
+
+
 def save_combined_scenario_workbook(
     *,
     records: Sequence[dict],
@@ -614,15 +643,22 @@ def save_combined_scenario_workbook(
         )
 
     included_scenarios = [selected_scenarios[key] for key in selected_scenarios]
+    economy_token = _resolve_combined_economy_token(
+        records=records,
+        selected_scenarios=selected_scenarios,
+    )
     scenario_token = sanitize_filename_token("_".join(included_scenarios))
     if include_international:
         combined_filename = (
-            f"{COMBINED_EXPORT_DIR}/transport_leap_export_combined_domestic_international_"
+            f"{COMBINED_EXPORT_DIR}/transport_leap_export_combined_{economy_token}_domestic_international_"
             f"{scenario_token}_{date_id}.xlsx"
         )
         model_name = f"Transport Combined Domestic+International ({', '.join(included_scenarios)})"
     else:
-        combined_filename = f"{COMBINED_EXPORT_DIR}/transport_leap_export_combined_{scenario_token}_{date_id}.xlsx"
+        combined_filename = (
+            f"{COMBINED_EXPORT_DIR}/transport_leap_export_combined_{economy_token}_"
+            f"{scenario_token}_{date_id}.xlsx"
+        )
         model_name = f"Transport Combined ({', '.join(included_scenarios)})"
 
     combined_output_path = pipeline.resolve_str(combined_filename)

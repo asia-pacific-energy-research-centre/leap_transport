@@ -1,7 +1,7 @@
 import pandas as pd
 
-from config.branch_mappings import (
-    ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+from configurations.branch_mappings import (
+    NINTH_SOURCE_TO_LEAP_BRANCH_MAP,
     SHORTNAME_TO_LEAP_BRANCHES,
 )
 from functions.merged_energy_io import (
@@ -9,16 +9,16 @@ from functions.merged_energy_io import (
     filter_energy_for_economy_scenario,
     load_transport_energy_dataset,
 )
-from config.measure_metadata import SOURCE_MEASURE_TO_UNIT
+from configurations.measure_metadata import SOURCE_MEASURE_TO_UNIT
 
 def extract_esto_sector_fuels_for_leap_branches(leap_branch_list):
     """
-    Does a backwards search on the ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP to find what keys have the leap branches in their values. this is mostly useful for the Others Levels 1 and 2 mappings where we have a many-to-one mapping.
+    Does a backwards search on the NINTH_SOURCE_TO_LEAP_BRANCH_MAP to find what keys have the leap branches in their values. this is mostly useful for the Others Levels 1 and 2 mappings where we have a many-to-one mapping.
     """
     leap_branch_to_esto_sector_fuel = {}
     for leap_branch in leap_branch_list:
         leap_branch_to_esto_sector_fuel[leap_branch] = []
-        for esto_sector_fuel, leap_branches2 in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP.items():
+        for esto_sector_fuel, leap_branches2 in NINTH_SOURCE_TO_LEAP_BRANCH_MAP.items():
             if leap_branch in leap_branches2:
                 leap_branch_to_esto_sector_fuel[leap_branch].append(esto_sector_fuel)
     return leap_branch_to_esto_sector_fuel
@@ -26,7 +26,7 @@ def extract_esto_sector_fuels_for_leap_branches(leap_branch_list):
 def extract_other_type_rows_from_esto_and_insert_into_transport_df(df, base_year, final_year, economy,scenario, TRANSPORT_ESTO_BALANCES_PATH = 'data/merged_file_energy_ALL_20250814_pretrump.csv'):
     """Extract 'Other' shortname rows from ESTO and insert them into the transport dataframe."""
     
-    #and insert the 'Other' shortname rows. These are those under the Other level 1 and level 2 in SHORTNAME_TO_LEAP_BRANCHES  and are basically rows that arent in this transport dataset because they were modelled separately. However to make it easy to use the same code to load them into LEAP we create rows for them here with activity levels equal to their enertgy use in the ESTO dataset and intensity=1. They will then have energy use = activity level * intensity = activity level = esto energy use. We can access their ESTO energy use from the ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP using extract_esto_sector_fuels_for_leap_branches(leap_branch_list) where leap_branch_list is the list of leap branches for the 'Other' shortnames
+    #and insert the 'Other' shortname rows. These are those under the Other level 1 and level 2 in SHORTNAME_TO_LEAP_BRANCHES  and are basically rows that arent in this transport dataset because they were modelled separately. However to make it easy to use the same code to load them into LEAP we create rows for them here with activity levels equal to their enertgy use in the ESTO dataset and intensity=1. They will then have energy use = activity level * intensity = activity level = esto energy use. We can access their ESTO energy use from the NINTH_SOURCE_TO_LEAP_BRANCH_MAP using extract_esto_sector_fuels_for_leap_branches(leap_branch_list) where leap_branch_list is the list of leap branches for the 'Other' shortnames
     
     # Load transport energy dataset (merged-energy CSV or legacy XLSX).
     esto_energy_use = load_transport_energy_dataset(
@@ -70,7 +70,7 @@ def extract_esto_energy_use_for_leap_branches(leap_branches, esto_energy_use,eco
                 ('Pipeline transport',) 
             ]
             if leap_branch not in LEAP_BRANCHES_TO_SKIP_IF_NO_ESTO_MAPPING:
-                raise ValueError(f"Leap branch {leap_branch} has no ESTO mapping but is not in the skip list. If it is not feasible to create an esto mapping for this branch, please add it to the skip list, otherwise make sure it is mapped in ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP.")
+                raise ValueError(f"Leap branch {leap_branch} has no ESTO mapping but is not in the skip list. If it is not feasible to create an esto mapping for this branch, please add it to the skip list, otherwise make sure it is mapped in NINTH_SOURCE_TO_LEAP_BRANCH_MAP.")
             continue
         for esto_key in esto_rows:
             if len(esto_key) == 3:

@@ -1,4 +1,7 @@
-# Config Folder Guide
+# Configurations Guide
+
+`codebase/configurations/` is the canonical import path for this mapping layer.
+This legacy `codebase/config/` package remains as a compatibility shim.
 
 This folder holds the static configuration used to translate 9th-edition transport model outputs and ESTO energy balances into the LEAP transport branch structure.
 
@@ -51,13 +54,13 @@ Important objects:
 - `LEAP_BRANCH_TO_SOURCE_MAP`: maps each LEAP branch to the 9th transport source tuple that should provide its modelled values.
 - `PROXIED_SOURCE_ROWS_WITH_NO_ACTIVITY`: creates source-like rows for LEAP branches that need a proxy row because the exact source row does not exist or does not have activity. For example, a future technology may use the efficiency pattern of a related existing technology while having its own LEAP branch.
 - `COMBINATION_SOURCE_ROWS`: defines rows that need to be built from multiple 9th transport source rows before they can map cleanly into LEAP.
-- `ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP`: maps ESTO balance sector/fuel tuples to LEAP branches so historical energy values can be reconciled exactly to ESTO.
+- `NINTH_SOURCE_TO_LEAP_BRANCH_MAP`: maps 9th transport source sector/fuel tuples to LEAP branches. The same table is currently reused as the legacy bridge for ESTO-side reconciliation, but its key space is 9th-derived, not raw ESTO flow/product vocabulary.
 - `UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT`: lists LEAP branches that should not be expected in ESTO because ESTO has no matching category.
 - `LEAP_MEASURE_CONFIG`: defines the LEAP measures available at each branch group, including source measure names, units, scaling, and conversion factors.
 - `DEFAULT_BRANCH_SHARE_SETTINGS_DICT`: default split settings used for share-type branches.
 - validation helpers such as `identify_missing_esto_mappings_for_leap_branches()` and `validate_branch_combinations_across_mappings()`.
 
-This file contains several different mapping layers because they answer different questions. `LEAP_BRANCH_TO_SOURCE_MAP` is about getting modelled transport measures from the 9th transport output. `ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP` is about matching ESTO balances to LEAP fuel branches so exact energy totals can be used for historical reconciliation. `UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT` is about documenting the branches where ESTO cannot provide a direct historical balance, instead of letting those appear as accidental gaps.
+This file contains several different mapping layers because they answer different questions. `LEAP_BRANCH_TO_SOURCE_MAP` is about getting modelled transport measures from the 9th transport output. `NINTH_SOURCE_TO_LEAP_BRANCH_MAP` is the 9th-derived bridge table currently reused for reconciliation against the ESTO surface. `UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT` is about documenting the branches where ESTO cannot provide a direct historical balance, instead of letting those appear as accidental gaps.
 
 ### `branch_expression_mapping.py`
 
@@ -152,11 +155,11 @@ The normal flow is:
 
 ## Why ESTO Mapping Is Separate From Source Mapping
 
-`LEAP_BRANCH_TO_SOURCE_MAP` and `ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP` should not be merged.
+`LEAP_BRANCH_TO_SOURCE_MAP` and `NINTH_SOURCE_TO_LEAP_BRANCH_MAP` should not be merged.
 
 `LEAP_BRANCH_TO_SOURCE_MAP` is for the 9th transport model output. It maps modelled activity, stocks, efficiency, mileage, sales, and related transport measures into the LEAP branch structure.
 
-`ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP` is for ESTO energy balances. It maps ESTO sector/fuel categories to LEAP branches so the workflow can align historical energy with official balance totals. This is why a single ESTO row often maps to many LEAP branches. For example, ESTO road motor gasoline is one balance category, but LEAP has many motor-gasoline branches across LPVs, buses, motorcycles, LCVs, trucks, HEVs, PHEVs, and EREVs.
+`NINTH_SOURCE_TO_LEAP_BRANCH_MAP` is the 9th transport bridge table. It maps 9th sector/fuel categories to LEAP branches so the workflow can align modeled transport output with the LEAP hierarchy. This is why a single source row often maps to many LEAP branches. Do not treat this table as the raw ESTO flow/product vocabulary.
 
 The split keeps the code clear about whether a value came from the transport model or from official energy balances.
 
@@ -182,7 +185,7 @@ When adding or changing a LEAP branch, check all relevant layers:
 - Add it to the right group in `SHORTNAME_TO_LEAP_BRANCHES`.
 - Add or update its `LEAP_BRANCH_TO_SOURCE_MAP` entry if it should receive 9th transport model values.
 - Add proxy or combination logic if the source data needs more than a direct one-to-one mapping.
-- Add it to `ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP` if ESTO has a matching energy balance category.
+- Add it to `NINTH_SOURCE_TO_LEAP_BRANCH_MAP` if it belongs in the 9th-derived bridge table.
 - Add it to `UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT` if ESTO does not have a matching category and that absence is intentional.
 - Add expression settings in `branch_expression_mapping.py` if a LEAP measure needs to be written at that branch.
 - Confirm measure units, scaling, and aggregation behavior in `LEAP_MEASURE_CONFIG` and `measure_metadata.py`.

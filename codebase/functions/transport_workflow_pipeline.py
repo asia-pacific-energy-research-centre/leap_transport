@@ -43,9 +43,10 @@ from functions.leap_utilities_functions import (
     write_row_to_leap_export_df,
     build_expression_from_mapping,
     define_value_based_on_src_tuple,
+    merge_template_ids_into_export_df,
 )
-from config.branch_mappings import (
-    ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+from configurations.branch_mappings import (
+    NINTH_SOURCE_TO_LEAP_BRANCH_MAP,
     LEAP_BRANCH_TO_SOURCE_MAP,
     SHORTNAME_TO_LEAP_BRANCHES,
     LEAP_MEASURE_CONFIG,
@@ -53,8 +54,8 @@ from config.branch_mappings import (
     create_new_source_rows_based_on_combinations,
     create_new_source_rows_based_on_proxies_with_no_activity,
 )
-from config.measure_catalog import list_all_measures, LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
-from config.measure_metadata import SOURCE_WEIGHT_PRIORITY
+from configurations.measure_catalog import list_all_measures, LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
+from configurations.measure_metadata import SOURCE_WEIGHT_PRIORITY
 from functions.measure_processing import process_measures_for_leap
 from functions.preprocessing import (
     allocate_fuel_alternatives_energy_and_activity,
@@ -66,12 +67,12 @@ from functions.leap_utilities_functions import (
     join_and_check_import_structure_matches_export_structure,
     separate_current_accounts_from_scenario,
 )
-from config.branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING, ALL_YEARS
+from configurations.branch_expression_mapping import LEAP_BRANCH_TO_EXPRESSION_MAPPING, ALL_YEARS
 from functions.esto_data import (
     extract_other_type_rows_from_esto_and_insert_into_transport_df,
 )
 
-from config.basic_mappings import (
+from configurations.basic_mappings import (
     ESTO_TRANSPORT_SECTOR_TUPLES,
     LEAP_STRUCTURE,
     add_fuel_column,
@@ -92,6 +93,7 @@ from sales_workflow import (
     estimate_freight_sales_from_dataframe,
 )
 import os
+import time
 
 LEAP_API_DISABLED_ERROR = (
     "[ERROR] LEAP API usage is disabled because the LEAP API is currently buggy. "
@@ -115,13 +117,13 @@ from functions.leap_utilities_functions import (
     build_adjustment_change_tables,
     get_adjustment_year_columns,
 )
-from config.branch_mappings import (
-    ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+from configurations.branch_mappings import (
+    NINTH_SOURCE_TO_LEAP_BRANCH_MAP,
     UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT,
     ALL_LEAP_BRANCHES_TRANSPORT,
 )
 
-from config.measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
+from configurations.measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
 
 from functions.energy_use_reconciliation_road import (
     transport_energy_fn,
@@ -129,7 +131,13 @@ from functions.energy_use_reconciliation_road import (
     build_transport_esto_energy_totals,
 )
 from functions.merged_energy_io import load_transport_energy_dataset
-from config.transport_economy_config import (
+from functions.apec_mapping_workbook import (
+    build_workbook_esto_energy_totals,
+    build_workbook_esto_to_leap_mapping,
+    write_transport_mapping_audit,
+)
+from configurations.transport_economy_config import (
+    APEC_ESTO_BALANCES_PATH,
     COMMON_CONFIG,
     DOMESTIC_EXPORT_DIR,
     ECONOMY_METADATA,
@@ -808,6 +816,23 @@ def _register_transport_regions_for_leap_excel_helpers() -> None:
         added.append(region_name)
         next_region_id += 1
 
+    # Synthetic/all-area aliases used by APEC transport runs and older local settings.
+    region_aliases = [
+        ("00_APEC", "APEC"),
+        ("05_PRC", "China"),
+    ]
+    for region_code, region_name in region_aliases:
+        if not region_name or region_name in existing_names:
+            continue
+        region_lookup[f"{region_code}_alias_{region_name}"] = {
+            "region_id": next_region_id,
+            "region_name": region_name,
+            "region_code": region_code,
+        }
+        existing_names.add(region_name)
+        added.append(region_name)
+        next_region_id += 1
+
     if added:
         print(
             "[INFO] Registered transport regions for LEAP Excel structure checks: "
@@ -995,11 +1020,12 @@ def convert_values_to_expressions(leap_export_df):
     print("\n=== Building LEAP expressions from export rows ===")
     total_written = 0
     total_missing_variables = 0
-    new_leap_export_df = leap_export_df.copy()
-    new_leap_export_df['Expression'] = None
-    #drop the year columns since we dont need them anymore
-    year_cols = [col for col in new_leap_export_df.columns if str(col).isdigit() and len(str(col)) == 4]
-    new_leap_export_df = new_leap_export_df.drop(columns=year_cols)
+    viewing_df = leap_export_df.copy()
+    #drop the year columns since the LEAP sheet stores expressions instead
+    year_cols = [col for col in viewing_df.columns if str(col).isdigit() and len(str(col)) == 4]
+    viewing_df["Method"] = None
+    new_leap_export_df = viewing_df.drop(columns=year_cols + ["Method"]).copy()
+    new_leap_export_df["Expression"] = None
     
     for idx, row in leap_export_df.iterrows():
         branch_path = row['Branch Path']
@@ -1025,9 +1051,9 @@ def convert_values_to_expressions(leap_export_df):
             raise ValueError(f"[ERROR] Failed to build expression for {measure} on {branch_path}")
         
         new_leap_export_df.at[idx, 'Expression'] = expr
-        leap_export_df.at[idx, 'Method'] = method#when we convert to expr the method is no longer relevant. but it should be recorded in this spreadsheet for reference as well as just in case we want to use the spreadsheet to set variables in leap without expressions later on.
+        viewing_df.at[idx, 'Method'] = method#record the method on the viewing sheet for reference and direct inspection.
         
-    return new_leap_export_df, leap_export_df 
+    return new_leap_export_df, viewing_df 
 
 
 def _scenario_name_from_com(active_scenario) -> str | None:
@@ -1305,6 +1331,8 @@ def run_transport_reconciliation(
     all_leap_branches,
     esto_to_leap_mapping,
     set_vars_in_leap_using_com,
+    transport_mapping_workbook_path=None,
+    transport_mapping_esto_path=None,
     subtotal_column='subtotal_layout',
     scale_factor_tolerance: float = 1e-4,
     raise_on_non_convergence: bool = False,
@@ -1719,10 +1747,6 @@ def run_transport_reconciliation(
             df.loc[target_index, base_year] = matched_ca[match_mask].to_numpy()
         return df
 
-    esto_df = load_transport_energy_dataset(
-        transport_esto_balances_path,
-        economy=economy,
-    )
     if not os.path.exists(reconciliation_input_path):
         raise FileNotFoundError(
             "Reconciliation input checkpoint was not found. Reconciliation now reads input from "
@@ -1738,14 +1762,34 @@ def run_transport_reconciliation(
     )
     export_df = export_df_all[export_df_all['Scenario'] == 'Current Accounts'].copy()
 
-    esto_energy_totals = build_transport_esto_energy_totals(
-        esto_df=esto_df,
-        economy=economy,
-        original_scenario=scenario,
-        base_year=base_year,
-        final_year=final_year,
-        SUBTOTAL_COLUMN=subtotal_column,
-    )
+    if transport_mapping_workbook_path and transport_mapping_esto_path:
+        esto_to_leap_mapping = build_workbook_esto_to_leap_mapping(
+            mapping_workbook_path=transport_mapping_workbook_path,
+            all_leap_branches=all_leap_branches,
+        )
+        esto_energy_totals = build_workbook_esto_energy_totals(
+            esto_path=transport_mapping_esto_path,
+            economy=economy,
+            base_year=base_year,
+            mapping_keys=esto_to_leap_mapping.keys(),
+        )
+        print(
+            "[INFO] Reconciliation uses workbook ESTO mapping "
+            f"({len(esto_to_leap_mapping)} raw flow/product keys)."
+        )
+    else:
+        esto_df = load_transport_energy_dataset(
+            transport_esto_balances_path,
+            economy=economy,
+        )
+        esto_energy_totals = build_transport_esto_energy_totals(
+            esto_df=esto_df,
+            economy=economy,
+            original_scenario=scenario,
+            base_year=base_year,
+            final_year=final_year,
+            SUBTOTAL_COLUMN=subtotal_column,
+        )
     missing_esto_keys = [key for key, value in esto_energy_totals.items() if pd.isna(value)]
     if missing_esto_keys:
         preview = "\n".join(
@@ -2237,7 +2281,7 @@ def load_transport_into_leap(
     viewing_checkpoint_path = resolve_str(f"intermediate_data/export_df_for_viewing_checkpoint2_{checkpoint_tag}.pkl")
     
     mappings_validation = validate_all_mappings_with_measures(
-        ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+        NINTH_SOURCE_TO_LEAP_BRANCH_MAP,
         LEAP_BRANCH_TO_EXPRESSION_MAPPING,
         LEAP_BRANCH_TO_SOURCE_MAP,
         SHORTNAME_TO_LEAP_BRANCHES,
@@ -2406,6 +2450,17 @@ def load_transport_into_leap(
                 dataset_label="FOR_VIEWING sheet",
                 report_tag=checkpoint_tag,
             )
+
+        leap_export_df = merge_template_ids_into_export_df(
+            leap_export_df,
+            import_filename,
+            label=f"domestic LEAP sheet ({economy} | {new_scenario})",
+        )
+        export_df_for_viewing = merge_template_ids_into_export_df(
+            export_df_for_viewing,
+            import_filename,
+            label=f"domestic FOR_VIEWING sheet ({economy} | {new_scenario})",
+        )
         
         os.makedirs(os.path.dirname(export_filename), exist_ok=True)
         archived_export = _archive_existing_output_file(export_filename, date_id=DATE_ID)
@@ -2609,7 +2664,20 @@ REPORT_ADJUSTMENT_CHANGES = True
 # }
 # If an ESTO key has both "all" and economy-specific rules, the economy-specific
 # set is used for that economy.
-ESTO_ZERO_ENERGY_FALLBACK_RULES: dict[str, list[dict[str, Any]]] = {}
+ESTO_ZERO_ENERGY_FALLBACK_RULES: dict[str, list[dict[str, Any]]] = {
+    # Raw ESTO workbook key. Some historical runs have positive road electricity
+    # in ESTO while all base-year road EV stock shares are zero in the LEAP output,
+    # which makes multiplicative reconciliation impossible until one EV mode exists.
+    "15.02 Road | 17 Electricity": [
+        {
+            "type": "mode_stock_seed",
+            "economy": "all",
+            "parent_path": r"Demand\Passenger road\LPVs",
+            "mode_path": r"Demand\Passenger road\LPVs\BEV small",
+            "device_path": r"Demand\Passenger road\LPVs\BEV small\Electricity",
+        }
+    ],
+}
 
 # COM / validation flags
 CHECK_BRANCHES_IN_LEAP_USING_COM = True
@@ -3074,6 +3142,9 @@ def build_apec_run_config(scenario: str):
         transport_import_path=seed_cfg.transport_import_path,
         transport_esto_balances_path=str(apec_balances_path),
         transport_fuels_path=seed_cfg.transport_fuels_path,
+        transport_mapping_workbook_path=getattr(seed_cfg, "transport_mapping_workbook_path", None),
+        transport_mapping_esto_path=getattr(seed_cfg, "transport_mapping_esto_path", None),
+        apec_esto_balances_path=resolve_str(APEC_ESTO_BALANCES_PATH),
         survival_profile_path=resolve_str(apec_survival_profile),
         vintage_profile_path=resolve_str(apec_vintage_profile),
         passenger_sales_output=resolve_str(f"{PASSENGER_SALES_DIR}/passenger_sales_00_APEC_{scenario}.csv"),
@@ -3098,6 +3169,27 @@ def run_configured_transport_workflow(
     if freight_sales_policy_settings is None:
         freight_sales_policy_settings = FREIGHT_SALES_POLICY_SETTINGS
 
+    mapping_workbook_path = getattr(transport_cfg, "transport_mapping_workbook_path", None)
+    mapping_esto_path = (
+        getattr(transport_cfg, "transport_mapping_esto_path", None)
+        or getattr(transport_cfg, "apec_esto_balances_path", None)
+        or getattr(transport_cfg, "transport_esto_balances_path", None)
+    )
+    if mapping_workbook_path and mapping_esto_path:
+        audit_dir = resolve_str(f"results/reconciliation/mapping_audit/{transport_economy}")
+        audit_paths = write_transport_mapping_audit(
+            mapping_workbook_path=mapping_workbook_path,
+            esto_path=mapping_esto_path,
+            output_dir=audit_dir,
+            scenario=transport_scenario,
+            economy=transport_economy,
+            include_ninth=False,
+        )
+        print(
+            "[INFO] Wrote transport mapping audit files: "
+            + ", ".join(str(path) for path in audit_paths.values())
+        )
+
     record = {
         "economy": transport_economy,
         "scenario": transport_scenario,
@@ -3119,6 +3211,7 @@ def run_configured_transport_workflow(
             "Run input creation first (RUN_PROFILE='input_only' or 'full')."
         )
 
+    _t0 = time.perf_counter()
     try:
         if RUN_INPUT_CREATION:
             load_transport_into_leap(
@@ -3175,14 +3268,24 @@ def run_configured_transport_workflow(
                 unmappable_branches=UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT,
                 analysis_type_lookup=LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP.get,
                 all_leap_branches=ALL_LEAP_BRANCHES_TRANSPORT,
-                esto_to_leap_mapping=ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+                esto_to_leap_mapping=NINTH_SOURCE_TO_LEAP_BRANCH_MAP,
                 set_vars_in_leap_using_com=SET_VARS_IN_LEAP_USING_COM,
+                transport_mapping_workbook_path=getattr(transport_cfg, "transport_mapping_workbook_path", None),
+                transport_mapping_esto_path=getattr(transport_cfg, "transport_mapping_esto_path", None),
                 scale_factor_tolerance=1e-4,
             )
     except Exception as exc:
         record["status"] = "failed"
         record["error"] = str(exc)
         print(f"[ERROR] {transport_economy} failed: {exc}")
+
+    _dur = time.perf_counter() - _t0
+    _h = int(_dur // 3600)
+    _m = int((_dur % 3600) // 60)
+    _s = _dur % 60
+    record["duration_seconds"] = _dur
+    record["duration_formatted"] = f"{_h}h {_m}m {_s:.1f}s"
+    print(f"[TIMING] {transport_economy} | {transport_scenario} | {run_type} — {_h}h {_m}m {_s:.1f}s")
 
     return record
 
@@ -3336,7 +3439,7 @@ if __name__ == "__main__":
 
 #%%
 
-# from config.branch_mappings import ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,     UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT, SHORTNAME_TO_LEAP_BRANCHES, ALL_LEAP_BRANCHES_TRANSPORT
+# from config.branch_mappings import NINTH_SOURCE_TO_LEAP_BRANCH_MAP,     UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT, SHORTNAME_TO_LEAP_BRANCHES, ALL_LEAP_BRANCHES_TRANSPORT
 # from config.measure_catalog import LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP
 # from energy_use_reconciliation import reconcile_energy_use, build_branch_rules_from_mapping
 # from functions.energy_use_reconciliation_road import build_transport_esto_energy_totals
@@ -3344,11 +3447,11 @@ if __name__ == "__main__":
 # import pandas as pd
 # export_df = pd.read_excel("../results/domestic_exports/USA_transport_leap_export_Target.xlsx")
 # esto_totals = {("15_02_road", "07_petroleum_products", "07_01_motor_gasoline"): 100.0}
-# # ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP, UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT
+# # NINTH_SOURCE_TO_LEAP_BRANCH_MAP, UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT
 # LEAP_BRANCHES_LIST = [branch for branches in SHORTNAME_TO_LEAP_BRANCHES.values() for branch in branches]
 
 # # branch_rules = build_branch_rules_from_mapping(
-# #     ESTO_SECTOR_FUEL_TO_LEAP_BRANCH_MAP,
+# #     NINTH_SOURCE_TO_LEAP_BRANCH_MAP,
 # #     UNMAPPABLE_BRANCHES_NO_ESTO_EQUIVALENT,
 # #     all_leap_branches=LEAP_BRANCHES_LIST,    
 # #     analysis_type_lookup=LEAP_BRANCH_TO_ANALYSIS_TYPE_MAP.get,

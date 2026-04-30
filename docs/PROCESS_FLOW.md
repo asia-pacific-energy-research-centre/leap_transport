@@ -83,7 +83,7 @@ and sales estimation logic via:
 - Run from repo root.
 - Environment is active (`conda activate ./env_leap`).
 - Vendored helper snapshot exists at `codebase/functions/leap_utilities_functions.py`.
-- Economy/scenario exists in `codebase/config/transport_economy_config.py`.
+- Economy/scenario exists in `codebase/configurations/transport_economy_config.py`.
 - Expected inputs exist under:
   - `data/transport_data_9th/model_output_detailed_2/`
   - `data/transport_data_9th/model_output_with_fuels/`
@@ -222,6 +222,10 @@ What it does now:
 
 If `RUN_PROFILE` includes reconciliation, pipeline scales LEAP-side values to match ESTO base-year energy totals and writes reports under `results/reconciliation/`.
 
+When a mapping workbook path is configured, the workflow also writes a workbook-backed mapping audit under
+`results/reconciliation/mapping_audit/<economy>/` using `config/leap_mappings 25042026.xlsx` and
+`data/00APEC_2024_low_with_subtotals.csv`.
+
 For `reconcile_only`, required input checkpoint:
 
 - `intermediate_data/export_df_for_viewing_checkpoint2_<economy>_<scenario>.pkl`
@@ -309,7 +313,7 @@ If you see an error like `LEAP API usage is disabled...`, disable COM flags and 
 
 ## 15) Adding a new economy
 
-1. Add metadata and scenario config in `codebase/config/transport_economy_config.py`.
+1. Add metadata and scenario config in `codebase/configurations/transport_economy_config.py`.
 2. Confirm model/fuel input files exist.
 3. Run `input_only` profile first.
 4. Then run full profile when dry run passes.

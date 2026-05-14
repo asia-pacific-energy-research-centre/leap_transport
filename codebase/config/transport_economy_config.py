@@ -12,9 +12,8 @@ DEFAULT_TRANSPORT_SCENARIO = "Target"
 
 COMMON_CONFIG = {
     "transport_import_path": "data/import_files/DEFAULT_transport_leap_import_TGT_REF_CA.xlsx",
-    # Pre-trump merged energy data (higher variability); swap to 20251106 files when needed.
-    "transport_esto_balances_path": "data/merged_file_energy_ALL_20250814_pretrump.csv",
-    "transport_mapping_workbook_path": "config/leap_mappings 25042026.xlsx",
+    "transport_esto_balances_path": "data/merged_file_energy_ALL_20251106.csv",
+    "transport_mapping_workbook_path": "config/leap_mappings 13052026.xlsx",
     # Shared ESTO surface used for workbook-backed mapping audits across economies.
     "transport_mapping_esto_path": "data/00APEC_2024_low_with_subtotals.csv",
     "survival_profile_path": "data/lifecycle_profiles/vehicle_survival_modified.xlsx",

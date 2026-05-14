@@ -3182,7 +3182,7 @@ def run_example_with_real_data(
     source_path: str | os.PathLike = "data/transport_data_9th/model_output_detailed_2/20_USA_NON_ROAD_DETAILED_model_output20250225.csv",
     survival_path: str | os.PathLike = "data/lifecycle_profiles/vehicle_survival_modified.xlsx",
     vintage_path: str | os.PathLike = "data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
-    esto_path: str | os.PathLike | None = "data/merged_file_energy_ALL_20250814_pretrump.csv",
+    esto_path: str | os.PathLike | None = "data/merged_file_energy_ALL_20251106.csv",
     economy: str = "20_USA",
     scenario: str = "Target",
     base_year: int = 2022,

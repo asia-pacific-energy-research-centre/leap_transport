@@ -12,6 +12,7 @@ if str(CODE_DIR) not in sys.path:
 
 from functions.leap_utilities_functions import (
     join_and_check_import_structure_matches_export_structure,
+    merge_template_ids_into_export_df,
 )
 
 
@@ -85,6 +86,52 @@ class LeapUtilitiesFunctionsTests(unittest.TestCase):
         self.assertNotIn("Level 1_export", leap_df.columns)
         self.assertEqual(set(leap_df["Level 1"]), {"Demand"})
         self.assertEqual(set(viewing_df["BranchID"]), {10})
+
+    def test_template_id_merge_uses_structural_keys_and_region_id_one(self):
+        template_region = "United States of America"
+        export_region = "Japan"
+        branch_path = r"Demand\Transport"
+        template_df = pd.DataFrame(
+            [
+                {
+                    "BranchID": 10,
+                    "VariableID": 20,
+                    "ScenarioID": 4,
+                    "RegionID": 7,
+                    "Branch Path": branch_path,
+                    "Variable": "Total Activity",
+                    "Scenario": "Target",
+                    "Region": template_region,
+                }
+            ]
+        )
+        export_df = pd.DataFrame(
+            [
+                {
+                    "Branch Path": branch_path,
+                    "Variable": "Total Activity",
+                    "Scenario": "Target",
+                    "Region": export_region,
+                }
+            ]
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            import_path = Path(tmp) / "template.xlsx"
+            with pd.ExcelWriter(import_path, engine="openpyxl") as writer:
+                template_df.to_excel(
+                    writer,
+                    sheet_name="Export",
+                    index=False,
+                    startrow=2,
+                )
+
+            merged = merge_template_ids_into_export_df(export_df, import_path)
+
+        self.assertEqual(int(merged.loc[0, "BranchID"]), 10)
+        self.assertEqual(int(merged.loc[0, "VariableID"]), 20)
+        self.assertEqual(int(merged.loc[0, "ScenarioID"]), 4)
+        self.assertEqual(int(merged.loc[0, "RegionID"]), 1)
 
 
 if __name__ == "__main__":

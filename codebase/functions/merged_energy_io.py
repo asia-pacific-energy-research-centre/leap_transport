@@ -11,8 +11,8 @@ from functions.path_utils import resolve_str
 
 
 TRANSPORT_SECTOR = "15_transport_sector"
-DEFAULT_MERGED_ENERGY_ALL_PRETRUMP = "data/merged_file_energy_ALL_20250814_pretrump.csv"
-DEFAULT_MERGED_ENERGY_APEC_PRETRUMP = "data/merged_file_energy_00_APEC_20250814_pretrump.csv"
+DEFAULT_MERGED_ENERGY_ALL = "data/merged_file_energy_ALL_20251106.csv"
+DEFAULT_MERGED_ENERGY_APEC = "data/merged_file_energy_00_APEC_20251106.csv"
 
 
 def _normalise_year_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -80,8 +80,8 @@ def load_transport_energy_dataset(
             )
             if candidate.exists():
                 resolved_path = str(candidate)
-        all_default = resolve_str(DEFAULT_MERGED_ENERGY_ALL_PRETRUMP)
-        apec_default = resolve_str(DEFAULT_MERGED_ENERGY_APEC_PRETRUMP)
+        all_default = resolve_str(DEFAULT_MERGED_ENERGY_ALL)
+        apec_default = resolve_str(DEFAULT_MERGED_ENERGY_APEC)
         if (
             all_default is not None
             and apec_default is not None

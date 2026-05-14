@@ -28,7 +28,7 @@ DEFAULT_VINTAGE_PATH = (
     _REPO_ROOT / "data/lifecycle_profiles/vintage_modelled_from_survival.xlsx"
 ).resolve()
 DEFAULT_ESTO_ENERGY_PATH = (
-    _REPO_ROOT / "data/merged_file_energy_ALL_20250814_pretrump.csv"
+    _REPO_ROOT / "data/merged_file_energy_ALL_20251106.csv"
 ).resolve()
 
 from functions.sales_curve_estimate import (

@@ -485,8 +485,8 @@ def _collect_successful_export_paths(
     *,
     records: Sequence[dict],
     selected_scenarios: Mapping[str, str],
-) -> tuple[list[Path], dict[str, list[dict]], dict[str, set[str]]]:
-    successful_paths: list[Path] = []
+) -> tuple[list[dict], dict[str, list[dict]], dict[str, set[str]]]:
+    successful_path_records: list[dict] = []
     seen_paths: set[str] = set()
     scenario_records: dict[str, list[dict]] = {key: [] for key in selected_scenarios}
     scenario_domains_with_paths: dict[str, set[str]] = {
@@ -515,11 +515,18 @@ def _collect_successful_export_paths(
             if not resolved_path.exists():
                 print(f"[WARN] Skipping missing export file: {resolved_path}")
                 continue
-            successful_paths.append(resolved_path)
+            successful_path_records.append(
+                {
+                    "path": resolved_path,
+                    "economy": str(record.get("economy", "")).strip() or "unknown",
+                    "scenario_key": scenario_key,
+                    "domain": record_domain,
+                }
+            )
             seen_paths.add(resolved_key)
             scenario_domains_with_paths.setdefault(scenario_key, set()).add(record_domain)
 
-    return successful_paths, scenario_records, scenario_domains_with_paths
+    return successful_path_records, scenario_records, scenario_domains_with_paths
 
 
 def _raise_for_missing_scenario_domains(
@@ -593,6 +600,39 @@ def _resolve_combined_economy_token(
     return f"{len(economies)}_econs"
 
 
+def _raise_for_missing_economy_scenario_domains(
+    *,
+    economy: str,
+    path_records: Sequence[dict],
+    selected_scenarios: Mapping[str, str],
+    include_international: bool,
+) -> None:
+    required_domains = {"domestic"}
+    if include_international:
+        required_domains.add("international")
+
+    available: dict[str, set[str]] = {key: set() for key in selected_scenarios}
+    for record in path_records:
+        scenario_key = str(record.get("scenario_key", "")).strip().lower()
+        if scenario_key not in selected_scenarios:
+            continue
+        domain = str(record.get("domain", "")).strip().lower()
+        if domain:
+            available.setdefault(scenario_key, set()).add(domain)
+
+    missing = []
+    for scenario_key, scenario_label in selected_scenarios.items():
+        missing_domains = required_domains - available.get(scenario_key, set())
+        if missing_domains:
+            missing.append(f"{scenario_label} (missing {', '.join(sorted(missing_domains))})")
+
+    if missing:
+        raise RuntimeError(
+            f"Combined workbook for {economy} could not be assembled with required sectors. "
+            f"Missing scenario/domain combinations: {', '.join(missing)}"
+        )
+
+
 def save_combined_scenario_workbook(
     *,
     records: Sequence[dict],
@@ -601,18 +641,18 @@ def save_combined_scenario_workbook(
     include_international: bool,
     fallback_base_year: int,
     fallback_final_year: int,
-) -> str | None:
+) -> list[str]:
     selected_scenarios = _selected_scenarios_by_key(scenario_list)
-    successful_paths, scenario_records, scenario_domains_with_paths = (
+    successful_path_records, scenario_records, scenario_domains_with_paths = (
         _collect_successful_export_paths(
             records=records,
             selected_scenarios=selected_scenarios,
         )
     )
 
-    if not successful_paths:
+    if not successful_path_records:
         print("[WARN] No successful scenario export files were found to combine.")
-        return None
+        return []
 
     _raise_for_missing_scenario_domains(
         selected_scenarios=selected_scenarios,
@@ -621,68 +661,82 @@ def save_combined_scenario_workbook(
         include_international=include_international,
     )
 
-    leap_frames: list[pd.DataFrame] = []
-    viewing_frames: list[pd.DataFrame] = []
-    for workbook_path in successful_paths:
-        leap_df = pd.read_excel(workbook_path, sheet_name="LEAP", header=2)
-        viewing_df = pd.read_excel(workbook_path, sheet_name="FOR_VIEWING", header=2)
-        leap_frames.append(drop_empty_unnamed_columns(leap_df))
-        viewing_frames.append(drop_empty_unnamed_columns(viewing_df))
-
-    combined_leap_df = pd.concat(leap_frames, ignore_index=True)
-    combined_viewing_df = pd.concat(viewing_frames, ignore_index=True)
-
-    combined_leap_df, removed_leap = deduplicate_current_accounts_rows(combined_leap_df)
-    combined_viewing_df, removed_viewing = deduplicate_current_accounts_rows(
-        combined_viewing_df
-    )
-    if removed_leap or removed_viewing:
-        print(
-            "[INFO] Deduplicated Current Accounts rows in combined workbook: "
-            f"LEAP={removed_leap}, FOR_VIEWING={removed_viewing}"
-        )
-
     included_scenarios = [selected_scenarios[key] for key in selected_scenarios]
-    economy_token = _resolve_combined_economy_token(
-        records=records,
-        selected_scenarios=selected_scenarios,
-    )
     scenario_token = sanitize_filename_token("_".join(included_scenarios))
-    if include_international:
-        combined_filename = (
-            f"{COMBINED_EXPORT_DIR}/transport_leap_export_combined_{economy_token}_domestic_international_"
-            f"{scenario_token}_{date_id}.xlsx"
+    records_by_economy: dict[str, list[dict]] = {}
+    for path_record in successful_path_records:
+        records_by_economy.setdefault(str(path_record["economy"]), []).append(path_record)
+
+    output_paths: list[str] = []
+    for economy in sorted(records_by_economy):
+        economy_path_records = records_by_economy[economy]
+        _raise_for_missing_economy_scenario_domains(
+            economy=economy,
+            path_records=economy_path_records,
+            selected_scenarios=selected_scenarios,
+            include_international=include_international,
         )
-        model_name = f"Transport Combined Domestic+International ({', '.join(included_scenarios)})"
-    else:
-        combined_filename = (
-            f"{COMBINED_EXPORT_DIR}/transport_leap_export_combined_{economy_token}_"
-            f"{scenario_token}_{date_id}.xlsx"
+
+        leap_frames: list[pd.DataFrame] = []
+        viewing_frames: list[pd.DataFrame] = []
+        for path_record in economy_path_records:
+            workbook_path = Path(path_record["path"])
+            leap_df = pd.read_excel(workbook_path, sheet_name="LEAP", header=2)
+            viewing_df = pd.read_excel(workbook_path, sheet_name="FOR_VIEWING", header=2)
+            leap_frames.append(drop_empty_unnamed_columns(leap_df))
+            viewing_frames.append(drop_empty_unnamed_columns(viewing_df))
+
+        combined_leap_df = pd.concat(leap_frames, ignore_index=True)
+        combined_viewing_df = pd.concat(viewing_frames, ignore_index=True)
+
+        combined_leap_df, removed_leap = deduplicate_current_accounts_rows(combined_leap_df)
+        combined_viewing_df, removed_viewing = deduplicate_current_accounts_rows(
+            combined_viewing_df
         )
-        model_name = f"Transport Combined ({', '.join(included_scenarios)})"
+        if removed_leap or removed_viewing:
+            print(
+                f"[INFO] Deduplicated Current Accounts rows in combined workbook for {economy}: "
+                f"LEAP={removed_leap}, FOR_VIEWING={removed_viewing}"
+            )
 
-    combined_output_path = pipeline.resolve_str(combined_filename)
-    Path(combined_output_path).parent.mkdir(parents=True, exist_ok=True)
-    base_year, final_year = infer_year_bounds(
-        combined_viewing_df,
-        fallback_base_year=fallback_base_year,
-        fallback_final_year=fallback_final_year,
-    )
+        economy_token = sanitize_filename_token(economy)
+        if include_international:
+            combined_filename = (
+                f"{COMBINED_EXPORT_DIR}/transport_leap_export_combined_{economy_token}_domestic_international_"
+                f"{scenario_token}_{date_id}.xlsx"
+            )
+            model_name = f"{economy} Transport Combined Domestic+International ({', '.join(included_scenarios)})"
+        else:
+            combined_filename = (
+                f"{COMBINED_EXPORT_DIR}/transport_leap_export_combined_{economy_token}_"
+                f"{scenario_token}_{date_id}.xlsx"
+            )
+            model_name = f"{economy} Transport Combined ({', '.join(included_scenarios)})"
 
-    archived_output = pipeline._archive_existing_output_file(
-        combined_output_path,
-        date_id=date_id,
-    )
-    if archived_output:
-        print(f"[INFO] Archived previous combined scenario export to {archived_output}")
+        combined_output_path = pipeline.resolve_str(combined_filename)
+        Path(combined_output_path).parent.mkdir(parents=True, exist_ok=True)
+        base_year, final_year = infer_year_bounds(
+            combined_viewing_df,
+            fallback_base_year=fallback_base_year,
+            fallback_final_year=fallback_final_year,
+        )
 
-    pipeline.save_export_files(
-        combined_leap_df,
-        combined_viewing_df,
-        combined_output_path,
-        base_year,
-        final_year,
-        model_name=model_name,
-    )
-    print(f"[INFO] Wrote combined scenario export: {combined_output_path}")
-    return combined_output_path
+        archived_output = pipeline._archive_existing_output_file(
+            combined_output_path,
+            date_id=date_id,
+        )
+        if archived_output:
+            print(f"[INFO] Archived previous combined scenario export to {archived_output}")
+
+        pipeline.save_export_files(
+            combined_leap_df,
+            combined_viewing_df,
+            combined_output_path,
+            base_year,
+            final_year,
+            model_name=model_name,
+        )
+        print(f"[INFO] Wrote combined scenario export: {combined_output_path}")
+        output_paths.append(combined_output_path)
+
+    return output_paths

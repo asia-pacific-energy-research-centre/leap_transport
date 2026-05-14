@@ -223,7 +223,7 @@ What it does now:
 If `RUN_PROFILE` includes reconciliation, pipeline scales LEAP-side values to match ESTO base-year energy totals and writes reports under `results/reconciliation/`.
 
 When a mapping workbook path is configured, the workflow also writes a workbook-backed mapping audit under
-`results/reconciliation/mapping_audit/<economy>/` using `config/leap_mappings 25042026.xlsx` and
+`results/reconciliation/mapping_audit/<economy>/` using `config/leap_mappings 13052026.xlsx` and
 `data/00APEC_2024_low_with_subtotals.csv`.
 
 For `reconcile_only`, required input checkpoint:

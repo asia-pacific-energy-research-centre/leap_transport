@@ -36,7 +36,7 @@ class TransportResultsComparisonConfig:
     bar_year_step: int = 5
     bar_include_base_year: bool = True
     include_international: bool = True
-    international_input_dir: str | Path = "results/international"
+    international_input_dir: str | Path = "results/international_exports"
     international_medium_summary_path: str | Path | None = None
     include_stock_proxies: bool = False
     stock_proxy_dir: str | Path = DEFAULT_STOCK_PROXY_DIR
@@ -196,8 +196,15 @@ def _discover_international_medium_summary_path(
             return False
         return True
 
+    search_dirs = [base_dir, base_dir / "supporting_files"]
+    existing_search_dirs = [path for path in search_dirs if path.exists()]
+
     direct_candidates = sorted(
-        base_dir.glob("international_transport_medium_summary_*.csv"),
+        [
+            candidate
+            for search_dir in existing_search_dirs
+            for candidate in search_dir.glob("international_transport_medium_summary_*.csv")
+        ],
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
@@ -207,7 +214,11 @@ def _discover_international_medium_summary_path(
             return candidate
 
     fallback_candidates = sorted(
-        base_dir.glob("*_international_transport_medium_summary_*.csv"),
+        [
+            candidate
+            for search_dir in existing_search_dirs
+            for candidate in search_dir.glob("*_international_transport_medium_summary_*.csv")
+        ],
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )

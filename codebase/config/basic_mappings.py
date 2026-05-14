@@ -394,6 +394,8 @@ LEAP_STRUCTURE = {
         ],
     },
     "Nonspecified transport": [
+        "Aviation gasoline",
+        "Kerosene type jet fuel",
         "Kerosene",
         "Fuel oil",
         "Gas and diesel oil",
@@ -452,6 +454,8 @@ ESTO_TRANSPORT_SECTOR_TUPLES = {
     ("15_05_pipeline_transport", "17_electricity", "x"),
 
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_01_motor_gasoline"),
+    ("15_06_nonspecified_transport", "07_petroleum_products", "07_02_aviation_gasoline"),
+    ("15_06_nonspecified_transport", "07_petroleum_products", "07_06_kerosene"),
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_07_gas_diesel_oil"),
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_08_fuel_oil"),
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_09_lpg"),

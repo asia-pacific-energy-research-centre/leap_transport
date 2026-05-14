@@ -553,10 +553,12 @@ def merge_template_ids_into_export_df(
     import_filename,
     *,
     label: str = "export dataframe",
+    force_region_id: int | None = 1,
 ) -> pd.DataFrame:
     """Fill LEAP ID columns by matching an export dataframe against a template."""
 
     key_cols = ["Branch Path", "Variable", "Scenario", "Region"]
+    structural_key_cols = ["Branch Path", "Variable", "Scenario"]
     id_cols = ["BranchID", "VariableID", "ScenarioID", "RegionID"]
 
     template_df = pd.read_excel(import_filename, sheet_name="Export", header=2)
@@ -568,6 +570,8 @@ def merge_template_ids_into_export_df(
         )
 
     template_df = template_df[key_cols + id_cols].copy()
+    template_df["RegionID"] = force_region_id if force_region_id is not None else template_df["RegionID"]
+
     duplicate_keys = template_df.duplicated(subset=key_cols, keep=False)
     if duplicate_keys.any():
         print(
@@ -575,16 +579,43 @@ def merge_template_ids_into_export_df(
             f"across {key_cols}; using the first match per key."
         )
         template_df = template_df.drop_duplicates(subset=key_cols, keep="first").copy()
-    template_df = template_df.rename(columns={col: f"{col}_template" for col in id_cols})
 
-    merged = export_df.copy().merge(template_df, how="left", on=key_cols)
+    structural_template_df = template_df[structural_key_cols + id_cols].copy()
+    duplicate_structural_keys = structural_template_df.duplicated(
+        subset=structural_key_cols,
+        keep=False,
+    )
+    if duplicate_structural_keys.any():
+        structural_template_df = structural_template_df.drop_duplicates(
+            subset=structural_key_cols,
+            keep="first",
+        ).copy()
+
+    exact_template_df = template_df.rename(columns={col: f"{col}_template" for col in id_cols})
+    merged = export_df.copy().merge(exact_template_df, how="left", on=key_cols)
+
+    missing_exact_mask = merged[[f"{col}_template" for col in id_cols]].isna().any(axis=1)
+    if missing_exact_mask.any():
+        fallback_template_df = structural_template_df.rename(
+            columns={col: f"{col}_fallback" for col in id_cols}
+        )
+        merged = merged.merge(fallback_template_df, how="left", on=structural_key_cols)
+    else:
+        for id_col in id_cols:
+            merged[f"{id_col}_fallback"] = pd.NA
+
     for id_col in id_cols:
         template_col = f"{id_col}_template"
+        fallback_col = f"{id_col}_fallback"
+        merged[template_col] = merged[template_col].combine_first(merged[fallback_col])
         if id_col in merged.columns:
             merged[id_col] = merged[template_col].combine_first(merged[id_col])
         else:
             merged[id_col] = merged[template_col]
-        merged = merged.drop(columns=[template_col])
+        merged = merged.drop(columns=[template_col, fallback_col])
+
+    if force_region_id is not None:
+        merged["RegionID"] = int(force_region_id)
 
     missing_mask = merged[id_cols].isna().any(axis=1)
     if missing_mask.any():

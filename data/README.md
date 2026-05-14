@@ -12,12 +12,10 @@ This folder holds the inputs, generated workbooks, scratch files, and archives u
   - Raw 9th-edition transport model outputs by economy.
 - `transport_data_9th/model_output_with_fuels/`
   - Fuel-split companion files for the same economies.
-- `merged_file_energy_ALL_20250814_pretrump.csv`
+- `merged_file_energy_ALL_20251106.csv`
   - Default merged ESTO energy input used by the domestic workflow and several helper functions.
 - `merged_file_energy_00_APEC_20251106.csv`
   - APEC merged-energy input used by historical export helpers.
-- `merged_file_energy_00_APEC_20250814_pretrump.csv`
-  - Legacy APEC fallback that is still referenced by `codebase/functions/merged_energy_io.py`.
 - `international_bunker_outputs_20250421.csv`
   - Input for the international transport workflow.
 - `lifecycle_profiles/vehicle_survival_modified.xlsx`
@@ -58,13 +56,13 @@ These files are visible at the top level but are not referenced by the current c
 - `12_NZ_NON_ROAD_DETAILED_model_output20250226 fuels.csv`
 - `12_NZ_NON_ROAD_DETAILED_model_output20250226 regular.csv`
 - `all transport balances data.xlsx`
-- `merged_file_energy_ALL_20251106.csv`
+- `merged_file_energy_ALL_20250814_pretrump.csv`
 
 Why they may still matter:
 
 - The two `12_NZ...` files look like legacy working copies or alternate snapshots that can be useful for manual analysis, comparison, or regeneration.
 - `all transport balances data.xlsx` is a legacy workbook name that appears only in commented-out validation code.
-- `merged_file_energy_ALL_20251106.csv` is an alternate merged-energy snapshot that is not part of the current defaults.
+- `merged_file_energy_ALL_20250814_pretrump.csv` is a legacy merged-energy snapshot that is no longer part of the current defaults.
 
 If nobody is using them for ad hoc work, they are reasonable candidates to move into `archive/`.
 
@@ -78,7 +76,7 @@ If nobody is using them for ad hoc work, they are reasonable candidates to move 
 
 - Domestic transport workflow:
   - `import_files/DEFAULT_transport_leap_import_TGT_REF_CA.xlsx`
-  - `merged_file_energy_ALL_20250814_pretrump.csv`
+  - `merged_file_energy_ALL_20251106.csv`
   - `lifecycle_profiles/vehicle_survival_modified.xlsx`
   - `lifecycle_profiles/vintage_modelled_from_survival.xlsx`
   - `transport_data_9th/model_output_detailed_2/`
@@ -94,5 +92,4 @@ If nobody is using them for ad hoc work, they are reasonable candidates to move 
 
 - `.gitkeep` files exist so empty directories remain in version control.
 - Some filenames in `archive/` are old snapshots of the same data and may be useful only for traceability.
-- `merged_file_energy_00_APEC_20250814_pretrump.csv` is still used as a fallback path in `codebase/functions/merged_energy_io.py`, so keep it until you intentionally switch the default APEC input.
 - If you remove or rename any active input, update the matching path in `codebase/config/transport_economy_config.py` or the relevant workflow module.

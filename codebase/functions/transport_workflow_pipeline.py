@@ -12,7 +12,7 @@ import pandas as pd
 import shutil
 from datetime import datetime
 from enum import Enum
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -153,7 +153,7 @@ from configurations.transport_economy_config import (
 # Modular process functions
 # ------------------------------------------------------------
 
-def prepare_input_data(transport_model_excel_path, economy, scenario, base_year, final_year, TRANSPORT_ESTO_BALANCES_PATH = 'data/merged_file_energy_ALL_20250814_pretrump.csv', LOAD_CHECKPOINT=False, TRANSPORT_FUELS_DATA_FILE_PATH = None):
+def prepare_input_data(transport_model_excel_path, economy, scenario, base_year, final_year, TRANSPORT_ESTO_BALANCES_PATH = 'data/merged_file_energy_ALL_20251106.csv', LOAD_CHECKPOINT=False, TRANSPORT_FUELS_DATA_FILE_PATH = None):
     """Load and preprocess transport data for a specific economy."""    
     print(f"\n=== Loading Transport Data for {economy} ===")
     transport_model_excel_path = resolve_str(transport_model_excel_path)
@@ -534,7 +534,7 @@ def run_passenger_sales_workflow(
     final_year: int,
     survival_path: str = "data/lifecycle_profiles/vehicle_survival_modified.xlsx",
     vintage_path: str = "data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
-    esto_energy_path: str = "data/merged_file_energy_ALL_20250814_pretrump.csv",
+    esto_energy_path: str = "data/merged_file_energy_ALL_20251106.csv",
     output_path: str | None = None,
     plot: bool = False,
     policy_settings: Mapping[str, Any] | None = None,
@@ -600,7 +600,7 @@ def run_freight_sales_workflow(
     final_year: int,
     survival_path: str = "data/lifecycle_profiles/vehicle_survival_modified.xlsx",
     vintage_path: str = "data/lifecycle_profiles/vintage_modelled_from_survival.xlsx",
-    esto_energy_path: str = "data/merged_file_energy_ALL_20250814_pretrump.csv",
+    esto_energy_path: str = "data/merged_file_energy_ALL_20251106.csv",
     output_path: str | None = None,
     plot: bool = False,
     policy_settings: Mapping[str, Any] | None = None,
@@ -795,26 +795,18 @@ def _register_transport_regions_for_leap_excel_helpers() -> None:
         for payload in region_lookup.values()
         if isinstance(payload, dict)
     }
-    existing_ids = [
-        int(payload.get("region_id"))
-        for payload in region_lookup.values()
-        if isinstance(payload, dict) and str(payload.get("region_id", "")).isdigit()
-    ]
-    next_region_id = max(existing_ids, default=0) + 1
-
     added: list[str] = []
     for economy_code, metadata in sorted(ECONOMY_METADATA.items()):
         region_name = str(metadata.get("region", "")).strip()
         if not region_name or region_name in existing_names:
             continue
         region_lookup[economy_code] = {
-            "region_id": next_region_id,
+            "region_id": 1,
             "region_name": region_name,
             "region_code": economy_code,
         }
         existing_names.add(region_name)
         added.append(region_name)
-        next_region_id += 1
 
     # Synthetic/all-area aliases used by APEC transport runs and older local settings.
     region_aliases = [
@@ -825,13 +817,12 @@ def _register_transport_regions_for_leap_excel_helpers() -> None:
         if not region_name or region_name in existing_names:
             continue
         region_lookup[f"{region_code}_alias_{region_name}"] = {
-            "region_id": next_region_id,
+            "region_id": 1,
             "region_name": region_name,
             "region_code": region_code,
         }
         existing_names.add(region_name)
         added.append(region_name)
-        next_region_id += 1
 
     if added:
         print(
@@ -1333,6 +1324,7 @@ def run_transport_reconciliation(
     set_vars_in_leap_using_com,
     transport_mapping_workbook_path=None,
     transport_mapping_esto_path=None,
+    import_filename=None,
     subtotal_column='subtotal_layout',
     scale_factor_tolerance: float = 1e-4,
     raise_on_non_convergence: bool = False,
@@ -2200,6 +2192,45 @@ def run_transport_reconciliation(
         )
 
     leap_export_df, export_df_for_viewing = convert_values_to_expressions(adjusted_export_df_all)
+    template_path = resolve_str(import_filename or COMMON_CONFIG["transport_import_path"])
+    region_values = [
+        str(value).strip()
+        for value in adjusted_export_df_all.get("Region", pd.Series(dtype=object)).dropna().unique()
+        if str(value).strip()
+    ]
+    if len(region_values) != 1:
+        raise ValueError(
+            "Reconciliation export ID merge expected exactly one Region value, "
+            f"found {region_values}."
+        )
+    region_for_leap = region_values[0]
+    _register_transport_regions_for_leap_excel_helpers()
+    _patch_leap_excel_region_handling()
+    _enforce_exact_template_alignment_keys(
+        import_filename=template_path,
+        leap_export_df=leap_export_df,
+        export_df_for_viewing=export_df_for_viewing,
+        scenario=scenario,
+        region=region_for_leap,
+    )
+    leap_export_df, export_df_for_viewing = join_and_check_import_structure_matches_export_structure(
+        template_path,
+        leap_export_df,
+        export_df_for_viewing,
+        scenario=scenario,
+        region=region_for_leap,
+        STRICT_CHECKS=False,
+    )
+    leap_export_df = merge_template_ids_into_export_df(
+        leap_export_df,
+        template_path,
+        label=f"reconciled domestic LEAP sheet ({economy} | {scenario})",
+    )
+    export_df_for_viewing = merge_template_ids_into_export_df(
+        export_df_for_viewing,
+        template_path,
+        label=f"reconciled domestic FOR_VIEWING sheet ({economy} | {scenario})",
+    )
     # Archive existing export before overwriting
     os.makedirs(os.path.dirname(transport_export_path), exist_ok=True)
     archived_export = _archive_existing_output_file(transport_export_path, date_id=date_id)
@@ -2234,7 +2265,7 @@ def load_transport_into_leap(
     AUTO_SET_MISSING_BRANCHES=False,
     export_filename=f"{DOMESTIC_EXPORT_DIR}/leap_export.xlsx",
     import_filename="data/import_files/leap_import.xlsx",
-    TRANSPORT_ESTO_BALANCES_PATH = 'data/merged_file_energy_ALL_20250814_pretrump.csv',
+    TRANSPORT_ESTO_BALANCES_PATH = 'data/merged_file_energy_ALL_20251106.csv',
     TRANSPORT_FUELS_DATA_FILE_PATH = 'data/transport_data_9th/model_output_with_fuels/20_USA_NON_ROAD_DETAILED_model_output_with_fuels20250225.csv',
     TRANSPORT_ROOT = r"Demand",
     LOAD_INPUT_CHECKPOINT=False,
@@ -3043,9 +3074,47 @@ def _apply_zero_energy_fallbacks_from_summary(
     return working, applied_count
 
 
-def resolve_transport_run_mode(transport_economy_selection: str, all_run_mode: str):
+def normalize_transport_economy_selection(transport_economy_selection: str | Sequence[str]) -> str | list[str]:
+    """
+    Normalize transport economy selection.
+
+    Returns "all" for all-mode, a single economy string, or an ordered list of
+    economy strings. Duplicate list entries are ignored after their first use.
+    """
+    if isinstance(transport_economy_selection, str):
+        selection = transport_economy_selection.strip()
+        if not selection:
+            raise ValueError("TRANSPORT_ECONOMY_SELECTION must not be blank.")
+        return selection
+
+    if isinstance(transport_economy_selection, Sequence):
+        economies = []
+        seen = set()
+        for item in transport_economy_selection:
+            economy = str(item).strip()
+            if not economy or economy in seen:
+                continue
+            if economy.lower() == "all":
+                raise ValueError(
+                    "Use TRANSPORT_ECONOMY_SELECTION = 'all' for all-mode; "
+                    "do not include 'all' inside an economy list."
+                )
+            economies.append(economy)
+            seen.add(economy)
+        if not economies:
+            raise ValueError("TRANSPORT_ECONOMY_SELECTION list did not contain any economy codes.")
+        return economies
+
+    raise TypeError(
+        "TRANSPORT_ECONOMY_SELECTION must be a string economy code, 'all', "
+        "or a list/tuple of economy codes."
+    )
+
+
+def resolve_transport_run_mode(transport_economy_selection: str | Sequence[str], all_run_mode: str):
     """Return normalized all-run settings and execution flags."""
-    is_all_mode = transport_economy_selection.strip().lower() == "all"
+    normalized_selection = normalize_transport_economy_selection(transport_economy_selection)
+    is_all_mode = isinstance(normalized_selection, str) and normalized_selection.lower() == "all"
     normalized_all_mode = all_run_mode.strip().lower()
     valid_all_modes = {"separate", "apec", "both"}
     if is_all_mode and normalized_all_mode not in valid_all_modes:
@@ -3054,6 +3123,22 @@ def resolve_transport_run_mode(transport_economy_selection: str, all_run_mode: s
     run_separate = (not is_all_mode) or (normalized_all_mode in {"separate", "both"})
     run_apec = is_all_mode and (normalized_all_mode in {"apec", "both"})
     return is_all_mode, normalized_all_mode, run_separate, run_apec
+
+
+def resolve_transport_run_targets(
+    transport_economy_selection: str | Sequence[str],
+    scenario: str,
+    *,
+    is_all_mode: bool,
+) -> list[tuple[str, str]]:
+    """Return ordered (economy, scenario) targets for separate domestic runs."""
+    if is_all_mode:
+        return list_transport_run_configs(scenario)
+
+    normalized_selection = normalize_transport_economy_selection(transport_economy_selection)
+    if isinstance(normalized_selection, str):
+        return [(normalized_selection, scenario)]
+    return [(economy, scenario) for economy in normalized_selection]
 
 
 def aggregate_batch_sales_outputs(run_records, scenario, date_id):
@@ -3272,6 +3357,7 @@ def run_configured_transport_workflow(
                 set_vars_in_leap_using_com=SET_VARS_IN_LEAP_USING_COM,
                 transport_mapping_workbook_path=getattr(transport_cfg, "transport_mapping_workbook_path", None),
                 transport_mapping_esto_path=getattr(transport_cfg, "transport_mapping_esto_path", None),
+                import_filename=transport_cfg.transport_import_path,
                 scale_factor_tolerance=1e-4,
             )
     except Exception as exc:
@@ -3357,8 +3443,15 @@ def run_transport_workflow() -> list[dict]:
                     "to reconcile all economies."
                 )
     else:
+        normalized_selection = normalize_transport_economy_selection(TRANSPORT_ECONOMY_SELECTION)
+        selection_label = (
+            ", ".join(normalized_selection)
+            if isinstance(normalized_selection, list)
+            else normalized_selection
+        )
+        plan_label = "multi-economy" if isinstance(normalized_selection, list) else "single-economy"
         print(
-            f"[INFO] single-economy plan | economy={TRANSPORT_ECONOMY_SELECTION} | "
+            f"[INFO] {plan_label} plan | economy={selection_label} | "
             f"scenario={TRANSPORT_SCENARIO_SELECTION}"
         )
         if ALL_RUN_MODE.strip():
@@ -3382,10 +3475,10 @@ def run_transport_workflow() -> list[dict]:
         run_records.extend(prepass_records)
 
     if run_separate:
-        run_targets = (
-            list_transport_run_configs(TRANSPORT_SCENARIO_SELECTION)
-            if is_all_mode
-            else [(TRANSPORT_ECONOMY_SELECTION, TRANSPORT_SCENARIO_SELECTION)]
+        run_targets = resolve_transport_run_targets(
+            TRANSPORT_ECONOMY_SELECTION,
+            TRANSPORT_SCENARIO_SELECTION,
+            is_all_mode=is_all_mode,
         )
         for transport_economy, transport_scenario in run_targets:
             _, _, transport_cfg = load_transport_run_config(transport_economy, transport_scenario)

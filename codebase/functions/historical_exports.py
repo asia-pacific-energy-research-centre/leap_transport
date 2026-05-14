@@ -6,8 +6,8 @@ from typing import Dict, Iterable, Sequence
 import pandas as pd
 from functions.path_utils import ROOT_DIR, resolve_path
 
-DEFAULT_MERGED_DATA = ROOT_DIR / "data/merged_file_energy_ALL_20250814_pretrump.csv"
-DEFAULT_TRANSPORT_BALANCES = ROOT_DIR / "data/merged_file_energy_00_APEC_20251106.csv"#merged_file_energy_00_APEC_20250814_pretrump.csv"
+DEFAULT_MERGED_DATA = ROOT_DIR / "data/merged_file_energy_ALL_20251106.csv"
+DEFAULT_TRANSPORT_BALANCES = ROOT_DIR / "data/merged_file_energy_00_APEC_20251106.csv"
 DEFAULT_APEC_OUTPUT = ROOT_DIR / "data/TRANSPORT_all_APPLICABLE_historical_sectors_fuels_9th_outlook.xlsx"
 DEFAULT_NON_APEC_OUTPUT = ROOT_DIR / "data/TRANSPORT_all_NONAPEC_historical_energy_use.xlsx"
 

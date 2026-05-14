@@ -323,6 +323,8 @@ SHORTNAME_TO_LEAP_BRANCHES = {
         ("Pipeline transport",)
     ],
     "Others (level 2)": [
+        ("Nonspecified transport", "Aviation gasoline"),
+        ("Nonspecified transport", "Kerosene type jet fuel"),
         ("Nonspecified transport", "Kerosene"),
         ("Nonspecified transport", "Fuel oil"),
         ("Nonspecified transport", "Gas and diesel oil"),
@@ -688,6 +690,8 @@ LEAP_BRANCH_TO_SOURCE_MAP = {
     # =========================
     # Others Levels 1 and 2 > note that these values within the transport dataset are inserted within the script to make it easy to use within the system, but in fact they come from the esto dataset. 
     # =========================
+    ("Nonspecified transport", "Aviation gasoline"): ("Nonspecified transport", "Aviation gasoline"),
+    ("Nonspecified transport", "Kerosene type jet fuel"): ("Nonspecified transport", "Kerosene type jet fuel"),
     ("Nonspecified transport", "Kerosene"): ("Nonspecified transport", "Kerosene"),
     ("Nonspecified transport", "Fuel oil"): ("Nonspecified transport", "Fuel oil"),
     ("Nonspecified transport", "Gas and diesel oil"): ("Nonspecified transport", "Gas and diesel oil"),
@@ -1655,12 +1659,14 @@ NINTH_SOURCE_TO_LEAP_BRANCH_MAP = {
     # 15_06_nonspecified_transport → direct mapping to Nonspecified
     # ------------------------------------------------------------
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_01_motor_gasoline"): [("Nonspecified transport", "Motor gasoline")],
+    ("15_06_nonspecified_transport", "07_petroleum_products", "07_02_aviation_gasoline"): [("Nonspecified transport", "Aviation gasoline")],
+    ("15_06_nonspecified_transport", "07_petroleum_products", "07_06_kerosene"): [("Nonspecified transport", "Kerosene")],
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_07_gas_diesel_oil"): [
         ("Nonspecified transport", "Gas and diesel oil"),
     ],
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_08_fuel_oil"): [("Nonspecified transport", "Fuel oil")],
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_09_lpg"): [("Nonspecified transport", "LPG")],
-    ("15_06_nonspecified_transport", "07_petroleum_products", "07_x_jet_fuel"): [("Nonspecified transport", "Kerosene")],
+    ("15_06_nonspecified_transport", "07_petroleum_products", "07_x_jet_fuel"): [("Nonspecified transport", "Kerosene type jet fuel")],
     # Based on 01_AUS balance usage of 07.17 Other products.
     ("15_06_nonspecified_transport", "07_petroleum_products", "07_x_other_petroleum_products"): [("Nonspecified transport", "Other products")],
     ("15_06_nonspecified_transport", "02_coal_products", "x"): [("Nonspecified transport", "Coke oven coke")],

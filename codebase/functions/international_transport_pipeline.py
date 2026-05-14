@@ -107,6 +107,7 @@ DRIVE_TO_FUEL_LEAF: dict[str, str] = {
     "ship_gasoline": "Motor gasoline",
     "ship_hydrogen": "Hydrogen",
     "ship_kerosene": "Kerosene",
+    "ship_lubricants_POST_HOC_ADDITION": "Lubricants",
     "ship_lng": "LNG",
     "ship_lpg": "LPG",
     "ship_natural_gas": "Natural gas",
@@ -120,6 +121,7 @@ FUEL_CODE_TO_FUEL_LEAF: dict[str, str] = {
     "07_07_gas_diesel_oil": "Gas and diesel oil",
     "07_08_fuel_oil": "Fuel oil",
     "07_09_lpg": "LPG",
+    "07_x_lubricants_POST_HOC_ADDITION": "Lubricants",
     "07_x_jet_fuel": "Kerosene type jet fuel",
     "07_x_other_petroleum_products": "Other products",
     "08_01_natural_gas": "Natural gas",
@@ -149,10 +151,12 @@ CANONICAL_FUELS_BY_MEDIUM: dict[str, list[str]] = {
         "Motor gasoline",
         "Hydrogen",
         "Kerosene",
+        "Lubricants",
         "LNG",
         "LPG",
         "Natural gas",
         "Other products",
+        "Biodiesel",
     ],
 }
 
@@ -1342,7 +1346,12 @@ def _build_unique_archive_path(path: Path) -> Path:
         counter += 1
 
 
-def _archive_existing_output_file(path: Path, *, stamp: str | None = None) -> Path | None:
+def _archive_existing_output_file(
+    path: Path,
+    *,
+    stamp: str | None = None,
+    archive_dir: Path | None = None,
+) -> Path | None:
     """
     Move an existing output into a sibling `archive/` directory.
 
@@ -1351,7 +1360,7 @@ def _archive_existing_output_file(path: Path, *, stamp: str | None = None) -> Pa
     if not path.exists():
         return None
 
-    archive_dir = path.parent / "archive"
+    archive_dir = archive_dir or path.parent / "archive"
     archive_dir.mkdir(parents=True, exist_ok=True)
     safe_stamp = str(stamp).strip() if stamp is not None and str(stamp).strip() else datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     archived = archive_dir / f"{path.stem}_{safe_stamp}{path.suffix}"
@@ -1479,8 +1488,13 @@ def run_international_export_workflow(
 
     scenario_token = _sanitize_filename_token("_".join(scenario_labels))
     workbook_path = output_dir / f"{config.scope}_international_transport_leap_export_{scenario_token}.xlsx"
+    supporting_output_dir = output_dir / "supporting_files"
     archive_stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    archived_workbook = _archive_existing_output_file(workbook_path, stamp=archive_stamp)
+    archived_workbook = _archive_existing_output_file(
+        workbook_path,
+        stamp=archive_stamp,
+        archive_dir=supporting_output_dir / "archive",
+    )
     if archived_workbook is not None:
         print(f"[INFO] Archived previous workbook to {archived_workbook}")
 
@@ -1498,8 +1512,9 @@ def run_international_export_workflow(
     output_paths: dict[str, str] = {"workbook": str(workbook_path)}
 
     if config.emit_reconciliation_report and not reconciliation_report_df.empty:
+        supporting_output_dir.mkdir(parents=True, exist_ok=True)
         reconciliation_path = (
-            output_dir
+            supporting_output_dir
             / f"{config.scope}_international_transport_esto_reconciliation_{scenario_token}.csv"
         )
         archived_reconciliation = _archive_existing_output_file(reconciliation_path, stamp=archive_stamp)
@@ -1509,9 +1524,10 @@ def run_international_export_workflow(
         output_paths["esto_reconciliation"] = str(reconciliation_path)
 
     if config.emit_medium_summary:
+        supporting_output_dir.mkdir(parents=True, exist_ok=True)
         medium_summary_df = _build_medium_summary(scoped_leaf_df, scope=config.scope)
         medium_summary_path = (
-            output_dir
+            supporting_output_dir
             / f"{config.scope}_international_transport_medium_summary_{scenario_token}.csv"
         )
         archived_medium_summary = _archive_existing_output_file(medium_summary_path, stamp=archive_stamp)
@@ -1521,9 +1537,10 @@ def run_international_export_workflow(
         output_paths["medium_summary"] = str(medium_summary_path)
 
     if config.emit_quality_report:
+        supporting_output_dir.mkdir(parents=True, exist_ok=True)
         quality_df = _build_quality_report(clean_df, scope=config.scope)
         quality_path = (
-            output_dir
+            supporting_output_dir
             / f"{config.scope}_international_transport_quality_{scenario_token}.csv"
         )
         archived_quality = _archive_existing_output_file(quality_path, stamp=archive_stamp)

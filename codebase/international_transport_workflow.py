@@ -10,8 +10,8 @@ from functions.transport_workflow_pipeline import list_transport_run_configs
 from functions.workflow_utilities import resolve_scenario_selection
 
 
-INTERNATIONAL_INPUT_PATH = "data/international_bunker_outputs_20250421.csv"
-INTERNATIONAL_OUTPUT_DIR = "results/international"
+INTERNATIONAL_INPUT_PATH = "data/international_bunker_outputs_20260513 - POSTHOC CHANGES MADE.csv"
+INTERNATIONAL_OUTPUT_DIR = "results/international_exports"
 INTERNATIONAL_SCENARIO = ["Reference", "Target"]
 # Set to an economy code like "20_USA", synthetic "00_APEC", or "all".
 INTERNATIONAL_SCOPE = "all"
@@ -20,7 +20,7 @@ FINAL_YEAR = 2060
 EMIT_QUALITY_REPORT = True
 EMIT_MEDIUM_SUMMARY = True
 RECONCILE_TO_ESTO = True
-MAPPING_WORKBOOK_PATH = "config/leap_mappings 25042026.xlsx"
+MAPPING_WORKBOOK_PATH = "config/leap_mappings 13052026.xlsx"
 MAPPING_ESTO_PATH = "data/00APEC_2024_low_with_subtotals.csv"
 EMIT_RECONCILIATION_REPORT = True
 

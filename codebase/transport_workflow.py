@@ -29,9 +29,28 @@ from functions.workflow_utilities import (
 #%%
 # #### Scope selection ####
 # Select economy config by code (e.g. "12_NZ", "20_USA") or "all".
-TRANSPORT_ECONOMY_SELECTION = "all"
+TRANSPORT_ECONOMY_SELECTION = ["11_MEX","08_JPN"]# "13_PNG",
+# "14_PE",
+# "15_PHL",
+# "16_RUS",
+# "17_SGP",
+# "18_CT",
+# "19_THA",
+# "20_USA",
+# "21_VN"]#["01_AUS",
+# "02_BD",
+# "03_CDA",
+# "04_CHL",
+# "05_PRC",
+# "06_HKC",
+# "07_INA",
+# "08_JPN",
+# "09_ROK",
+# "10_MAS",
+# "11_MEX",
+# "12_NZ",
 # Select one scenario (e.g. "Reference") or many (e.g. ["Reference", "Target"]).
-TRANSPORT_SCENARIO_SELECTION: str | list[str] = ["Reference", "Target"]#"Reference", 
+TRANSPORT_SCENARIO_SELECTION: str | list[str] = ["Target"]#"Reference", 
 
 # #### All-economy run mode ####
 # Applies only when TRANSPORT_ECONOMY_SELECTION == "all" (ignored otherwise):
@@ -55,9 +74,9 @@ APEC_REGION = "APEC"
 # Optional region name written into the synthetic 00_APEC LEAP export/template
 # outputs. This does not change which economy is being aggregated; it only
 # changes the LEAP-facing region label used for that synthetic run.
-APEC_LEAP_REGION_OVERRIDE = "China"
+APEC_LEAP_REGION_OVERRIDE = "Japan"
 # Mapping workbook used for the workbook-backed ESTO/LEAP/Ninth audit surface.
-APEC_MAPPING_WORKBOOK_PATH = "config/leap_mappings 25042026.xlsx"
+APEC_MAPPING_WORKBOOK_PATH = "config/leap_mappings 13052026.xlsx"
 # Shared ESTO-style balance file used for workbook-backed mapping audits.
 APEC_ESTO_BALANCES_PATH = "data/00APEC_2024_low_with_subtotals.csv"
 # Year bounds for the synthetic 00_APEC run.
@@ -66,7 +85,7 @@ APEC_FINAL_YEAR = 2060
 
 # #### Run stages and outputs ####
 # Top-level execution mode for the domestic transport workflow.
-RUN_PROFILE = "reconcile_only"  # "input_only", "reconcile_only", "full"
+RUN_PROFILE = "full"  # "input_only", "reconcile_only", "full"
 # Enable/disable the downstream results dashboard workflow.
 RUN_RESULTS_DASHBOARD = True
 # Controls console output volume:
@@ -230,8 +249,8 @@ ENSURE_FUELS_IN_LEAP = False
 
 # International transport integration flags
 RUN_INTERNATIONAL_WORKFLOW = True
-INTERNATIONAL_INPUT_PATH = "data/international_bunker_outputs_20250421.csv"
-INTERNATIONAL_OUTPUT_DIR = "results/international"
+INTERNATIONAL_INPUT_PATH = "data/international_bunker_outputs_20260513 - POSTHOC CHANGES MADE.csv"
+INTERNATIONAL_OUTPUT_DIR = "results/international_exports"
 INTERNATIONAL_EMIT_QUALITY_REPORT = True
 INTERNATIONAL_EMIT_MEDIUM_SUMMARY = True
 INTERNATIONAL_RECONCILE_TO_ESTO = True
@@ -463,10 +482,12 @@ def run_with_config() -> list[dict]:
             )
 
             if RUN_INTERNATIONAL_WORKFLOW:
-                economy_selection = str(TRANSPORT_ECONOMY_SELECTION).strip()
                 is_all_mode, _, run_separate, run_apec = pipeline.resolve_transport_run_mode(
-                    economy_selection,
+                    TRANSPORT_ECONOMY_SELECTION,
                     ALL_RUN_MODE,
+                )
+                economy_selection = pipeline.normalize_transport_economy_selection(
+                    TRANSPORT_ECONOMY_SELECTION
                 )
                 if is_all_mode:
                     scopes: list[str] = []
@@ -481,7 +502,11 @@ def run_with_config() -> list[dict]:
                     if run_apec and "00_APEC" not in seen:
                         scopes.append("00_APEC")
                 else:
-                    scopes = [economy_selection]
+                    scopes = (
+                        list(economy_selection)
+                        if isinstance(economy_selection, list)
+                        else [economy_selection]
+                    )
 
                 if not scopes:
                     raise RuntimeError(
@@ -557,7 +582,7 @@ def run_with_config() -> list[dict]:
                         critical_failure_patterns=CRITICAL_FAILURE_PATTERNS,
                     )
 
-        combined_output = save_combined_scenario_workbook(
+        combined_outputs = save_combined_scenario_workbook(
             records=records,
             scenario_list=scenario_list,
             date_id=date_id,
@@ -565,18 +590,23 @@ def run_with_config() -> list[dict]:
             fallback_base_year=APEC_BASE_YEAR,
             fallback_final_year=APEC_FINAL_YEAR,
         )
-        if not combined_output:
+        if not combined_outputs:
             raise RuntimeError(
-                "Combined workbook generation did not produce an output path."
+                "Combined workbook generation did not produce any output paths."
             )
         if RUN_RESULTS_DASHBOARD:
             from results_analysis.results_dashboard_workflow import run_dashboard_workflow
 
             include_economies: tuple[str, ...] | None
-            if str(TRANSPORT_ECONOMY_SELECTION).strip().lower() == "all":
+            economy_selection = pipeline.normalize_transport_economy_selection(
+                TRANSPORT_ECONOMY_SELECTION
+            )
+            if isinstance(economy_selection, str) and economy_selection.lower() == "all":
                 include_economies = None
+            elif isinstance(economy_selection, list):
+                include_economies = tuple(economy_selection)
             else:
-                include_economies = (str(TRANSPORT_ECONOMY_SELECTION).strip(),)
+                include_economies = (economy_selection,)
 
             print(
                 "[INFO] Running results dashboard workflow "
